@@ -19,6 +19,8 @@ The UI only needs client-side or browser-safe values:
 
 `SIDECAR_API_KEY` is only needed when a local sidecar requires authentication. Treat it as backend/local-only and keep server-side envs and secrets in [`backend-services`](../backend-services/README.md).
 
+See [`env.example`](env.example) for the UI env template.
+
 ## Commands
 
 - `npm install`
