@@ -18,6 +18,14 @@ SPEC.md
 AGENTS.md
 config.toml
 
+# Ignore repo-local spec/agent/roadmap docs (case-insensitive)
+**/AGENTS.md
+**/agents.md
+**/ROADMAP.md
+**/roadmap.md
+**/SPEC.md
+**/spec.md
+
 # Logs
 logs
 *.log
