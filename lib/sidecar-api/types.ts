@@ -3,7 +3,7 @@ export type Json =
   | number
   | boolean
   | null
-  | { [key: string]: Json | undefined }
+  | {[key: string]: Json | undefined}
   | Json[];
 
 export interface Listing {
@@ -56,13 +56,13 @@ export interface CreateListingInput {
 }
 
 export interface UpdateListingInput {
-  category_id?: string | null;
-  condition_id?: string | null;
-  condition_notes?: string | null;
+  categoryId?: string | null;
+  conditionId?: string | null;
+  conditionNotes?: string | null;
   description?: string | null;
-  item_specifics?: Json;
+  itemSpecifics?: Json;
   price?: number | null;
-  seller_hints?: string | null;
+  sellerHints?: string | null;
   title?: string | null;
 }
 

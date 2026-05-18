@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getSidecarConfig } from "@/lib/config/sidecar";
+import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AppSettings,
   CreateListingInput,
@@ -14,7 +14,7 @@ export class SidecarApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly response?: SidecarErrorResponse
+    readonly response?: SidecarErrorResponse,
   ) {
     super(message);
     this.name = "SidecarApiError";
@@ -22,7 +22,7 @@ export class SidecarApiError extends Error {
 }
 
 function buildHeaders(): HeadersInit {
-  const { bearerToken } = getSidecarConfig();
+  const {bearerToken} = getSidecarConfig();
 
   if (!bearerToken) {
     return {
@@ -40,7 +40,9 @@ async function parseJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function readErrorResponse(response: Response): Promise<SidecarErrorResponse | undefined> {
+async function readErrorResponse(
+  response: Response,
+): Promise<SidecarErrorResponse | undefined> {
   const contentType = response.headers.get("content-type");
 
   if (!contentType?.includes("application/json")) {
@@ -54,9 +56,14 @@ async function readErrorResponse(response: Response): Promise<SidecarErrorRespon
   }
 }
 
-function buildErrorMessage(status: number, payload?: SidecarErrorResponse): string {
+function buildErrorMessage(
+  status: number,
+  payload?: SidecarErrorResponse,
+): string {
   if (payload?.error === "invalid_request" && payload.details?.length) {
-    const issues = payload.details.map((detail) => `${detail.path}: ${detail.message}`).join("; ");
+    const issues = payload.details
+      .map((detail) => `${detail.path}: ${detail.message}`)
+      .join("; ");
     return `Sidecar request failed with ${status} (${payload.error}): ${issues}`;
   }
 
@@ -72,7 +79,7 @@ function buildErrorMessage(status: number, payload?: SidecarErrorResponse): stri
 }
 
 async function sidecarFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const { apiUrl } = getSidecarConfig();
+  const {apiUrl} = getSidecarConfig();
   const response = await fetch(`${apiUrl}${path}`, {
     ...init,
     cache: "no-store",
@@ -85,7 +92,11 @@ async function sidecarFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const payload = await readErrorResponse(response);
-    throw new SidecarApiError(buildErrorMessage(response.status, payload), response.status, payload);
+    throw new SidecarApiError(
+      buildErrorMessage(response.status, payload),
+      response.status,
+      payload,
+    );
   }
 
   return await parseJson<T>(response);
@@ -97,14 +108,18 @@ export async function listListings(): Promise<Listing[]> {
 }
 
 export async function getListing(listingId: string): Promise<Listing> {
-  return await sidecarFetch<Listing>(`/api/listings/${encodeURIComponent(listingId)}`);
+  return await sidecarFetch<Listing>(
+    `/api/listings/${encodeURIComponent(listingId)}`,
+  );
 }
 
 export async function getAppSettings(): Promise<AppSettings> {
   return await sidecarFetch<AppSettings>("/api/app-settings");
 }
 
-export async function createListing(input: CreateListingInput): Promise<Listing> {
+export async function createListing(
+  input: CreateListingInput,
+): Promise<Listing> {
   return await sidecarFetch<Listing>("/api/listings", {
     method: "POST",
     body: JSON.stringify(input),
@@ -115,29 +130,34 @@ export async function createListing(input: CreateListingInput): Promise<Listing>
   });
 }
 
-function mapUpdateListingInput(input: UpdateListingInput): Record<string, unknown> {
+function mapUpdateListingInput(
+  input: UpdateListingInput,
+): Record<string, unknown> {
   return {
-    categoryId: input.category_id,
-    conditionId: input.condition_id,
-    conditionNotes: input.condition_notes,
+    categoryId: input.categoryId,
+    conditionId: input.conditionId,
+    conditionNotes: input.conditionNotes,
     description: input.description,
-    itemSpecifics: input.item_specifics,
+    itemSpecifics: input.itemSpecifics,
     price: input.price,
-    sellerHints: input.seller_hints,
+    sellerHints: input.sellerHints,
     title: input.title,
   };
 }
 
 export async function updateListing(
   listingId: string,
-  patch: UpdateListingInput
+  patch: UpdateListingInput,
 ): Promise<Listing> {
-  return await sidecarFetch<Listing>(`/api/listings/${encodeURIComponent(listingId)}`, {
-    method: "PATCH",
-    body: JSON.stringify(mapUpdateListingInput(patch)),
-    headers: {
-      ...buildHeaders(),
-      "Content-Type": "application/json",
+  return await sidecarFetch<Listing>(
+    `/api/listings/${encodeURIComponent(listingId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(mapUpdateListingInput(patch)),
+      headers: {
+        ...buildHeaders(),
+        "Content-Type": "application/json",
+      },
     },
-  });
+  );
 }
