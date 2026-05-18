@@ -2,6 +2,8 @@ import { Suspense } from "react";
 
 import { SidecarApiError, listListings, type Listing } from "@/lib/sidecar-api";
 
+export const dynamic = "force-dynamic";
+
 const queueCards = [
   { label: "Review", value: "12", tone: "bg-amber-300 text-stone-950" },
   { label: "Approved", value: "4", tone: "bg-emerald-300 text-stone-950" },
