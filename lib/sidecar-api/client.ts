@@ -6,6 +6,7 @@ import type {
   CreateListingInput,
   Listing,
   ListingsResponse,
+  UpdateListingInput,
   SidecarErrorResponse,
 } from "@/lib/sidecar-api/types";
 
@@ -107,6 +108,33 @@ export async function createListing(input: CreateListingInput): Promise<Listing>
   return await sidecarFetch<Listing>("/api/listings", {
     method: "POST",
     body: JSON.stringify(input),
+    headers: {
+      ...buildHeaders(),
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+function mapUpdateListingInput(input: UpdateListingInput): Record<string, unknown> {
+  return {
+    categoryId: input.category_id,
+    conditionId: input.condition_id,
+    conditionNotes: input.condition_notes,
+    description: input.description,
+    itemSpecifics: input.item_specifics,
+    price: input.price,
+    sellerHints: input.seller_hints,
+    title: input.title,
+  };
+}
+
+export async function updateListing(
+  listingId: string,
+  patch: UpdateListingInput
+): Promise<Listing> {
+  return await sidecarFetch<Listing>(`/api/listings/${encodeURIComponent(listingId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(mapUpdateListingInput(patch)),
     headers: {
       ...buildHeaders(),
       "Content-Type": "application/json",

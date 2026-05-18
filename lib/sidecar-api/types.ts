@@ -55,6 +55,17 @@ export interface CreateListingInput {
   mode: "manual" | "test";
 }
 
+export interface UpdateListingInput {
+  category_id?: string | null;
+  condition_id?: string | null;
+  condition_notes?: string | null;
+  description?: string | null;
+  item_specifics?: Json;
+  price?: number | null;
+  seller_hints?: string | null;
+  title?: string | null;
+}
+
 export interface AppSettings {
   capture_mode: string | null;
   default_fulfillment_policy_id: string | null;
