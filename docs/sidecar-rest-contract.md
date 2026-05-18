@@ -28,6 +28,7 @@ Examples:
 
 - `GET {SIDECAR_API_URL}/api/listings`
 - `GET {SIDECAR_API_URL}/api/listings/:listingId`
+- `PATCH {SIDECAR_API_URL}/api/listings/:listingId`
 - `GET {SIDECAR_API_URL}/api/app-settings`
 
 ## Response shapes
@@ -184,7 +185,7 @@ Important: the current frontend README previously mentioned `SIDECAR_API_KEY`, b
 
 ## CORS / proxying
 
-The sidecar enables CORS with `origin: "*"` in `http-transport.ts`, so cross-origin requests are allowed in local development. Same-origin proxying is not required for the three read endpoints in this task.
+The sidecar enables CORS with `origin: "*"` in `http-transport.ts`, so cross-origin requests are allowed in local development. Same-origin proxying is not required for read endpoints; however, write endpoints like `PATCH /api/listings/:listingId` are available for server-side mutations.
 
 ## Frontend assumption
 
