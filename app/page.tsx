@@ -1,14 +1,15 @@
-import { Suspense } from "react";
+import {Suspense} from "react";
 
-import { CreateListingForm } from "@/app/create-listing-form";
-import { SidecarApiError, listListings, type Listing } from "@/lib/sidecar-api";
+import {CreateListingForm} from "@/app/create-listing-form";
+import {ListingsTableEditable} from "@/app/listings-table-editable";
+import {SidecarApiError, listListings, type Listing} from "@/lib/sidecar-api";
 
 export const dynamic = "force-dynamic";
 
 const queueCards = [
-  { label: "Review", value: "12", tone: "bg-amber-300 text-stone-950" },
-  { label: "Approved", value: "4", tone: "bg-emerald-300 text-stone-950" },
-  { label: "Blocked", value: "2", tone: "bg-rose-300 text-stone-950" },
+  {label: "Review", value: "12", tone: "bg-amber-300 text-stone-950"},
+  {label: "Approved", value: "4", tone: "bg-emerald-300 text-stone-950"},
+  {label: "Blocked", value: "2", tone: "bg-rose-300 text-stone-950"},
 ];
 
 const workflowStates = [
@@ -25,88 +26,29 @@ const settings = [
   ["Order checks", "4 per day"],
 ];
 
-function formatPrice(price: number | null): string {
-  if (price === null) {
-    return "—";
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(price);
-}
-
-function formatUpdatedAt(updatedAt: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(updatedAt));
-}
-
-function ListingsTable({ listings }: { listings: Listing[] }) {
-  return (
-    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80">
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse">
-          <thead>
-            <tr className="border-b border-stone-950/10 bg-stone-100/80 text-left">
-              {["listing_id", "status", "sub_status", "title", "price", "updated_at"].map(
-                (column) => (
-                  <th
-                    key={column}
-                    className="px-5 py-4 text-xs font-bold uppercase tracking-[0.18em] text-stone-500"
-                  >
-                    {column}
-                  </th>
-                )
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {listings.map((listing) => (
-              <tr key={listing.id} className="border-b border-stone-950/10 last:border-b-0">
-                <td className="px-5 py-4 font-mono text-sm text-stone-600">{listing.listing_id}</td>
-                <td className="px-5 py-4">
-                  <span className="inline-flex rounded-full bg-stone-950 px-3 py-1 text-xs font-semibold text-stone-50">
-                    {listing.status}
-                  </span>
-                </td>
-                <td className="px-5 py-4 text-sm text-stone-600">{listing.sub_status}</td>
-                <td className="px-5 py-4 text-sm font-semibold text-stone-900">
-                  {listing.title ?? "Untitled listing"}
-                </td>
-                <td className="px-5 py-4 text-sm text-stone-600">{formatPrice(listing.price)}</td>
-                <td className="px-5 py-4 text-sm text-stone-600">
-                  {formatUpdatedAt(listing.updated_at)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 function ListingsEmptyState() {
   return (
     <div className="mt-6 flex min-h-[22rem] items-center justify-center rounded-[1.75rem] border border-dashed border-stone-950/15 bg-stone-50/70 px-6 text-center">
       <div className="max-w-lg">
-        <p className="text-sm font-bold uppercase tracking-[0.2em] text-stone-500">No listings</p>
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-stone-500">
+          No listings
+        </p>
         <p className="mt-3 text-lg leading-8 text-stone-600">
-          The sidecar returned an empty listings collection. New drafts will appear here once they
-          exist.
+          The sidecar returned an empty listings collection. New drafts will
+          appear here once they exist.
         </p>
       </div>
     </div>
   );
 }
 
-function ListingsErrorState({ message }: { message: string }) {
+function ListingsErrorState({message}: {message: string}) {
   return (
     <div className="mt-6 flex min-h-[22rem] items-center justify-center rounded-[1.75rem] border border-rose-300/70 bg-rose-50/80 px-6 text-center">
       <div className="max-w-2xl">
-        <p className="text-sm font-bold uppercase tracking-[0.2em] text-rose-700">Listings unavailable</p>
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-rose-700">
+          Listings unavailable
+        </p>
         <p className="mt-3 text-lg leading-8 text-rose-900">{message}</p>
       </div>
     </div>
@@ -120,7 +62,7 @@ function ListingsLoadingState() {
         Loading listings
       </div>
       <div className="space-y-3 p-5">
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({length: 5}).map((_, index) => (
           <div
             key={index}
             className="h-14 animate-pulse rounded-2xl bg-[linear-gradient(90deg,rgba(231,229,228,0.9),rgba(245,245,244,0.9),rgba(231,229,228,0.9))]"
@@ -139,8 +81,12 @@ async function ListingsSection() {
       <>
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">Listings</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">Inventory records</h2>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
+              Listings
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">
+              Inventory records
+            </h2>
           </div>
           <span className="rounded-full border border-rose-300/70 bg-rose-50 px-4 py-2 text-sm text-rose-700">
             Request failed
@@ -152,28 +98,35 @@ async function ListingsSection() {
     );
   }
 
-  const { listings } = result;
+  const {listings} = result;
 
   return (
     <>
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">Listings</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">Inventory records</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
+            Listings
+          </p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">
+            Inventory records
+          </h2>
         </div>
         <span className="rounded-full border border-stone-950/10 bg-stone-100 px-4 py-2 text-sm text-stone-600">
           {listings.length} {listings.length === 1 ? "listing" : "listings"}
         </span>
       </div>
 
-      {listings.length === 0 ? <ListingsEmptyState /> : <ListingsTable listings={listings} />}
+      {listings.length === 0 ? (
+        <ListingsEmptyState />
+      ) : (
+        <ListingsTableEditable listings={listings} />
+      )}
     </>
   );
 }
 
 async function loadListings(): Promise<
-  | { status: "success"; listings: Listing[] }
-  | { status: "error"; message: string }
+  {status: "success"; listings: Listing[]} | {status: "error"; message: string}
 > {
   try {
     return {
@@ -198,8 +151,12 @@ function ListingsSectionFallback() {
     <>
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">Listings</p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">Inventory records</h2>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
+            Listings
+          </p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">
+            Inventory records
+          </h2>
         </div>
         <span className="rounded-full border border-stone-950/10 bg-stone-100 px-4 py-2 text-sm text-stone-600">
           Loading
@@ -246,10 +203,15 @@ export default function Home() {
             <CreateListingForm />
 
             <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">Queue</p>
+              <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">
+                Queue
+              </p>
               <div className="mt-5 grid grid-cols-3 gap-3">
                 {queueCards.map((card) => (
-                  <div key={card.label} className={`rounded-2xl p-4 ${card.tone}`}>
+                  <div
+                    key={card.label}
+                    className={`rounded-2xl p-4 ${card.tone}`}
+                  >
                     <p className="text-3xl font-semibold">{card.value}</p>
                     <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] opacity-70">
                       {card.label}
@@ -265,7 +227,10 @@ export default function Home() {
               </p>
               <dl className="mt-5 space-y-4">
                 {settings.map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-4">
+                  <div
+                    key={label}
+                    className="flex items-center justify-between gap-4"
+                  >
                     <dt className="text-sm text-stone-500">{label}</dt>
                     <dd className="text-right font-semibold">{value}</dd>
                   </div>
@@ -292,9 +257,14 @@ export default function Home() {
 
           <div className="mt-6 grid grid-cols-6 gap-3">
             {workflowStates.map((state, index) => (
-              <div key={state} className="rounded-2xl border border-stone-950/10 bg-white p-4">
+              <div
+                key={state}
+                className="rounded-2xl border border-stone-950/10 bg-white p-4"
+              >
                 <p className="font-mono text-xs text-stone-400">0{index + 1}</p>
-                <p className="mt-3 break-words text-sm font-semibold">{state}</p>
+                <p className="mt-3 break-words text-sm font-semibold">
+                  {state}
+                </p>
               </div>
             ))}
           </div>
