@@ -14,8 +14,14 @@ Backend contract inspected from:
 ## Base URL
 
 - Base URL env var: `SIDECAR_API_URL`
-- Frontend default: `http://localhost:3000`
+- No frontend fallback default is used
 - REST routes are mounted under `/api`
+
+Recommended local development split:
+
+- UI: `http://localhost:3000`
+- sidecar: `http://localhost:3001`
+- sidecar startup: `MCP_PORT=3001 OAUTH_ENABLED=false`
 
 Examples:
 
@@ -94,7 +100,7 @@ Unexpected failures return HTTP `500`:
 Current backend code protects `/api` with bearer-token auth unless the sidecar is started with `OAUTH_ENABLED=false`.
 
 - Default backend behavior: auth enabled
-- Local unauthenticated dev mode: start the sidecar with `OAUTH_ENABLED=false`
+- Local unauthenticated dev mode: start the sidecar with `MCP_PORT=3001 OAUTH_ENABLED=false`
 - Frontend support added here: optional `SIDECAR_API_BEARER_TOKEN` env var for server-side requests
 
 Important: the current frontend README previously mentioned `SIDECAR_API_KEY`, but that header-based API key flow was not found in the current backend route code. Treat bearer-token auth or `OAUTH_ENABLED=false` as the active contract unless the backend changes.
