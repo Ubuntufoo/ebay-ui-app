@@ -76,41 +76,55 @@ export async function saveListingEdits(
     };
   }
 
-  const title = readTextField(formData.get("title"));
-  const sellerHints = readTextField(formData.get("seller_hints"));
-  const description = readTextField(formData.get("description"));
-  const categoryId = readTextField(formData.get("category_id"));
-  const conditionId = readTextField(formData.get("condition_id"));
-  const conditionNotes = readTextField(formData.get("condition_notes"));
+  const patch: UpdateListingInput = {};
 
-  const priceResult = readNumericField(formData.get("price"));
-  if (priceResult.error) {
-    return {
-      error: priceResult.error,
-      success: false,
-    };
+  if (formData.has("title")) {
+    patch.title = readTextField(formData.get("title"));
   }
 
-  const itemSpecificsResult = readItemSpecificsField(
-    formData.get("item_specifics"),
-  );
-  if (itemSpecificsResult.error) {
-    return {
-      error: itemSpecificsResult.error,
-      success: false,
-    };
+  if (formData.has("seller_hints")) {
+    patch.sellerHints = readTextField(formData.get("seller_hints"));
   }
 
-  const patch: UpdateListingInput = {
-    categoryId,
-    conditionId,
-    conditionNotes,
-    description,
-    itemSpecifics: itemSpecificsResult.value,
-    price: priceResult.value,
-    sellerHints,
-    title,
-  };
+  if (formData.has("description")) {
+    patch.description = readTextField(formData.get("description"));
+  }
+
+  if (formData.has("category_id")) {
+    patch.categoryId = readTextField(formData.get("category_id"));
+  }
+
+  if (formData.has("condition_id")) {
+    patch.conditionId = readTextField(formData.get("condition_id"));
+  }
+
+  if (formData.has("condition_notes")) {
+    patch.conditionNotes = readTextField(formData.get("condition_notes"));
+  }
+
+  if (formData.has("price")) {
+    const priceResult = readNumericField(formData.get("price"));
+    if (priceResult.error) {
+      return {
+        error: priceResult.error,
+        success: false,
+      };
+    }
+    patch.price = priceResult.value;
+  }
+
+  if (formData.has("item_specifics")) {
+    const itemSpecificsResult = readItemSpecificsField(
+      formData.get("item_specifics"),
+    );
+    if (itemSpecificsResult.error) {
+      return {
+        error: itemSpecificsResult.error,
+        success: false,
+      };
+    }
+    patch.itemSpecifics = itemSpecificsResult.value;
+  }
 
   try {
     await updateListing(listingId, patch);
