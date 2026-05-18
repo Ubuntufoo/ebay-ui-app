@@ -1,12 +1,6 @@
-const activeDraft = {
-  id: "Lot-000124",
-  title: "Three-card rookie lot",
-  status: "assets_ready",
-  detail: "Images are processed and ready for listing draft generation.",
-  captureMode: "lot_3_image",
-  imageCount: "3 processed assets",
-  nextStep: "Add seller hints, then queue AI generation.",
-};
+import { Suspense } from "react";
+
+import { SidecarApiError, listListings, type Listing } from "@/lib/sidecar-api";
 
 const queueCards = [
   { label: "Review", value: "12", tone: "bg-amber-300 text-stone-950" },
@@ -27,6 +21,192 @@ const settings = [
   ["Capture mode", "single_1_image"],
   ["Order checks", "4 per day"],
 ];
+
+function formatPrice(price: number | null): string {
+  if (price === null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    currency: "USD",
+    style: "currency",
+  }).format(price);
+}
+
+function formatUpdatedAt(updatedAt: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(updatedAt));
+}
+
+function ListingsTable({ listings }: { listings: Listing[] }) {
+  return (
+    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80">
+      <div className="overflow-x-auto">
+        <table className="min-w-full border-collapse">
+          <thead>
+            <tr className="border-b border-stone-950/10 bg-stone-100/80 text-left">
+              {["listing_id", "status", "sub_status", "title", "price", "updated_at"].map(
+                (column) => (
+                  <th
+                    key={column}
+                    className="px-5 py-4 text-xs font-bold uppercase tracking-[0.18em] text-stone-500"
+                  >
+                    {column}
+                  </th>
+                )
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {listings.map((listing) => (
+              <tr key={listing.id} className="border-b border-stone-950/10 last:border-b-0">
+                <td className="px-5 py-4 font-mono text-sm text-stone-600">{listing.listing_id}</td>
+                <td className="px-5 py-4">
+                  <span className="inline-flex rounded-full bg-stone-950 px-3 py-1 text-xs font-semibold text-stone-50">
+                    {listing.status}
+                  </span>
+                </td>
+                <td className="px-5 py-4 text-sm text-stone-600">{listing.sub_status}</td>
+                <td className="px-5 py-4 text-sm font-semibold text-stone-900">
+                  {listing.title ?? "Untitled listing"}
+                </td>
+                <td className="px-5 py-4 text-sm text-stone-600">{formatPrice(listing.price)}</td>
+                <td className="px-5 py-4 text-sm text-stone-600">
+                  {formatUpdatedAt(listing.updated_at)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function ListingsEmptyState() {
+  return (
+    <div className="mt-6 flex min-h-[22rem] items-center justify-center rounded-[1.75rem] border border-dashed border-stone-950/15 bg-stone-50/70 px-6 text-center">
+      <div className="max-w-lg">
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-stone-500">No listings</p>
+        <p className="mt-3 text-lg leading-8 text-stone-600">
+          The sidecar returned an empty listings collection. New drafts will appear here once they
+          exist.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ListingsErrorState({ message }: { message: string }) {
+  return (
+    <div className="mt-6 flex min-h-[22rem] items-center justify-center rounded-[1.75rem] border border-rose-300/70 bg-rose-50/80 px-6 text-center">
+      <div className="max-w-2xl">
+        <p className="text-sm font-bold uppercase tracking-[0.2em] text-rose-700">Listings unavailable</p>
+        <p className="mt-3 text-lg leading-8 text-rose-900">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function ListingsLoadingState() {
+  return (
+    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80">
+      <div className="border-b border-stone-950/10 bg-stone-100/80 px-5 py-4 text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+        Loading listings
+      </div>
+      <div className="space-y-3 p-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div
+            key={index}
+            className="h-14 animate-pulse rounded-2xl bg-[linear-gradient(90deg,rgba(231,229,228,0.9),rgba(245,245,244,0.9),rgba(231,229,228,0.9))]"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+async function ListingsSection() {
+  const result = await loadListings();
+
+  if (result.status === "error") {
+    return (
+      <>
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">Listings</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">Inventory records</h2>
+          </div>
+          <span className="rounded-full border border-rose-300/70 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+            Request failed
+          </span>
+        </div>
+
+        <ListingsErrorState message={result.message} />
+      </>
+    );
+  }
+
+  const { listings } = result;
+
+  return (
+    <>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">Listings</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">Inventory records</h2>
+        </div>
+        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-4 py-2 text-sm text-stone-600">
+          {listings.length} {listings.length === 1 ? "listing" : "listings"}
+        </span>
+      </div>
+
+      {listings.length === 0 ? <ListingsEmptyState /> : <ListingsTable listings={listings} />}
+    </>
+  );
+}
+
+async function loadListings(): Promise<
+  | { status: "success"; listings: Listing[] }
+  | { status: "error"; message: string }
+> {
+  try {
+    return {
+      status: "success",
+      listings: await listListings(),
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof SidecarApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "An unexpected error occurred while loading listings.",
+    };
+  }
+}
+
+function ListingsSectionFallback() {
+  return (
+    <>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">Listings</p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">Inventory records</h2>
+        </div>
+        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-4 py-2 text-sm text-stone-600">
+          Loading
+        </span>
+      </div>
+
+      <ListingsLoadingState />
+    </>
+  );
+}
 
 export default function Home() {
   return (
@@ -51,8 +231,8 @@ export default function Home() {
             <div className="mt-8">
               <p className="text-3xl font-semibold">Backend-ready</p>
               <p className="mt-2 text-sm leading-6 text-stone-300">
-                Static UI frame for listings, queues, settings, and workflow state while backend
-                services come online.
+                Dashboard shell connected to sidecar-backed listing reads while edit and workflow
+                actions remain out of scope.
               </p>
             </div>
           </div>
@@ -60,71 +240,9 @@ export default function Home() {
 
         <div className="grid flex-1 grid-cols-[minmax(0,1fr)_24rem] gap-5">
           <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-7 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-                  Listings
-                </p>
-                <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">Active drafts</h2>
-              </div>
-              <span className="rounded-full border border-stone-950/10 bg-stone-100 px-4 py-2 text-sm text-stone-600">
-                1 active draft
-              </span>
-            </div>
-
-            <article className="mt-6 min-h-[34rem] rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 p-6">
-              <div className="grid grid-cols-[11rem_1fr_auto] items-start gap-5">
-                <p className="font-mono text-sm text-stone-500">{activeDraft.id}</p>
-                <div>
-                  <h3 className="text-3xl font-semibold tracking-[-0.03em] text-stone-950">
-                    {activeDraft.title}
-                  </h3>
-                  <p className="mt-3 max-w-4xl text-base leading-7 text-stone-600">
-                    {activeDraft.detail}
-                  </p>
-                </div>
-                <span className="h-fit rounded-full bg-stone-950 px-4 py-2 text-xs font-semibold text-stone-50">
-                  {activeDraft.status}
-                </span>
-              </div>
-
-              <div className="mt-8 grid grid-cols-[1.15fr_0.85fr] gap-5">
-                <section className="rounded-[1.5rem] border border-stone-950/10 bg-white p-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-stone-500">
-                    Asset workspace
-                  </p>
-                  <div className="mt-5 grid grid-cols-3 gap-4">
-                    {["Front image", "Back image", "Detail image"].map((label, index) => (
-                      <div
-                        key={label}
-                        className="flex aspect-[4/3] flex-col justify-between rounded-2xl bg-[linear-gradient(135deg,_rgba(231,229,228,0.95),_rgba(214,211,209,0.65))] p-4"
-                      >
-                        <span className="font-mono text-xs text-stone-500">0{index + 1}</span>
-                        <span className="text-sm font-semibold text-stone-700">{label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="rounded-[1.5rem] border border-stone-950/10 bg-white p-5">
-                  <p className="text-xs font-bold uppercase tracking-[0.24em] text-stone-500">
-                    Draft readiness
-                  </p>
-                  <dl className="mt-5 space-y-4">
-                    {[
-                      ["Capture mode", activeDraft.captureMode],
-                      ["Assets", activeDraft.imageCount],
-                      ["Next step", activeDraft.nextStep],
-                    ].map(([label, value]) => (
-                      <div key={label}>
-                        <dt className="text-sm text-stone-500">{label}</dt>
-                        <dd className="mt-1 text-base font-semibold leading-6">{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </section>
-              </div>
-            </article>
+            <Suspense fallback={<ListingsSectionFallback />}>
+              <ListingsSection />
+            </Suspense>
           </section>
 
           <aside className="grid gap-5">
