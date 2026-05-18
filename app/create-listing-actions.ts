@@ -2,17 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import type { CreateListingActionState } from "@/app/create-listing-state";
 import { createListing, SidecarApiError } from "@/lib/sidecar-api";
-
-export interface CreateListingActionState {
-  error: string | null;
-  success: string | null;
-}
-
-export const initialCreateListingActionState: CreateListingActionState = {
-  error: null,
-  success: null,
-};
 
 export async function submitCreateListing(
   _previousState: CreateListingActionState,

@@ -16,6 +16,7 @@ agents/logs/
 PROVIDERS.md
 SPEC.md
 AGENTS.md
+ROADMAP.md
 config.toml
 
 # Ignore repo-local spec/agent/roadmap docs (case-insensitive)
