@@ -3,6 +3,7 @@ import "server-only";
 import { getSidecarConfig } from "@/lib/config/sidecar";
 import type {
   AppSettings,
+  CreateListingInput,
   Listing,
   ListingsResponse,
   SidecarErrorResponse,
@@ -69,12 +70,16 @@ function buildErrorMessage(status: number, payload?: SidecarErrorResponse): stri
   return `Sidecar request failed with ${status}.`;
 }
 
-async function sidecarFetch<T>(path: string): Promise<T> {
+async function sidecarFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const { apiUrl } = getSidecarConfig();
   const response = await fetch(`${apiUrl}${path}`, {
+    ...init,
     cache: "no-store",
-    headers: buildHeaders(),
-    method: "GET",
+    headers: {
+      ...buildHeaders(),
+      ...(init?.headers ?? {}),
+    },
+    method: init?.method ?? "GET",
   });
 
   if (!response.ok) {
@@ -96,4 +101,15 @@ export async function getListing(listingId: string): Promise<Listing> {
 
 export async function getAppSettings(): Promise<AppSettings> {
   return await sidecarFetch<AppSettings>("/api/app-settings");
+}
+
+export async function createListing(input: CreateListingInput): Promise<Listing> {
+  return await sidecarFetch<Listing>("/api/listings", {
+    method: "POST",
+    body: JSON.stringify(input),
+    headers: {
+      ...buildHeaders(),
+      "Content-Type": "application/json",
+    },
+  });
 }
