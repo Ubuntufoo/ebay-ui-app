@@ -1,6 +1,13 @@
-export { getAppSettings, getListing, listListings, SidecarApiError } from "@/lib/sidecar-api/client";
+export {
+  createListing,
+  getAppSettings,
+  getListing,
+  listListings,
+  SidecarApiError,
+} from "@/lib/sidecar-api/client";
 export type {
   AppSettings,
+  CreateListingInput,
   Listing,
   ListingsResponse,
   SidecarErrorResponse,

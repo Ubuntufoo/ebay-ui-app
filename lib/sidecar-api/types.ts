@@ -50,6 +50,11 @@ export interface ListingsResponse {
   listings: Listing[];
 }
 
+export interface CreateListingInput {
+  listingId?: string;
+  mode: "manual" | "test";
+}
+
 export interface AppSettings {
   capture_mode: string | null;
   default_fulfillment_policy_id: string | null;

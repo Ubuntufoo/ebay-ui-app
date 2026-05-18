@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { CreateListingForm } from "@/app/create-listing-form";
 import { SidecarApiError, listListings, type Listing } from "@/lib/sidecar-api";
 
 export const dynamic = "force-dynamic";
@@ -248,6 +249,8 @@ export default function Home() {
           </section>
 
           <aside className="grid gap-5">
+            <CreateListingForm />
+
             <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">Queue</p>
               <div className="mt-5 grid grid-cols-3 gap-3">
