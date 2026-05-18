@@ -1,0 +1,99 @@
+import "server-only";
+
+import { getSidecarConfig } from "@/lib/config/sidecar";
+import type {
+  AppSettings,
+  Listing,
+  ListingsResponse,
+  SidecarErrorResponse,
+} from "@/lib/sidecar-api/types";
+
+export class SidecarApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly response?: SidecarErrorResponse
+  ) {
+    super(message);
+    this.name = "SidecarApiError";
+  }
+}
+
+function buildHeaders(): HeadersInit {
+  const { bearerToken } = getSidecarConfig();
+
+  if (!bearerToken) {
+    return {
+      Accept: "application/json",
+    };
+  }
+
+  return {
+    Accept: "application/json",
+    Authorization: `Bearer ${bearerToken}`,
+  };
+}
+
+async function parseJson<T>(response: Response): Promise<T> {
+  return (await response.json()) as T;
+}
+
+async function readErrorResponse(response: Response): Promise<SidecarErrorResponse | undefined> {
+  const contentType = response.headers.get("content-type");
+
+  if (!contentType?.includes("application/json")) {
+    return undefined;
+  }
+
+  try {
+    return await parseJson<SidecarErrorResponse>(response);
+  } catch {
+    return undefined;
+  }
+}
+
+function buildErrorMessage(status: number, payload?: SidecarErrorResponse): string {
+  if (payload?.error === "invalid_request" && payload.details?.length) {
+    const issues = payload.details.map((detail) => `${detail.path}: ${detail.message}`).join("; ");
+    return `Sidecar request failed with ${status} (${payload.error}): ${issues}`;
+  }
+
+  if (payload?.message) {
+    return `Sidecar request failed with ${status} (${payload.error}): ${payload.message}`;
+  }
+
+  if (payload?.error) {
+    return `Sidecar request failed with ${status} (${payload.error}).`;
+  }
+
+  return `Sidecar request failed with ${status}.`;
+}
+
+async function sidecarFetch<T>(path: string): Promise<T> {
+  const { apiUrl } = getSidecarConfig();
+  const response = await fetch(`${apiUrl}${path}`, {
+    cache: "no-store",
+    headers: buildHeaders(),
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    const payload = await readErrorResponse(response);
+    throw new SidecarApiError(buildErrorMessage(response.status, payload), response.status, payload);
+  }
+
+  return await parseJson<T>(response);
+}
+
+export async function listListings(): Promise<Listing[]> {
+  const response = await sidecarFetch<ListingsResponse>("/api/listings");
+  return response.listings;
+}
+
+export async function getListing(listingId: string): Promise<Listing> {
+  return await sidecarFetch<Listing>(`/api/listings/${encodeURIComponent(listingId)}`);
+}
+
+export async function getAppSettings(): Promise<AppSettings> {
+  return await sidecarFetch<AppSettings>("/api/app-settings");
+}

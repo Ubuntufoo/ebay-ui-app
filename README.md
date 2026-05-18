@@ -17,9 +17,15 @@ The UI only needs client-side or browser-safe values:
 - `SUPABASE_ANON_KEY` - public anon key used by the UI
 - `SIDECAR_API_URL` - optional; defaults to `http://localhost:3000` for a local sidecar
 
-`SIDECAR_API_KEY` is only needed when a local sidecar requires authentication. Treat it as backend/local-only and keep server-side envs and secrets in [`backend-services`](../backend-services/README.md).
+Server-side sidecar access can also use:
+
+- `SIDECAR_API_BEARER_TOKEN` - optional bearer token for sidecar REST requests when OAuth is enabled
+
+The current backend route code protects `/api` with bearer-token auth unless the sidecar runs with `OAUTH_ENABLED=false`. A legacy `SIDECAR_API_KEY` flow was not found in the current backend route implementation.
 
 See [`env.example`](env.example) for the UI env template.
+
+See [`docs/sidecar-rest-contract.md`](docs/sidecar-rest-contract.md) for the assessed REST contract used by the frontend client.
 
 ## Commands
 

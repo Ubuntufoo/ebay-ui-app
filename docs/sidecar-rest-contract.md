@@ -1,0 +1,110 @@
+# Sidecar REST Contract
+
+This frontend reads listings and app settings from the sibling `backend-services` sidecar over HTTP.
+
+## Source of truth
+
+Backend contract inspected from:
+
+- `backend-services/services/sidecar/src/http/data-router.ts`
+- `backend-services/services/sidecar/src/mcp/http-transport.ts`
+- `backend-services/packages/data/src/database.ts`
+- `backend-services/packages/data/src/database-generated.ts`
+
+## Base URL
+
+- Base URL env var: `SIDECAR_API_URL`
+- Frontend default: `http://localhost:3000`
+- REST routes are mounted under `/api`
+
+Examples:
+
+- `GET {SIDECAR_API_URL}/api/listings`
+- `GET {SIDECAR_API_URL}/api/listings/:listingId`
+- `GET {SIDECAR_API_URL}/api/app-settings`
+
+## Response shapes
+
+### `GET /api/listings`
+
+Returns:
+
+```json
+{
+  "listings": [
+    {
+      "id": "uuid",
+      "listing_id": "LIST-001",
+      "title": "Example title",
+      "status": "record_created",
+      "sub_status": "idle",
+      "created_at": "2026-05-17T12:00:00.000Z",
+      "updated_at": "2026-05-17T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+Note: the real payload includes the full `listings` table row, not a reduced DTO.
+
+### `GET /api/listings/:listingId`
+
+Returns the full `listings` table row for the matching `listing_id`.
+
+### `GET /api/app-settings`
+
+Returns the full `app_settings` table row for the default `id` of `"default"`.
+
+## Error shapes
+
+Validation failures return HTTP `400`:
+
+```json
+{
+  "error": "invalid_request",
+  "details": [
+    {
+      "message": "Required",
+      "path": "listingId"
+    }
+  ]
+}
+```
+
+Not found returns HTTP `404`:
+
+```json
+{
+  "error": "not_found",
+  "message": "Listing \"LIST-001\" was not found."
+}
+```
+
+Unexpected failures return HTTP `500`:
+
+```json
+{
+  "error": "server_error",
+  "message": "An unexpected server error occurred."
+}
+```
+
+## Auth behavior
+
+Current backend code protects `/api` with bearer-token auth unless the sidecar is started with `OAUTH_ENABLED=false`.
+
+- Default backend behavior: auth enabled
+- Local unauthenticated dev mode: start the sidecar with `OAUTH_ENABLED=false`
+- Frontend support added here: optional `SIDECAR_API_BEARER_TOKEN` env var for server-side requests
+
+Important: the current frontend README previously mentioned `SIDECAR_API_KEY`, but that header-based API key flow was not found in the current backend route code. Treat bearer-token auth or `OAUTH_ENABLED=false` as the active contract unless the backend changes.
+
+## CORS / proxying
+
+The sidecar enables CORS with `origin: "*"` in `http-transport.ts`, so cross-origin requests are allowed in local development. Same-origin proxying is not required for the three read endpoints in this task.
+
+## Frontend assumption
+
+The new frontend client is intentionally server-only. That keeps any optional bearer token out of the browser and preserves the intended data path:
+
+`FE -> sidecar REST API -> shared repositories -> Supabase`
