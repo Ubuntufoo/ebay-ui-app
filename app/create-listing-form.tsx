@@ -3,10 +3,8 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import {
-  initialCreateListingActionState,
-  submitCreateListing,
-} from "@/app/create-listing-actions";
+import { submitCreateListing } from "@/app/create-listing-actions";
+import { initialCreateListingActionState } from "@/app/create-listing-state";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

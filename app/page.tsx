@@ -216,39 +216,33 @@ export default function Home() {
     <main className="min-h-screen overflow-hidden bg-[#efe7d8] text-stone-950">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_12%,_rgba(251,191,36,0.38),_transparent_28%),radial-gradient(circle_at_82%_18%,_rgba(20,184,166,0.22),_transparent_30%),linear-gradient(135deg,_rgba(68,64,60,0.08),_transparent_45%)]" />
 
-      <section className="relative mx-auto flex min-h-screen w-[min(96vw,1800px)] flex-col gap-8 px-8 py-8">
-        <header className="grid grid-cols-[1fr_24rem] gap-6 rounded-[2rem] border border-stone-950/10 bg-stone-50/80 p-8 shadow-[0_24px_80px_rgba(68,64,60,0.16)] backdrop-blur">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.32em] text-stone-500">
+      <section className="relative mx-auto flex min-h-screen w-[min(98vw,1880px)] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/85 px-5 py-3 shadow-[0_18px_48px_rgba(68,64,60,0.12)] backdrop-blur">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-stone-500">
               Murphy Family Hobby
             </p>
-            <h1 className="mt-4 max-w-5xl text-6xl font-semibold tracking-[-0.04em] text-balance">
-              Local command center for listing workflow state.
+            <h1 className="mt-1 text-lg font-semibold tracking-[-0.03em] sm:text-xl">
+              Local command center
             </h1>
           </div>
 
-          <div className="flex flex-col justify-between rounded-[1.5rem] bg-stone-950 p-5 text-stone-50">
-            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-400">
+          <div className="flex items-center gap-3 rounded-full bg-stone-950 px-4 py-2 text-stone-50">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-400">
               Phase 0 shell
             </span>
-            <div className="mt-8">
-              <p className="text-3xl font-semibold">Backend-ready</p>
-              <p className="mt-2 text-sm leading-6 text-stone-300">
-                Dashboard shell connected to sidecar-backed listing reads while edit and workflow
-                actions remain out of scope.
-              </p>
-            </div>
+            <span className="text-sm font-semibold">Backend-ready</span>
           </div>
         </header>
 
-        <div className="grid flex-1 grid-cols-[minmax(0,1fr)_24rem] gap-5">
-          <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-7 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
+        <div className="grid flex-1 gap-5 xl:grid-cols-[minmax(0,1.7fr)_22rem]">
+          <section className="min-h-[70vh] rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7">
             <Suspense fallback={<ListingsSectionFallback />}>
               <ListingsSection />
             </Suspense>
           </section>
 
-          <aside className="grid gap-5">
+          <aside className="grid content-start gap-5 xl:max-h-[70vh] xl:overflow-y-auto xl:pr-1">
             <CreateListingForm />
 
             <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
