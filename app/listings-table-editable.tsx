@@ -100,7 +100,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                     <tr className="border-b border-stone-950/10 last:border-b-0">
                       <td colSpan={7} className="px-5 py-5">
                         <ListingEditForm
-                          key={listing.listing_id}
+                          key={`${listing.listing_id}:${listing.updated_at}`}
                           listing={listing}
                         />
                       </td>

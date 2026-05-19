@@ -69,7 +69,15 @@ export function ListingEditForm({listing}: {listing: Listing}) {
         <ListingStatusControls listing={listing} />
       </div>
 
-      <form action={formAction} className="mt-4 grid gap-4 border-t border-stone-950/10 pt-4">
+      <form
+        action={formAction}
+        onSubmit={(event) => {
+          if (itemSpecificsError) {
+            event.preventDefault();
+          }
+        }}
+        className="mt-4 grid gap-4 border-t border-stone-950/10 pt-4"
+      >
         <input type="hidden" name="listing_id" value={listing.listing_id} />
 
         <label className="block">
