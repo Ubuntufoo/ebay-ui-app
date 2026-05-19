@@ -100,6 +100,10 @@ export interface UpdateListingInput {
   title?: string | null;
 }
 
+export interface UpdateListingImageUrlsInput {
+  imageUrls: string[];
+}
+
 export interface UpdateListingWorkflowStateInput {
   status: ListingStatus;
   subStatus: ListingSubStatus;
