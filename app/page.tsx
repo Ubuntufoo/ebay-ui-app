@@ -266,10 +266,10 @@ function ListingsSectionFallback() {
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#efe7d8] text-stone-950">
+    <main className="min-h-screen overflow-x-hidden bg-[#efe7d8] text-stone-950">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_12%,_rgba(251,191,36,0.38),_transparent_28%),radial-gradient(circle_at_82%_18%,_rgba(20,184,166,0.22),_transparent_30%),linear-gradient(135deg,_rgba(68,64,60,0.08),_transparent_45%)]" />
 
-      <section className="relative mx-auto flex min-h-screen w-[min(98vw,1880px)] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
+      <section className="relative flex min-h-screen w-full flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/85 px-5 py-3 shadow-[0_18px_48px_rgba(68,64,60,0.12)] backdrop-blur">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-stone-500">
@@ -288,69 +288,69 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="grid flex-1 gap-5 xl:grid-cols-[minmax(0,1.7fr)_22rem]">
-          <section className="min-h-[70vh] rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7">
-            <Suspense fallback={<ListingsSectionFallback />}>
-              <ListingsSection />
-            </Suspense>
-          </section>
+        <section className="rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7">
+          <Suspense fallback={<ListingsSectionFallback />}>
+            <ListingsSection />
+          </Suspense>
+        </section>
 
-          <aside className="grid content-start gap-5 xl:max-h-[70vh] xl:overflow-y-auto xl:pr-1">
-            <CreateListingForm />
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <CreateListingForm />
 
-            <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">
-                Queue
-              </p>
-              <div className="mt-5 grid grid-cols-3 gap-3">
-                {queueCards.map((card) => (
-                  <div
-                    key={card.label}
-                    className={`rounded-2xl p-4 ${card.tone}`}
-                  >
-                    <p className="text-3xl font-semibold">{card.value}</p>
-                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] opacity-70">
-                      {card.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <Suspense fallback={<AppSettingsSectionFallback />}>
-              <AppSettingsSection />
-            </Suspense>
-          </aside>
-        </div>
-
-        <section className="rounded-[2rem] border border-stone-950/10 bg-stone-50/80 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-                Workflow State
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
-                Status rail for backend phases
-              </h2>
+          <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
+            <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">
+              Queue
+            </p>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              {queueCards.map((card) => (
+                <div
+                  key={card.label}
+                  className={`rounded-2xl p-4 ${card.tone}`}
+                >
+                  <p className="text-3xl font-semibold">{card.value}</p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] opacity-70">
+                    {card.label}
+                  </p>
+                </div>
+              ))}
             </div>
-            <span className="rounded-full bg-stone-950 px-4 py-2 text-sm text-stone-50">
-              Read-only shell
-            </span>
-          </div>
+          </section>
+        </section>
 
-          <div className="mt-6 grid grid-cols-6 gap-3">
-            {workflowStates.map((state, index) => (
-              <div
-                key={state}
-                className="rounded-2xl border border-stone-950/10 bg-white p-4"
-              >
-                <p className="font-mono text-xs text-stone-400">0{index + 1}</p>
-                <p className="mt-3 break-words text-sm font-semibold">
-                  {state}
+        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Suspense fallback={<AppSettingsSectionFallback />}>
+            <AppSettingsSection />
+          </Suspense>
+
+          <section className="rounded-[2rem] border border-stone-950/10 bg-stone-50/80 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
+                  Workflow State
                 </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
+                  Status rail for backend phases
+                </h2>
               </div>
-            ))}
-          </div>
+              <span className="rounded-full bg-stone-950 px-4 py-2 text-sm text-stone-50">
+                Read-only shell
+              </span>
+            </div>
+
+            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+              {workflowStates.map((state, index) => (
+                <div
+                  key={state}
+                  className="rounded-2xl border border-stone-950/10 bg-white p-4"
+                >
+                  <p className="font-mono text-xs text-stone-400">0{index + 1}</p>
+                  <p className="mt-3 break-words text-sm font-semibold">
+                    {state}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
         </section>
       </section>
     </main>

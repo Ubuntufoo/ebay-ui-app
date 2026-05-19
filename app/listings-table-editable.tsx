@@ -30,11 +30,12 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
   );
 
   return (
-    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80">
-      <div className="overflow-x-auto">
+    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
+      <div className="max-h-[24rem] overflow-auto">
+        <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
-          <thead>
-            <tr className="border-b border-stone-950/10 bg-stone-100/80 text-left">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-stone-950/10 bg-stone-100/95 text-left backdrop-blur">
               {[
                 "listing_id",
                 "status",
@@ -123,6 +124,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
