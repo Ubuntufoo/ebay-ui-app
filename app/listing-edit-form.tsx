@@ -5,6 +5,7 @@ import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
 import {initialSaveListingEditsActionState} from "@/app/listing-edit-state";
+import {ListingImageGallery} from "@/app/listing-image-gallery";
 import {saveListingImageUrls} from "@/app/listing-image-url-actions";
 import {initialSaveListingImageUrlsActionState} from "@/app/listing-image-url-state";
 import {
@@ -41,56 +42,6 @@ function SaveButton({
     >
       {pending ? pendingLabel : label}
     </button>
-  );
-}
-
-function PreviewImage({url}: {url: string}) {
-  const [failed, setFailed] = useState(false);
-
-  if (failed) {
-    return (
-      <div className="flex aspect-square items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-stone-100 px-3 text-center text-xs font-medium text-stone-500">
-        Preview unavailable
-      </div>
-    );
-  }
-
-  return (
-    <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt="Listing preview"
-        onError={() => setFailed(true)}
-        className="aspect-square w-full rounded-2xl border border-stone-950/10 bg-stone-100 object-cover"
-      />
-    </>
-  );
-}
-
-function ImagePreviewGrid({urls}: {urls: string[]}) {
-  if (urls.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-stone-950/15 bg-stone-50 px-4 py-6 text-sm text-stone-500">
-        Add one or more valid public image URLs to preview them here.
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {urls.map((url, index) => (
-        <div
-          key={`${url}:${index}`}
-          className="overflow-hidden rounded-[1.25rem] border border-stone-950/10 bg-white p-2 shadow-[0_8px_22px_rgba(68,64,60,0.08)]"
-        >
-          <PreviewImage url={url} />
-          <p className="mt-2 truncate text-xs text-stone-500" title={url}>
-            {url}
-          </p>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -388,7 +339,11 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 Invalid or unreachable images fall back gracefully.
               </p>
             </div>
-            <ImagePreviewGrid urls={imageUrlValidation.urls} />
+            <ListingImageGallery
+              listingId={listing.listing_id}
+              imageUrls={imageUrlValidation.urls}
+              emptyLabel="Add one or more valid public image URLs to preview them here."
+            />
           </div>
         </form>
       </div>

@@ -26,6 +26,7 @@ config.toml
 **/roadmap.md
 **/SPEC.md
 **/spec.md
+.github/
 
 # Logs
 logs

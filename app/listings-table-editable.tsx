@@ -3,6 +3,7 @@
 import {Fragment, useState} from "react";
 
 import {ListingEditForm} from "@/app/listing-edit-form";
+import {ListingImageGallery} from "@/app/listing-image-gallery";
 import type {Listing} from "@/lib/sidecar-api";
 
 function formatPrice(price: number | null): string {
@@ -29,16 +30,18 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
   );
 
   return (
-    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80">
-      <div className="overflow-x-auto">
+    <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
+      <div className="max-h-[24rem] overflow-auto">
+        <div className="overflow-x-auto">
         <table className="min-w-full border-collapse">
-          <thead>
-            <tr className="border-b border-stone-950/10 bg-stone-100/80 text-left">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b border-stone-950/10 bg-stone-100/95 text-left backdrop-blur">
               {[
                 "listing_id",
                 "status",
                 "sub_status",
                 "title",
+                "images",
                 "price",
                 "updated_at",
                 "actions",
@@ -73,6 +76,16 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                     <td className="px-5 py-4 text-sm font-semibold text-stone-900">
                       {listing.title ?? "Untitled listing"}
                     </td>
+                    <td className="px-5 py-4">
+                      <div className="min-w-40">
+                        <ListingImageGallery
+                          listingId={listing.listing_id}
+                          imageUrls={listing.image_urls}
+                          compact
+                          showUrls={false}
+                        />
+                      </div>
+                    </td>
                     <td className="px-5 py-4 text-sm text-stone-600">
                       {formatPrice(listing.price)}
                     </td>
@@ -98,7 +111,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
 
                   {isSelected ? (
                     <tr className="border-b border-stone-950/10 last:border-b-0">
-                      <td colSpan={7} className="px-5 py-5">
+                      <td colSpan={8} className="px-5 py-5">
                         <ListingEditForm
                           key={`${listing.listing_id}:${listing.updated_at}`}
                           listing={listing}
@@ -111,6 +124,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
