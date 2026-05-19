@@ -4,31 +4,32 @@ import {useActionState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {updateListingStatus} from "@/app/listing-status-actions";
-import {getAllowedManualStatusTransitions} from "@/app/listing-status-flow";
+import {
+  getAllowedManualStatusTransitions,
+  getListingStatusLabel,
+  getListingSubStatusLabel,
+} from "@/app/listing-status-flow";
 import {
   initialUpdateListingStatusActionState,
   type UpdateListingStatusActionState,
 } from "@/app/listing-status-state";
 import type {Listing, ListingStatus} from "@/lib/sidecar-api";
 
-function StatusActionButton({
-  disabled,
-  nextStatus,
-}: {
-  disabled: boolean;
-  nextStatus: ListingStatus;
-}) {
-  const {pending} = useFormStatus();
+function StatusActionButton({nextStatus}: {nextStatus: ListingStatus}) {
+  const {data, pending} = useFormStatus();
+  const submittedStatus = data?.get("next_status");
+  const isActiveAction =
+    pending && typeof submittedStatus === "string" && submittedStatus === nextStatus;
 
   return (
     <button
       type="submit"
       name="next_status"
       value={nextStatus}
-      disabled={pending || disabled}
+      disabled={pending}
       className="inline-flex min-w-36 items-center justify-center rounded-full border border-stone-950/15 bg-stone-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
     >
-      {pending ? "Updating..." : nextStatus}
+      {isActiveAction ? "Updating..." : getListingStatusLabel(nextStatus)}
     </button>
   );
 }
@@ -53,7 +54,7 @@ function ReadOnlyStatusField({
 }
 
 export function ListingStatusControls({listing}: {listing: Listing}) {
-  const [state, formAction, pending] = useActionState<
+  const [state, formAction] = useActionState<
     UpdateListingStatusActionState,
     FormData
   >(
@@ -80,10 +81,13 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
       </div>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <ReadOnlyStatusField label="Current status" value={listing.status} />
+        <ReadOnlyStatusField
+          label="Current status"
+          value={getListingStatusLabel(listing.status)}
+        />
         <ReadOnlyStatusField
           label="Current sub-status"
-          value={listing.sub_status}
+          value={getListingSubStatusLabel(listing.sub_status)}
         />
       </div>
 
@@ -94,22 +98,15 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
         {nextStatuses.length > 0 ? (
           <div className="flex flex-wrap gap-3">
             {nextStatuses.map((nextStatus) => (
-              <StatusActionButton
-                key={nextStatus}
-                nextStatus={nextStatus}
-                disabled={false}
-              />
+              <StatusActionButton key={nextStatus} nextStatus={nextStatus} />
             ))}
           </div>
         ) : (
           <p className="rounded-2xl border border-stone-950/10 bg-white/70 px-4 py-3 text-sm text-stone-600">
-            No manual test transitions are available for {listing.status}.
+            No manual test transitions are available for{" "}
+            {getListingStatusLabel(listing.status)}.
           </p>
         )}
-
-        {pending ? (
-          <p className="text-sm text-stone-600">Updating workflow state...</p>
-        ) : null}
       </form>
 
       {state.success ? (
