@@ -3,6 +3,7 @@
 import {Fragment, useState} from "react";
 
 import {ListingEditForm} from "@/app/listing-edit-form";
+import {ListingImageGallery} from "@/app/listing-image-gallery";
 import type {Listing} from "@/lib/sidecar-api";
 
 function formatPrice(price: number | null): string {
@@ -39,6 +40,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                 "status",
                 "sub_status",
                 "title",
+                "images",
                 "price",
                 "updated_at",
                 "actions",
@@ -73,6 +75,16 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                     <td className="px-5 py-4 text-sm font-semibold text-stone-900">
                       {listing.title ?? "Untitled listing"}
                     </td>
+                    <td className="px-5 py-4">
+                      <div className="min-w-40">
+                        <ListingImageGallery
+                          listingId={listing.listing_id}
+                          imageUrls={listing.image_urls}
+                          compact
+                          showUrls={false}
+                        />
+                      </div>
+                    </td>
                     <td className="px-5 py-4 text-sm text-stone-600">
                       {formatPrice(listing.price)}
                     </td>
@@ -98,7 +110,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
 
                   {isSelected ? (
                     <tr className="border-b border-stone-950/10 last:border-b-0">
-                      <td colSpan={7} className="px-5 py-5">
+                      <td colSpan={8} className="px-5 py-5">
                         <ListingEditForm
                           key={`${listing.listing_id}:${listing.updated_at}`}
                           listing={listing}
