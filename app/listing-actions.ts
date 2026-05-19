@@ -4,11 +4,7 @@ import {revalidatePath} from "next/cache";
 
 import {SidecarApiError, updateListing} from "@/lib/sidecar-api";
 import type {Json, UpdateListingInput} from "@/lib/sidecar-api/types";
-
-export interface SaveListingEditsActionState {
-  error: string | null;
-  success: boolean;
-}
+import type {SaveListingEditsActionState} from "@/app/listing-edit-state";
 
 function readTextField(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {

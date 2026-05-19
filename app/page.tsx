@@ -2,7 +2,13 @@ import {Suspense} from "react";
 
 import {CreateListingForm} from "@/app/create-listing-form";
 import {ListingsTableEditable} from "@/app/listings-table-editable";
-import {SidecarApiError, listListings, type Listing} from "@/lib/sidecar-api";
+import {
+  SidecarApiError,
+  getAppSettings,
+  listListings,
+  type AppSettings,
+  type Listing,
+} from "@/lib/sidecar-api";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +25,6 @@ const workflowStates = [
   "needs_review",
   "approved_for_export",
   "listed",
-];
-
-const settings = [
-  ["Capture mode", "single_1_image"],
-  ["Order checks", "4 per day"],
 ];
 
 function ListingsEmptyState() {
@@ -74,9 +75,9 @@ function ListingsLoadingState() {
 }
 
 async function ListingsSection() {
-  const result = await loadListings();
+  const listingsResult = await loadListings();
 
-  if (result.status === "error") {
+  if (listingsResult.status === "error") {
     return (
       <>
         <div className="flex items-end justify-between gap-4">
@@ -93,12 +94,12 @@ async function ListingsSection() {
           </span>
         </div>
 
-        <ListingsErrorState message={result.message} />
+        <ListingsErrorState message={listingsResult.message} />
       </>
     );
   }
 
-  const {listings} = result;
+  const {listings} = listingsResult;
 
   return (
     <>
@@ -144,6 +145,101 @@ async function loadListings(): Promise<
             : "An unexpected error occurred while loading listings.",
     };
   }
+}
+
+async function loadAppSettings(): Promise<
+  | {status: "success"; settings: AppSettings}
+  | {status: "error"; message: string}
+> {
+  try {
+    return {
+      status: "success",
+      settings: await getAppSettings(),
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof SidecarApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "An unexpected error occurred while loading app settings.",
+    };
+  }
+}
+
+function formatSettingValue(value: string | number | null): string {
+  if (value === null) {
+    return "—";
+  }
+
+  return String(value);
+}
+
+async function AppSettingsSection() {
+  const settingsResult = await loadAppSettings();
+
+  return (
+    <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
+      <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
+        App settings
+      </p>
+      {settingsResult.status === "success" ? (
+        <dl className="mt-5 space-y-4">
+          {[
+            ["Capture mode", settingsResult.settings.capture_mode],
+            ["Handling days", settingsResult.settings.handling_days],
+            [
+              "Merchant location key",
+              settingsResult.settings.merchant_location_key,
+            ],
+            [
+              "Shipping profile",
+              settingsResult.settings.default_shipping_profile,
+            ],
+            ["Package type", settingsResult.settings.default_package_type],
+            ["Marketplace", settingsResult.settings.ebay_marketplace_id],
+            ["Order syncs/day", settingsResult.settings.max_order_syncs_per_day],
+            ["Gemini daily limit", settingsResult.settings.gemini_daily_limit],
+            [
+              "R2 retention days after sold",
+              settingsResult.settings.r2_retention_days_after_sold,
+            ],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between gap-4">
+              <dt className="text-sm text-stone-500">{label}</dt>
+              <dd className="text-right font-semibold">
+                {formatSettingValue(value)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-5 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          {settingsResult.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function AppSettingsSectionFallback() {
+  return (
+    <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
+      <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
+        App settings
+      </p>
+      <div className="mt-5 space-y-4">
+        {Array.from({length: 4}).map((_, index) => (
+          <div
+            key={index}
+            className="h-5 animate-pulse rounded-2xl bg-stone-100"
+          />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function ListingsSectionFallback() {
@@ -221,22 +317,9 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
-              <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-                Settings
-              </p>
-              <dl className="mt-5 space-y-4">
-                {settings.map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="flex items-center justify-between gap-4"
-                  >
-                    <dt className="text-sm text-stone-500">{label}</dt>
-                    <dd className="text-right font-semibold">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
+            <Suspense fallback={<AppSettingsSectionFallback />}>
+              <AppSettingsSection />
+            </Suspense>
           </aside>
         </div>
 
