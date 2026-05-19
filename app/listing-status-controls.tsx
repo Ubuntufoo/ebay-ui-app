@@ -3,11 +3,12 @@
 import {useActionState} from "react";
 import {useFormStatus} from "react-dom";
 
+import {updateListingStatus} from "@/app/listing-status-actions";
+import {getAllowedManualStatusTransitions} from "@/app/listing-status-flow";
 import {
   initialUpdateListingStatusActionState,
-  updateListingStatus,
-} from "@/app/listing-status-actions";
-import {getAllowedManualStatusTransitions} from "@/app/listing-status-flow";
+  type UpdateListingStatusActionState,
+} from "@/app/listing-status-state";
 import type {Listing, ListingStatus} from "@/lib/sidecar-api";
 
 function StatusActionButton({
@@ -52,7 +53,10 @@ function ReadOnlyStatusField({
 }
 
 export function ListingStatusControls({listing}: {listing: Listing}) {
-  const [state, formAction, pending] = useActionState(
+  const [state, formAction, pending] = useActionState<
+    UpdateListingStatusActionState,
+    FormData
+  >(
     updateListingStatus,
     initialUpdateListingStatusActionState,
   );

@@ -6,20 +6,11 @@ import {
   isAllowedNextStatus,
   isManualTestStatus,
 } from "@/app/listing-status-flow";
+import type {UpdateListingStatusActionState} from "@/app/listing-status-state";
 import {
   SidecarApiError,
   updateListingWorkflowState,
 } from "@/lib/sidecar-api";
-
-export interface UpdateListingStatusActionState {
-  error: string | null;
-  success: string | null;
-}
-
-export const initialUpdateListingStatusActionState: UpdateListingStatusActionState = {
-  error: null,
-  success: null,
-};
 
 function readTextField(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
