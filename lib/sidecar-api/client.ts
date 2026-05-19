@@ -7,6 +7,7 @@ import type {
   Listing,
   ListingsResponse,
   UpdateListingInput,
+  UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
   SidecarErrorResponse,
 } from "@/lib/sidecar-api/types";
@@ -155,6 +156,23 @@ export async function updateListing(
     {
       method: "PATCH",
       body: JSON.stringify(mapUpdateListingInput(patch)),
+      headers: {
+        ...buildHeaders(),
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
+export async function updateListingImageUrls(
+  listingId: string,
+  input: UpdateListingImageUrlsInput,
+): Promise<Listing> {
+  return await sidecarFetch<Listing>(
+    `/api/listings/${encodeURIComponent(listingId)}/image-urls`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
       headers: {
         ...buildHeaders(),
         "Content-Type": "application/json",

@@ -4,6 +4,7 @@ export {
   getListing,
   listListings,
   updateListing,
+  updateListingImageUrls,
   updateListingWorkflowState,
   SidecarApiError,
 } from "@/lib/sidecar-api/client";
@@ -15,6 +16,7 @@ export type {
   ListingSubStatus,
   ListingsResponse,
   UpdateListingInput,
+  UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
   SidecarErrorResponse,
   SidecarValidationErrorDetail,
