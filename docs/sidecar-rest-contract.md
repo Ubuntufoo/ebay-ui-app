@@ -29,6 +29,7 @@ Examples:
 - `GET {SIDECAR_API_URL}/api/listings`
 - `GET {SIDECAR_API_URL}/api/listings/:listingId`
 - `PATCH {SIDECAR_API_URL}/api/listings/:listingId`
+- `PATCH {SIDECAR_API_URL}/api/listings/:listingId/workflow-state`
 - `GET {SIDECAR_API_URL}/api/app-settings`
 
 ## Response shapes
@@ -134,6 +135,29 @@ Notes:
 
 - The sidecar schema is strict, so unexpected keys are rejected with `400`.
 - The backend maps these request fields onto the editable `listings` columns before persisting the update.
+
+### `PATCH /api/listings/:listingId/workflow-state`
+
+Updates listing workflow state through the dedicated backend workflow route and
+returns the full updated `listings` table row.
+
+Request body:
+
+```json
+{
+  "status": "assets_ready",
+  "subStatus": "idle"
+}
+```
+
+Notes:
+
+- This route is separate from seller-editable listing field updates.
+- The backend requires both `status` and `subStatus`.
+- The backend validates the workflow-state pair before persistence.
+- `idle` is accepted by the backend as the canonical fallback `subStatus` for
+  each workflow phase.
+- Do not send workflow fields through `PATCH /api/listings/:listingId`.
 
 ### `GET /api/app-settings`
 

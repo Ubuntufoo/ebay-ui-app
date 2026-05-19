@@ -5,6 +5,7 @@ import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
 import {initialSaveListingEditsActionState} from "@/app/listing-edit-state";
+import {ListingStatusControls} from "@/app/listing-status-controls";
 import type {Listing} from "@/lib/sidecar-api";
 
 function formatItemSpecifics(value: Listing["item_specifics"]): string {
@@ -64,7 +65,11 @@ export function ListingEditForm({listing}: {listing: Listing}) {
         </span>
       </div>
 
-      <form action={formAction} className="mt-4 grid gap-4">
+      <div className="mt-4">
+        <ListingStatusControls listing={listing} />
+      </div>
+
+      <form action={formAction} className="mt-4 grid gap-4 border-t border-stone-950/10 pt-4">
         <input type="hidden" name="listing_id" value={listing.listing_id} />
 
         <label className="block">

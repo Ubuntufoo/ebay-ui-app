@@ -6,6 +6,40 @@ export type Json =
   | {[key: string]: Json | undefined}
   | Json[];
 
+export const listingStatuses = [
+  "record_created",
+  "image_processing_queued",
+  "images_processed",
+  "assets_ready",
+  "generating",
+  "needs_review",
+  "approved_for_export",
+  "listed",
+  "sold",
+] as const;
+
+export type ListingStatus = (typeof listingStatuses)[number];
+
+export const listingSubStatuses = [
+  "grouping_images",
+  "preparing_files",
+  "waiting_for_image_worker",
+  "processing_images",
+  "waiting_for_r2_upload",
+  "waiting_for_seller_hints",
+  "ready_to_generate",
+  "ai_call_in_progress",
+  "review_pending",
+  "publish_queued",
+  "publishing_to_ebay",
+  "active_live",
+  "awaiting_packaging",
+  "shipped",
+  "idle",
+] as const;
+
+export type ListingSubStatus = (typeof listingSubStatuses)[number];
+
 export interface Listing {
   approved_for_export_at: string | null;
   capture_mode: string | null;
@@ -40,8 +74,8 @@ export interface Listing {
   shipping_profile: string | null;
   sku: string | null;
   sold_at: string | null;
-  status: string;
-  sub_status: string;
+  status: ListingStatus;
+  sub_status: ListingSubStatus;
   title: string | null;
   updated_at: string;
 }
@@ -64,6 +98,11 @@ export interface UpdateListingInput {
   price?: number | null;
   sellerHints?: string | null;
   title?: string | null;
+}
+
+export interface UpdateListingWorkflowStateInput {
+  status: ListingStatus;
+  subStatus: ListingSubStatus;
 }
 
 export interface AppSettings {
