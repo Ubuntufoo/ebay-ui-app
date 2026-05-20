@@ -5,7 +5,6 @@ import type {Listing} from "@/lib/sidecar-api/types";
 const GENERATE_AI_JOB_TYPE = "generate_ai" as const;
 const JOB_STATUS_QUEUED = "queued" as const;
 const JOB_STATUS_RUNNING = "running" as const;
-const GENERATE_AI_ACTIVE_JOB_UNIQUE_INDEX = "jobs_generate_ai_active_listing_idx";
 const POSTGRES_UNIQUE_VIOLATION_CODE = "23505";
 
 interface SupabaseAdminConfig {
@@ -66,12 +65,23 @@ function isSupabaseErrorWithCode(value: unknown): value is SupabaseErrorWithCode
   return typeof value === "object" && value !== null && "message" in value;
 }
 
-function isActiveGenerateAiConflict(error: unknown): error is SupabaseErrorWithCode {
-  return (
-    isSupabaseErrorWithCode(error) &&
-    error.code === POSTGRES_UNIQUE_VIOLATION_CODE &&
-    error.message.includes(GENERATE_AI_ACTIVE_JOB_UNIQUE_INDEX)
-  );
+function isUniqueViolation(error: unknown): error is SupabaseErrorWithCode {
+  return isSupabaseErrorWithCode(error) && error.code === POSTGRES_UNIQUE_VIOLATION_CODE;
+}
+
+async function getActiveGenerateAiJob(
+  client: ReturnType<typeof createSupabaseAdminClient>,
+  listingId: string,
+) {
+  return await client
+    .from("jobs")
+    .select("id")
+    .eq("listing_id", listingId)
+    .eq("job_type", GENERATE_AI_JOB_TYPE)
+    .in("status", [JOB_STATUS_QUEUED, JOB_STATUS_RUNNING])
+    .order("created_at", {ascending: false})
+    .limit(1)
+    .maybeSingle();
 }
 
 async function getListingStatusRow(
@@ -111,16 +121,8 @@ async function insertGenerateAiJob(
     };
   }
 
-  if (isActiveGenerateAiConflict(error)) {
-    const activeJobResult = await client
-      .from("jobs")
-      .select("id")
-      .eq("listing_id", listingId)
-      .eq("job_type", GENERATE_AI_JOB_TYPE)
-      .in("status", [JOB_STATUS_QUEUED, JOB_STATUS_RUNNING])
-      .order("created_at", {ascending: false})
-      .limit(1)
-      .maybeSingle();
+  if (isUniqueViolation(error)) {
+    const activeJobResult = await getActiveGenerateAiJob(client, listingId);
 
     if (activeJobResult.error) {
       throw new Error(activeJobResult.error.message);

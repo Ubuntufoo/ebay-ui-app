@@ -175,8 +175,7 @@ describe("enqueueGenerateAiJob", () => {
       },
       insertError: {
         code: "23505",
-        message:
-          'duplicate key value violates unique constraint "jobs_generate_ai_active_listing_idx"',
+        message: "duplicate key value violates unique constraint",
       },
       activeJob: {id: "job-123"},
     });
@@ -186,6 +185,24 @@ describe("enqueueGenerateAiJob", () => {
     expect(result).toEqual({
       alreadyQueued: true,
     });
+  });
+
+  it("surfaces unique-violation failures when no active job exists", async () => {
+    buildClient({
+      listing: {
+        listing_id: "LIST-001",
+        status: "assets_ready",
+      },
+      insertError: {
+        code: "23505",
+        message: "duplicate key value violates unique constraint",
+      },
+      activeJob: null,
+    });
+
+    await expect(
+      enqueueGenerateAiJob("LIST-001", buildEnv()),
+    ).rejects.toThrow("duplicate key value violates unique constraint");
   });
 
   it("rejects non-assets-ready listings", async () => {
