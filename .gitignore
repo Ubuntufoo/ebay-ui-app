@@ -15,9 +15,13 @@ agents/logs/
 # Documentation
 PROVIDERS.md
 SPEC.md
-AGENTS.md
 ROADMAP.md
 config.toml
+
+# --- AI Tooling Engines & Local Hooks ---
+.codex-plugins/
+.rtk/
+.agents/skills/
 
 # Ignore repo-local spec/agent/roadmap docs (case-insensitive)
 **/AGENTS.md
@@ -26,7 +30,6 @@ config.toml
 **/roadmap.md
 **/SPEC.md
 **/spec.md
-.github/
 
 # Logs
 logs
