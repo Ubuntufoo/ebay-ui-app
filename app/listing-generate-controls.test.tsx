@@ -75,17 +75,24 @@ describe("ListingGenerateControls", () => {
   });
 
   it("shows Generate only for assets_ready", () => {
-    const {rerender} = render(
-      <ListingGenerateControls listing={buildListing("assets_ready")} />,
-    );
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
     expect(screen.getByRole("button", {name: "Generate"})).not.toBeNull();
+  });
 
-    rerender(<ListingGenerateControls listing={buildListing("generating")} />);
+  it.each([
+    "record_created",
+    "image_processing_queued",
+    "images_processed",
+    "generating",
+    "needs_review",
+    "approved_for_export",
+    "listed",
+    "sold",
+  ] as const)("hides Generate for %s", (status) => {
+    render(<ListingGenerateControls listing={buildListing(status)} />);
 
-    expect(
-      screen.queryByRole("button", {name: "Generate"}),
-    ).toBeNull();
+    expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
   });
 
   it("submits listing id and shows pending state", async () => {

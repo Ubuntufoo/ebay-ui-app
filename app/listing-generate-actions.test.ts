@@ -11,11 +11,8 @@ vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
 }));
 
-vi.mock("@/lib/sidecar-api", () => ({
+vi.mock("@/lib/supabase/admin", () => ({
   enqueueGenerateAiJob: enqueueGenerateAiJobMock,
-  SidecarApiError: class SidecarApiError extends Error {
-    status = 500;
-  },
 }));
 
 describe("enqueueGenerateListing", () => {

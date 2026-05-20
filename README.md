@@ -20,6 +20,10 @@ Server-side sidecar access can also use:
 
 - `SIDECAR_API_BEARER_TOKEN` - optional bearer token for sidecar REST requests when OAuth is enabled
 
+Server-side Supabase access for privileged actions also uses:
+
+- `SUPABASE_SERVICE_ROLE_KEY` - required for server actions that need direct Supabase writes
+
 The current backend route code protects `/api` with bearer-token auth unless the sidecar runs with `OAUTH_ENABLED=false`. A legacy `SIDECAR_API_KEY` flow was not found in the current backend route implementation.
 
 Recommended local setup:

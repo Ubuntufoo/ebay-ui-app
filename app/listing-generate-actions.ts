@@ -2,12 +2,8 @@
 
 import {revalidatePath} from "next/cache";
 
-import {initialGenerateListingActionState} from "@/app/listing-generate-state";
 import type {GenerateListingActionState} from "@/app/listing-generate-state";
-import {
-  SidecarApiError,
-  enqueueGenerateAiJob,
-} from "@/lib/sidecar-api";
+import {enqueueGenerateAiJob} from "@/lib/supabase/admin";
 
 function readTextField(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -36,17 +32,15 @@ export async function enqueueGenerateListing(
     revalidatePath("/");
 
     return {
-      ...initialGenerateListingActionState,
+      error: null,
       success: `Queued generate_ai for ${listingId}.`,
     };
   } catch (error) {
     return {
       error:
-        error instanceof SidecarApiError
+        error instanceof Error
           ? error.message
-          : error instanceof Error
-            ? error.message
-            : "An unexpected error occurred while queueing generate_ai.",
+          : "An unexpected error occurred while queueing generate_ai.",
       success: null,
     };
   }

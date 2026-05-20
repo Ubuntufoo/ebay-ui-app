@@ -6,7 +6,6 @@ export {
   updateListing,
   updateListingImageUrls,
   updateListingWorkflowState,
-  enqueueGenerateAiJob,
   SidecarApiError,
 } from "@/lib/sidecar-api/client";
 export type {
