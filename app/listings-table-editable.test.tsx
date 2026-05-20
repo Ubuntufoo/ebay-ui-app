@@ -92,7 +92,7 @@ describe("ListingsTableEditable", () => {
     updateListingStatusMock.mockReset();
   });
 
-  it("disables open/edit for generating listings and keeps needs_review editable", async () => {
+  it("allows viewing generating listings but keeps controls locked", async () => {
     const user = userEvent.setup();
 
     render(
@@ -104,13 +104,17 @@ describe("ListingsTableEditable", () => {
       />,
     );
 
+    const viewButtons = screen.getAllByRole("button", {name: "View"});
     const openEditButtons = screen.getAllByRole("button", {name: "Open/Edit"});
-    expect(openEditButtons[0]).toHaveProperty("disabled", true);
-    expect(openEditButtons[1]).toHaveProperty("disabled", false);
+    expect(viewButtons).toHaveLength(1);
+    expect(openEditButtons).toHaveLength(1);
 
-    await user.click(openEditButtons[1]);
+    await user.click(viewButtons[0]);
 
     expect(screen.getByText("Edit listing")).not.toBeNull();
-    expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
+    expect(
+      screen.getByText(/AI generation is in progress\. Listing edits are locked/i),
+    ).not.toBeNull();
+    expect(screen.getByLabelText("Title")).toHaveProperty("disabled", true);
   });
 });

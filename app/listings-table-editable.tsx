@@ -60,9 +60,9 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                 const isSelected = selectedListingId === listing.listing_id;
                 const isGenerating = listing.status === "generating";
 
-                return (
-                  <Fragment key={listing.id}>
-                    <tr className="border-b border-stone-950/10">
+              return (
+                <Fragment key={listing.id}>
+                  <tr className="border-b border-stone-950/10">
                       <td className="px-5 py-4 font-mono text-sm text-stone-600">
                         {listing.listing_id}
                       </td>
@@ -96,10 +96,9 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                       <td className="px-5 py-4 text-sm text-stone-600">
                         <button
                           type="button"
-                          disabled={isGenerating}
                           title={
                             isGenerating
-                              ? "Listing is generating and cannot be edited yet."
+                              ? "View locked listing"
                               : "Open listing editor"
                           }
                           onClick={() =>
@@ -109,12 +108,12 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                                 : listing.listing_id,
                             )
                           }
-                          className="inline-flex rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-100 disabled:text-stone-400"
+                          className="inline-flex rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
                         >
-                          Open/Edit
+                          {isGenerating ? "View" : "Open/Edit"}
                         </button>
                       </td>
-                    </tr>
+                  </tr>
 
                     {isSelected ? (
                       <tr className="border-b border-stone-950/10 last:border-b-0">
