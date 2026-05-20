@@ -132,6 +132,11 @@ describe("ListingEditForm", () => {
     expect(
       screen.queryByText(/AI generation is in progress\. Listing edits are locked/i),
     ).toBeNull();
+    expect(
+      screen.getByText(
+        /AI draft ready for review\. Confirm or edit the generated fields before approving for export\./i,
+      ),
+    ).not.toBeNull();
 
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
     expect(screen.getByLabelText("Item specifics (JSON)")).toHaveProperty(
@@ -142,6 +147,7 @@ describe("ListingEditForm", () => {
       "disabled",
       false,
     );
+    expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
     expect(screen.getByRole("button", {name: "Assets ready"})).toHaveProperty(
       "disabled",
       false,

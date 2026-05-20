@@ -4,6 +4,10 @@ import {Fragment, useState} from "react";
 
 import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
+import {
+  getListingStatusBadgeClassName,
+  getListingStatusLabel,
+} from "@/app/listing-status-flow";
 import type {Listing} from "@/lib/sidecar-api";
 
 function formatPrice(price: number | null): string {
@@ -59,16 +63,28 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
               {listings.map((listing) => {
                 const isSelected = selectedListingId === listing.listing_id;
                 const isGenerating = listing.status === "generating";
+                const actionLabel = isGenerating
+                  ? "View"
+                  : listing.status === "needs_review"
+                    ? "Review"
+                    : "Open/Edit";
+                const actionTitle = isGenerating
+                  ? "View locked listing"
+                  : listing.status === "needs_review"
+                    ? "Review generated draft"
+                    : "Open listing editor";
 
-              return (
-                <Fragment key={listing.id}>
-                  <tr className="border-b border-stone-950/10">
+                return (
+                  <Fragment key={listing.id}>
+                    <tr className="border-b border-stone-950/10">
                       <td className="px-5 py-4 font-mono text-sm text-stone-600">
                         {listing.listing_id}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="inline-flex rounded-full bg-stone-950 px-3 py-1 text-xs font-semibold text-stone-50">
-                          {listing.status}
+                        <span
+                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getListingStatusBadgeClassName(listing.status)}`}
+                        >
+                          {getListingStatusLabel(listing.status)}
                         </span>
                       </td>
                       <td className="px-5 py-4 text-sm text-stone-600">
@@ -96,11 +112,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                       <td className="px-5 py-4 text-sm text-stone-600">
                         <button
                           type="button"
-                          title={
-                            isGenerating
-                              ? "View locked listing"
-                              : "Open listing editor"
-                          }
+                          title={actionTitle}
                           onClick={() =>
                             setSelectedListingId((currentId) =>
                               currentId === listing.listing_id
@@ -110,10 +122,10 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                           }
                           className="inline-flex rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
                         >
-                          {isGenerating ? "View" : "Open/Edit"}
+                          {actionLabel}
                         </button>
                       </td>
-                  </tr>
+                    </tr>
 
                     {isSelected ? (
                       <tr className="border-b border-stone-950/10 last:border-b-0">

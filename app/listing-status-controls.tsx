@@ -6,6 +6,7 @@ import {useFormStatus} from "react-dom";
 import {updateListingStatus} from "@/app/listing-status-actions";
 import {
   getAllowedManualStatusTransitions,
+  getListingStatusBadgeClassName,
   getListingStatusLabel,
   getListingSubStatusLabel,
 } from "@/app/listing-status-flow";
@@ -44,16 +45,20 @@ function StatusActionButton({
 function ReadOnlyStatusField({
   label,
   value,
+  toneClassName,
 }: {
   label: string;
   value: string;
+  toneClassName?: string;
 }) {
   return (
     <div>
       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
         {label}
       </p>
-      <div className="mt-2 rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+      <div
+        className={`mt-2 inline-flex rounded-full border px-4 py-2 text-sm font-semibold ${toneClassName ?? "border-stone-950/10 bg-stone-50 text-stone-700"}`}
+      >
         {value}
       </div>
     </div>
@@ -69,6 +74,7 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
     initialUpdateListingStatusActionState,
   );
   const isGenerating = listing.status === "generating";
+  const isNeedsReview = listing.status === "needs_review";
   const nextStatuses = getAllowedManualStatusTransitions(listing.status);
 
   return (
@@ -92,6 +98,7 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
         <ReadOnlyStatusField
           label="Current status"
           value={getListingStatusLabel(listing.status)}
+          toneClassName={getListingStatusBadgeClassName(listing.status)}
         />
         <ReadOnlyStatusField
           label="Current sub-status"
@@ -103,6 +110,13 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
         <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
           AI generation is in progress. Edits and status actions are locked
           until the draft returns for review.
+        </div>
+      ) : null}
+
+      {isNeedsReview ? (
+        <div className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
+          AI draft ready for review. Confirm or edit the generated fields before
+          approving for export.
         </div>
       ) : null}
 
