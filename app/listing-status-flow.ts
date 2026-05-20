@@ -23,6 +23,18 @@ const listingStatusLabels = {
   sold: "Sold",
 } as const satisfies Record<ListingStatus, string>;
 
+const listingStatusBadgeClasses = {
+  record_created: "border-stone-300 bg-stone-100 text-stone-700",
+  image_processing_queued: "border-sky-300 bg-sky-50 text-sky-800",
+  images_processed: "border-cyan-300 bg-cyan-50 text-cyan-800",
+  assets_ready: "border-blue-300 bg-blue-50 text-blue-800",
+  generating: "border-amber-300 bg-amber-50 text-amber-900",
+  needs_review: "border-emerald-300 bg-emerald-50 text-emerald-900",
+  approved_for_export: "border-violet-300 bg-violet-50 text-violet-800",
+  listed: "border-indigo-300 bg-indigo-50 text-indigo-800",
+  sold: "border-rose-300 bg-rose-50 text-rose-800",
+} as const satisfies Record<ListingStatus, string>;
+
 const listingSubStatusLabels = {
   grouping_images: "Grouping images",
   preparing_files: "Preparing files",
@@ -66,6 +78,10 @@ export function getAllowedManualStatusTransitions(
 
 export function getListingStatusLabel(status: ListingStatus): string {
   return listingStatusLabels[status];
+}
+
+export function getListingStatusBadgeClassName(status: ListingStatus): string {
+  return listingStatusBadgeClasses[status];
 }
 
 export function getListingSubStatusLabel(subStatus: ListingSubStatus): string {

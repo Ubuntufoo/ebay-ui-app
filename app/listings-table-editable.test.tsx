@@ -105,9 +105,9 @@ describe("ListingsTableEditable", () => {
     );
 
     const viewButtons = screen.getAllByRole("button", {name: "View"});
-    const openEditButtons = screen.getAllByRole("button", {name: "Open/Edit"});
+    const reviewButtons = screen.getAllByRole("button", {name: "Review"});
     expect(viewButtons).toHaveLength(1);
-    expect(openEditButtons).toHaveLength(1);
+    expect(reviewButtons).toHaveLength(1);
 
     await user.click(viewButtons[0]);
 
@@ -116,5 +116,26 @@ describe("ListingsTableEditable", () => {
       screen.getByText(/AI generation is in progress\. Listing edits are locked/i),
     ).not.toBeNull();
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", true);
+  });
+
+  it("shows review-ready listings with editable controls and no generate action", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingsTableEditable
+        listings={[buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z")]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", {name: "Review"}));
+
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+    expect(
+      screen.getByText(
+        /AI draft ready for review\. Confirm or edit the generated fields before approving for export\./i,
+      ),
+    ).not.toBeNull();
+    expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
+    expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
   });
 });

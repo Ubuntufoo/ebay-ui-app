@@ -20,7 +20,6 @@ config.toml
 
 # --- AI Tooling Engines & Local Hooks ---
 .codex-plugins/
-.rtk/
 .agents/skills/
 
 # Ignore repo-local spec/agent/roadmap docs (case-insensitive)
