@@ -16,7 +16,13 @@ import {
 } from "@/app/listing-status-state";
 import type {Listing, ListingStatus} from "@/lib/sidecar-api";
 
-function StatusActionButton({nextStatus}: {nextStatus: ListingStatus}) {
+function StatusActionButton({
+  disabled,
+  nextStatus,
+}: {
+  disabled?: boolean;
+  nextStatus: ListingStatus;
+}) {
   const {data, pending} = useFormStatus();
   const submittedStatus = data?.get("next_status");
   const isActiveAction =
@@ -27,7 +33,7 @@ function StatusActionButton({nextStatus}: {nextStatus: ListingStatus}) {
       type="submit"
       name="next_status"
       value={nextStatus}
-      disabled={pending}
+      disabled={pending || disabled}
       className="inline-flex min-w-36 items-center justify-center rounded-full border border-stone-950/15 bg-stone-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
     >
       {isActiveAction ? "Updating..." : getListingStatusLabel(nextStatus)}
@@ -62,6 +68,7 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
     updateListingStatus,
     initialUpdateListingStatusActionState,
   );
+  const isGenerating = listing.status === "generating";
   const nextStatuses = getAllowedManualStatusTransitions(listing.status);
 
   return (
@@ -92,26 +99,39 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
         />
       </div>
 
+      {isGenerating ? (
+        <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          AI generation is in progress. Edits and status actions are locked
+          until the draft returns for review.
+        </div>
+      ) : null}
+
       <div className="mt-4">
         <ListingGenerateControls listing={listing} />
       </div>
 
       <form action={formAction} className="mt-4 grid gap-4">
-        <input type="hidden" name="listing_id" value={listing.listing_id} />
-        <input type="hidden" name="current_status" value={listing.status} />
+        <fieldset disabled={isGenerating} className="grid gap-4">
+          <input type="hidden" name="listing_id" value={listing.listing_id} />
+          <input type="hidden" name="current_status" value={listing.status} />
 
-        {nextStatuses.length > 0 ? (
-          <div className="flex flex-wrap gap-3">
-            {nextStatuses.map((nextStatus) => (
-              <StatusActionButton key={nextStatus} nextStatus={nextStatus} />
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-2xl border border-stone-950/10 bg-white/70 px-4 py-3 text-sm text-stone-600">
-            No manual test transitions are available for{" "}
-            {getListingStatusLabel(listing.status)}.
-          </p>
-        )}
+          {nextStatuses.length > 0 ? (
+            <div className="flex flex-wrap gap-3">
+              {nextStatuses.map((nextStatus) => (
+                <StatusActionButton
+                  key={nextStatus}
+                  disabled={isGenerating}
+                  nextStatus={nextStatus}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-2xl border border-stone-950/10 bg-white/70 px-4 py-3 text-sm text-stone-600">
+              No manual test transitions are available for{" "}
+              {getListingStatusLabel(listing.status)}.
+            </p>
+          )}
+        </fieldset>
       </form>
 
       {state.success ? (
