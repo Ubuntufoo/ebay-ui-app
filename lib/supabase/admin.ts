@@ -4,6 +4,9 @@ import type {Listing} from "@/lib/sidecar-api/types";
 
 const GENERATE_AI_JOB_TYPE = "generate_ai" as const;
 const JOB_STATUS_QUEUED = "queued" as const;
+const JOB_STATUS_RUNNING = "running" as const;
+const GENERATE_AI_ACTIVE_JOB_UNIQUE_INDEX = "jobs_generate_ai_active_listing_idx";
+const POSTGRES_UNIQUE_VIOLATION_CODE = "23505";
 
 interface SupabaseAdminConfig {
   serviceRoleKey: string;
@@ -17,6 +20,15 @@ interface GenerateAiJobInsert {
   listing_id: string;
   next_run_at: null;
   status: typeof JOB_STATUS_QUEUED;
+}
+
+export interface GenerateAiEnqueueResult {
+  alreadyQueued: boolean;
+}
+
+interface SupabaseErrorWithCode {
+  code?: string;
+  message: string;
 }
 
 function getSupabaseAdminConfig(
@@ -50,6 +62,18 @@ function createSupabaseAdminClient(env: NodeJS.ProcessEnv = process.env) {
   });
 }
 
+function isSupabaseErrorWithCode(value: unknown): value is SupabaseErrorWithCode {
+  return typeof value === "object" && value !== null && "message" in value;
+}
+
+function isActiveGenerateAiConflict(error: unknown): error is SupabaseErrorWithCode {
+  return (
+    isSupabaseErrorWithCode(error) &&
+    error.code === POSTGRES_UNIQUE_VIOLATION_CODE &&
+    error.message.includes(GENERATE_AI_ACTIVE_JOB_UNIQUE_INDEX)
+  );
+}
+
 async function getListingStatusRow(
   client: ReturnType<typeof createSupabaseAdminClient>,
   listingId: string,
@@ -70,7 +94,7 @@ async function getListingStatusRow(
 async function insertGenerateAiJob(
   client: ReturnType<typeof createSupabaseAdminClient>,
   listingId: string,
-): Promise<void> {
+): Promise<GenerateAiEnqueueResult> {
   const payload: GenerateAiJobInsert = {
     job_type: GENERATE_AI_JOB_TYPE,
     listing_id: listingId,
@@ -78,17 +102,44 @@ async function insertGenerateAiJob(
     status: JOB_STATUS_QUEUED,
   };
 
-  const {error} = await client.from("jobs").insert(payload).select("id").single();
+  const {data, error} = await client.from("jobs").insert(payload).select("id").single();
 
-  if (error) {
-    throw new Error(error.message);
+  if (!error) {
+    void data;
+    return {
+      alreadyQueued: false,
+    };
   }
+
+  if (isActiveGenerateAiConflict(error)) {
+    const activeJobResult = await client
+      .from("jobs")
+      .select("id")
+      .eq("listing_id", listingId)
+      .eq("job_type", GENERATE_AI_JOB_TYPE)
+      .in("status", [JOB_STATUS_QUEUED, JOB_STATUS_RUNNING])
+      .order("created_at", {ascending: false})
+      .limit(1)
+      .maybeSingle();
+
+    if (activeJobResult.error) {
+      throw new Error(activeJobResult.error.message);
+    }
+
+    if (activeJobResult.data) {
+      return {
+        alreadyQueued: true,
+      };
+    }
+  }
+
+  throw new Error(error.message);
 }
 
 export async function enqueueGenerateAiJob(
   listingId: string,
   env: NodeJS.ProcessEnv = process.env,
-): Promise<void> {
+): Promise<GenerateAiEnqueueResult> {
   const client = createSupabaseAdminClient(env);
   const listing = await getListingStatusRow(client, listingId);
 
@@ -102,5 +153,5 @@ export async function enqueueGenerateAiJob(
     );
   }
 
-  await insertGenerateAiJob(client, listingId);
+  return await insertGenerateAiJob(client, listingId);
 }

@@ -53,6 +53,11 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
               {state.error}
             </p>
           ) : null}
+          {state.info ? (
+            <p className="max-w-sm rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+              {state.info}
+            </p>
+          ) : null}
           {state.success ? (
             <p className="max-w-sm rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
               {state.success}

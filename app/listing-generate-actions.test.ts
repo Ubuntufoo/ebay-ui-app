@@ -22,12 +22,12 @@ describe("enqueueGenerateListing", () => {
   });
 
   it("queues generate_ai for a listing", async () => {
-    enqueueGenerateAiJobMock.mockResolvedValueOnce({job_id: "job-123"});
+    enqueueGenerateAiJobMock.mockResolvedValueOnce({alreadyQueued: false});
     const formData = new FormData();
     formData.set("listing_id", "LIST-001");
 
     const result = await enqueueGenerateListing(
-      {error: null, success: null},
+      {error: null, info: null, success: null},
       formData,
     );
 
@@ -35,13 +35,31 @@ describe("enqueueGenerateListing", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
     expect(result).toEqual({
       error: null,
+      info: null,
       success: "Queued generate_ai for LIST-001.",
+    });
+  });
+
+  it("surfaces already queued as info", async () => {
+    enqueueGenerateAiJobMock.mockResolvedValueOnce({alreadyQueued: true});
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+
+    const result = await enqueueGenerateListing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(result).toEqual({
+      error: null,
+      info: "Generate already queued or running for LIST-001.",
+      success: null,
     });
   });
 
   it("rejects missing listing id", async () => {
     const result = await enqueueGenerateListing(
-      {error: null, success: null},
+      {error: null, info: null, success: null},
       new FormData(),
     );
 
@@ -49,6 +67,7 @@ describe("enqueueGenerateListing", () => {
     expect(revalidatePathMock).not.toHaveBeenCalled();
     expect(result).toEqual({
       error: "Listing ID is required.",
+      info: null,
       success: null,
     });
   });
@@ -59,12 +78,13 @@ describe("enqueueGenerateListing", () => {
     formData.set("listing_id", "LIST-001");
 
     const result = await enqueueGenerateListing(
-      {error: null, success: null},
+      {error: null, info: null, success: null},
       formData,
     );
 
     expect(result).toEqual({
       error: "queue failed",
+      info: null,
       success: null,
     });
   });

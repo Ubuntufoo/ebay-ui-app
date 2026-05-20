@@ -9,6 +9,13 @@ const maybeSingleMock = vi.fn();
 const insertMock = vi.fn();
 const singleMock = vi.fn();
 const fromMock = vi.fn();
+const activeSelectMock = vi.fn();
+const activeEqListingMock = vi.fn();
+const activeEqJobTypeMock = vi.fn();
+const activeInMock = vi.fn();
+const activeOrderMock = vi.fn();
+const activeLimitMock = vi.fn();
+const activeMaybeSingleMock = vi.fn();
 const createClientMock = vi.hoisted(() => vi.fn());
 type ListingStatusRow = Pick<Listing, "listing_id" | "status">;
 
@@ -24,15 +31,24 @@ describe("enqueueGenerateAiJob", () => {
     insertMock.mockReset();
     singleMock.mockReset();
     fromMock.mockReset();
+    activeSelectMock.mockReset();
+    activeEqListingMock.mockReset();
+    activeEqJobTypeMock.mockReset();
+    activeInMock.mockReset();
+    activeOrderMock.mockReset();
+    activeLimitMock.mockReset();
+    activeMaybeSingleMock.mockReset();
     createClientMock.mockReset();
   });
 
   function buildClient({
     listing,
     insertError = null,
+    activeJob = null,
   }: {
-    insertError?: Error | null;
+    insertError?: {code?: string; message: string} | null;
     listing: ListingStatusRow | null;
+    activeJob?: {id: string} | null;
   }) {
     maybeSingleMock.mockResolvedValueOnce({
       data: listing,
@@ -58,6 +74,35 @@ describe("enqueueGenerateAiJob", () => {
       })),
     });
 
+    activeMaybeSingleMock.mockResolvedValueOnce({
+      data: activeJob,
+      error: null,
+    });
+
+    activeLimitMock.mockReturnValueOnce({
+      maybeSingle: activeMaybeSingleMock,
+    });
+
+    activeOrderMock.mockReturnValueOnce({
+      limit: activeLimitMock,
+    });
+
+    activeInMock.mockReturnValueOnce({
+      order: activeOrderMock,
+    });
+
+    activeEqJobTypeMock.mockReturnValueOnce({
+      in: activeInMock,
+    });
+
+    activeEqListingMock.mockReturnValueOnce({
+      eq: activeEqJobTypeMock,
+    });
+
+    activeSelectMock.mockReturnValueOnce({
+      eq: activeEqListingMock,
+    });
+
     fromMock.mockImplementation((table: string) => {
       if (table === "listings") {
         return {
@@ -68,6 +113,7 @@ describe("enqueueGenerateAiJob", () => {
       if (table === "jobs") {
         return {
           insert: insertMock,
+          select: activeSelectMock,
         };
       }
 
@@ -118,6 +164,27 @@ describe("enqueueGenerateAiJob", () => {
       listing_id: "LIST-001",
       next_run_at: null,
       status: "queued",
+    });
+  });
+
+  it("returns alreadyQueued when duplicate insert hits DB protection", async () => {
+    buildClient({
+      listing: {
+        listing_id: "LIST-001",
+        status: "assets_ready",
+      },
+      insertError: {
+        code: "23505",
+        message:
+          'duplicate key value violates unique constraint "jobs_generate_ai_active_listing_idx"',
+      },
+      activeJob: {id: "job-123"},
+    });
+
+    const result = await enqueueGenerateAiJob("LIST-001", buildEnv());
+
+    expect(result).toEqual({
+      alreadyQueued: true,
     });
   });
 

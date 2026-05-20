@@ -119,6 +119,7 @@ describe("ListingGenerateControls", () => {
 
   it("shows enqueue errors", async () => {
     enqueueGenerateListingMock.mockResolvedValueOnce({
+      info: null,
       error: "queue failed",
       success: null,
     });
@@ -130,5 +131,23 @@ describe("ListingGenerateControls", () => {
 
     const error = await screen.findByText("queue failed");
     expect(error).not.toBeNull();
+  });
+
+  it("shows info for already queued listings", async () => {
+    enqueueGenerateListingMock.mockResolvedValueOnce({
+      error: null,
+      info: "Generate already queued or running for LIST-001.",
+      success: null,
+    });
+    const user = userEvent.setup();
+
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    await user.click(screen.getByRole("button", {name: "Generate"}));
+
+    const info = await screen.findByText(
+      "Generate already queued or running for LIST-001.",
+    );
+    expect(info).not.toBeNull();
   });
 });

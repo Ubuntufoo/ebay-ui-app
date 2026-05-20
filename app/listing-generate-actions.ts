@@ -23,16 +23,26 @@ export async function enqueueGenerateListing(
   if (!listingId) {
     return {
       error: "Listing ID is required.",
+      info: null,
       success: null,
     };
   }
 
   try {
-    await enqueueGenerateAiJob(listingId);
+    const result = await enqueueGenerateAiJob(listingId);
     revalidatePath("/");
+
+    if (result.alreadyQueued) {
+      return {
+        error: null,
+        info: `Generate already queued or running for ${listingId}.`,
+        success: null,
+      };
+    }
 
     return {
       error: null,
+      info: null,
       success: `Queued generate_ai for ${listingId}.`,
     };
   } catch (error) {
@@ -41,6 +51,7 @@ export async function enqueueGenerateListing(
         error instanceof Error
           ? error.message
           : "An unexpected error occurred while queueing generate_ai.",
+      info: null,
       success: null,
     };
   }
