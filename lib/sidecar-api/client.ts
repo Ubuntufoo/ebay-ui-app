@@ -197,3 +197,12 @@ export async function updateListingWorkflowState(
     },
   );
 }
+
+export async function enqueueGenerateAiJob(listingId: string): Promise<unknown> {
+  return await sidecarFetch<unknown>(
+    `/api/listings/${encodeURIComponent(listingId)}/generate-ai`,
+    {
+      method: "POST",
+    },
+  );
+}
