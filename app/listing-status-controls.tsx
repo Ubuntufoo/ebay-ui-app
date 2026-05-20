@@ -9,6 +9,7 @@ import {
   getListingStatusLabel,
   getListingSubStatusLabel,
 } from "@/app/listing-status-flow";
+import {ListingGenerateControls} from "@/app/listing-generate-controls";
 import {
   initialUpdateListingStatusActionState,
   type UpdateListingStatusActionState,
@@ -89,6 +90,10 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
           label="Current sub-status"
           value={getListingSubStatusLabel(listing.sub_status)}
         />
+      </div>
+
+      <div className="mt-4">
+        <ListingGenerateControls listing={listing} />
       </div>
 
       <form action={formAction} className="mt-4 grid gap-4">
