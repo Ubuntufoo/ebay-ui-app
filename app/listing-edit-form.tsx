@@ -61,6 +61,7 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   const [imageUrlsText, setImageUrlsText] = useState(() =>
     formatListingImageUrls(listing.image_urls),
   );
+  const isGenerating = listing.status === "generating";
 
   const itemSpecificsError = useMemo(() => {
     const trimmed = itemSpecificsText.trim();
@@ -89,9 +90,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   return (
     <div className="rounded-2xl border border-stone-950/10 bg-white/75 p-5 shadow-[0_10px_28px_rgba(68,64,60,0.08)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
           Edit listing
-          </p>
+        </p>
         <span className="rounded-full border border-stone-950/10 bg-stone-100 px-3 py-1 text-xs font-mono text-stone-600">
           {listing.listing_id}
         </span>
@@ -111,149 +112,166 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           }}
           className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
         >
-          <input type="hidden" name="listing_id" value={listing.listing_id} />
-
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Listing details
-              </p>
-              <p className="mt-1 text-sm text-stone-500">
-                Seller-editable fields only.
-              </p>
+          {isGenerating ? (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              AI generation is in progress. Listing edits are locked until the
+              draft is ready for review.
             </div>
-          </div>
-
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Title
-            </span>
-            <input
-              type="text"
-              name="title"
-              defaultValue={listing.title ?? ""}
-              className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Seller hints
-            </span>
-            <textarea
-              name="seller_hints"
-              defaultValue={listing.seller_hints ?? ""}
-              rows={3}
-              className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Description
-            </span>
-            <textarea
-              name="description"
-              defaultValue={listing.description ?? ""}
-              rows={5}
-              className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-            />
-          </label>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Price
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                name="price"
-                defaultValue={
-                  listing.price === null ? "" : String(listing.price)
-                }
-                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Category ID
-              </span>
-              <input
-                type="text"
-                name="category_id"
-                defaultValue={listing.category_id ?? ""}
-                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-              />
-            </label>
-
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Condition ID
-              </span>
-              <input
-                type="text"
-                name="condition_id"
-                defaultValue={listing.condition_id ?? ""}
-                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-              />
-            </label>
-          </div>
-
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Condition notes
-            </span>
-            <textarea
-              name="condition_notes"
-              defaultValue={listing.condition_notes ?? ""}
-              rows={3}
-              className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Item specifics (JSON)
-            </span>
-            <textarea
-              name="item_specifics"
-              value={itemSpecificsText}
-              onChange={(event) => setItemSpecificsText(event.target.value)}
-              rows={8}
-              className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
-            />
-          </label>
-
-          {itemSpecificsError ? (
-            <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {itemSpecificsError}
-            </p>
           ) : null}
 
-          <div className="flex items-center gap-3">
-            <SaveButton
-              disabled={itemSpecificsError !== null}
-              label="Save edits"
-              pendingLabel="Saving..."
-            />
+          <fieldset disabled={isGenerating} className="grid gap-4">
+            <input type="hidden" name="listing_id" value={listing.listing_id} />
+
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Listing details
+                </p>
+                <p className="mt-1 text-sm text-stone-500">
+                  Seller-editable fields only.
+                </p>
+              </div>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Title
+              </span>
+              <input
+                type="text"
+                name="title"
+                defaultValue={listing.title ?? ""}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Seller hints
+              </span>
+              <textarea
+                name="seller_hints"
+                defaultValue={listing.seller_hints ?? ""}
+                rows={3}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Description
+              </span>
+              <textarea
+                name="description"
+                defaultValue={listing.description ?? ""}
+                rows={5}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Price
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  name="price"
+                  defaultValue={
+                    listing.price === null ? "" : String(listing.price)
+                  }
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Category ID
+                </span>
+                <input
+                  type="text"
+                  name="category_id"
+                  defaultValue={listing.category_id ?? ""}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Condition ID
+                </span>
+                <input
+                  type="text"
+                  name="condition_id"
+                  defaultValue={listing.condition_id ?? ""}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Condition notes
+              </span>
+              <textarea
+                name="condition_notes"
+                defaultValue={listing.condition_notes ?? ""}
+                rows={3}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Item specifics (JSON)
+              </span>
+              <textarea
+                name="item_specifics"
+                value={itemSpecificsText}
+                onChange={(event) => setItemSpecificsText(event.target.value)}
+                rows={8}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
             {itemSpecificsError ? (
-              <span className="text-sm text-rose-700">Fix JSON to save.</span>
+              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                {itemSpecificsError}
+              </p>
             ) : null}
-          </div>
 
-          {state.success ? (
-            <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              Listing edits saved.
-            </p>
-          ) : null}
+            <div className="flex items-center gap-3">
+              <SaveButton
+                disabled={isGenerating || itemSpecificsError !== null}
+                label="Save edits"
+                pendingLabel="Saving..."
+              />
+              {itemSpecificsError ? (
+                <span className="text-sm text-rose-700">Fix JSON to save.</span>
+              ) : null}
+            </div>
 
-          {state.error ? (
-            <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {state.error}
-            </p>
-          ) : null}
+            {state.success ? (
+              <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                Listing edits saved.
+              </p>
+            ) : null}
+
+            {state.error ? (
+              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                {state.error}
+              </p>
+            ) : null}
+          </fieldset>
         </form>
 
         <form
@@ -265,86 +283,89 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           }}
           className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
         >
-          <input type="hidden" name="listing_id" value={listing.listing_id} />
+          <fieldset disabled={isGenerating} className="grid gap-4">
+            <input type="hidden" name="listing_id" value={listing.listing_id} />
 
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Image URLs
-              </p>
-              <p className="mt-1 text-sm text-stone-500">
-                Paste one public image URL per line. `r2_object_keys` stay
-                server-owned and hidden here.
-              </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Image URLs
+                </p>
+                <p className="mt-1 text-sm text-stone-500">
+                  Paste one public image URL per line. `r2_object_keys` stay
+                  server-owned and hidden here.
+                </p>
+              </div>
+              <span className="rounded-full border border-stone-950/10 bg-white px-3 py-1 text-xs font-medium text-stone-600">
+                {imageUrlValidation.urls.length} valid URL
+                {imageUrlValidation.urls.length === 1 ? "" : "s"}
+              </span>
             </div>
-            <span className="rounded-full border border-stone-950/10 bg-white px-3 py-1 text-xs font-medium text-stone-600">
-              {imageUrlValidation.urls.length} valid URL
-              {imageUrlValidation.urls.length === 1 ? "" : "s"}
-            </span>
-          </div>
 
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Manual image URLs
-            </span>
-            <textarea
-              name="image_urls"
-              value={imageUrlsText}
-              onChange={(event) => setImageUrlsText(event.target.value)}
-              rows={6}
-              spellCheck={false}
-              className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
-            />
-          </label>
-
-          {imageUrlsError ? (
-            <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {imageUrlsError}
-            </p>
-          ) : null}
-
-          <div className="grid gap-3">
-            <div className="flex items-center gap-3">
-              <SaveButton
-                disabled={imageUrlsError !== null}
-                label="Save image URLs"
-                pendingLabel="Saving URLs..."
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Manual image URLs
+              </span>
+              <textarea
+                name="image_urls"
+                value={imageUrlsText}
+                onChange={(event) => setImageUrlsText(event.target.value)}
+                rows={6}
+                spellCheck={false}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
               />
-              {imageUrlsError ? (
-                <span className="text-sm text-rose-700">
-                  Fix invalid URLs to save.
-                </span>
+            </label>
+
+            {imageUrlsError ? (
+              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                {imageUrlsError}
+              </p>
+            ) : null}
+
+            <div className="grid gap-3">
+              <div className="flex items-center gap-3">
+                <SaveButton
+                  disabled={isGenerating || imageUrlsError !== null}
+                  label="Save image URLs"
+                  pendingLabel="Saving URLs..."
+                />
+                {imageUrlsError ? (
+                  <span className="text-sm text-rose-700">
+                    Fix invalid URLs to save.
+                  </span>
+                ) : null}
+              </div>
+
+              {imageUrlState.success ? (
+                <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                  Image URLs saved.
+                </p>
+              ) : null}
+
+              {imageUrlState.error ? (
+                <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                  {imageUrlState.error}
+                </p>
               ) : null}
             </div>
 
-            {imageUrlState.success ? (
-              <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                Image URLs saved.
-              </p>
-            ) : null}
-
-            {imageUrlState.error ? (
-              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                {imageUrlState.error}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="grid gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Preview
-              </p>
-              <p className="text-xs text-stone-500">
-                Invalid or unreachable images fall back gracefully.
-              </p>
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Preview
+                </p>
+                <p className="text-xs text-stone-500">
+                  Invalid or unreachable images fall back gracefully.
+                </p>
+              </div>
+              <ListingImageGallery
+                listingId={listing.listing_id}
+                imageUrls={imageUrlValidation.urls}
+                emptyLabel="Add one or more valid public image URLs to preview them here."
+              />
             </div>
-            <ListingImageGallery
-              listingId={listing.listing_id}
-              imageUrls={imageUrlValidation.urls}
-              emptyLabel="Add one or more valid public image URLs to preview them here."
-            />
-          </div>
+          </fieldset>
         </form>
       </div>
     </div>
