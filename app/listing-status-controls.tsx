@@ -10,6 +10,7 @@ import {
   getListingStatusLabel,
   getListingSubStatusLabel,
 } from "@/app/listing-status-flow";
+import {getListingPricingLinks} from "@/app/listing-pricing-links";
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
 import {
   initialUpdateListingStatusActionState,
@@ -76,6 +77,7 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
   const isGenerating = listing.status === "generating";
   const isNeedsReview = listing.status === "needs_review";
   const nextStatuses = getAllowedManualStatusTransitions(listing.status);
+  const pricingLinks = isNeedsReview ? getListingPricingLinks(listing) : [];
 
   return (
     <section className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-5">
@@ -117,6 +119,34 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
         <div className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
           AI draft ready for review. Confirm or edit the generated fields before
           approving for export.
+        </div>
+      ) : null}
+
+      {pricingLinks.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-stone-950/10 bg-white/70 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
+                Pricing research
+              </p>
+              <p className="mt-1 text-sm leading-6 text-stone-600">
+                Open external comps from the current draft fields.
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {pricingLinks.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
         </div>
       ) : null}
 

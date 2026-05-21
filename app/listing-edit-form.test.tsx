@@ -52,7 +52,12 @@ function buildListing(status: Listing["status"]): Listing {
     handling_days: null,
     id: "listing-row-id",
     image_urls: ["https://example.com/image.jpg"],
-    item_specifics: {color: "blue"},
+    item_specifics: {
+      "Card Number": "1",
+      Player: "Mike Trout",
+      Set: "Topps Chrome",
+      Year: "2023",
+    },
     last_error_at: null,
     last_error_code: null,
     listing_id: "LIST-001",
@@ -70,7 +75,7 @@ function buildListing(status: Listing["status"]): Listing {
     sold_at: null,
     status,
     sub_status: "idle",
-    title: "Visible title",
+    title: "2023 Mike Trout Topps Chrome Rookie Card",
     updated_at: "2026-05-20T00:00:00.000Z",
   };
 }
@@ -124,6 +129,8 @@ describe("ListingEditForm", () => {
       "disabled",
       true,
     );
+    expect(screen.queryByRole("link", {name: "130point"})).toBeNull();
+    expect(screen.queryByRole("link", {name: "SportsCardsPro"})).toBeNull();
   });
 
   it("keeps normal edit behavior available for needs_review", () => {
@@ -152,5 +159,18 @@ describe("ListingEditForm", () => {
       "disabled",
       false,
     );
+
+    expect(
+      screen.getByRole("link", {name: "130point"}).getAttribute("href"),
+    ).toContain("130point.com/search#q=");
+    expect(
+      screen.getByRole("link", {name: "130point"}).getAttribute("target"),
+    ).toBe("_blank");
+    expect(
+      screen.getByRole("link", {name: "SportsCardsPro"}).getAttribute("href"),
+    ).toContain("sportscardspro.com/search-products?q=");
+    expect(
+      screen.getByRole("link", {name: "SportsCardsPro"}).getAttribute("href"),
+    ).toContain("type=prices");
   });
 });
