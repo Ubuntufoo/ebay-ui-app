@@ -1,7 +1,7 @@
 ## Repo Overview
 
 Murphy Family Hobby's eBay Inventory Manager — a local-first desktop/web app for creating and managing eBay listings. 
-This repository contains the UI and tooling for a local-first listing workflow (Watcher, Gemini, Supabase, eBay APIs). The UI is separated from the sibling `backend-services` repo, which handles OAuth, eBay API calls, queued jobs, R2 proxying, and AI integrations. The UI communicates with the sidecar via authenticated HTTP APIs or Supabase events. Agents coordinate the pipeline: Watcher → AI → Draft creation → User review → eBay publish.
+This repository contains the UI and tooling for a local-first listing workflow (Watcher, Gemini, Supabase, eBay APIs).
 
 ## Key Commands
 

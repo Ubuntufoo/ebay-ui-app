@@ -1,6 +1,6 @@
 import type {Listing} from "@/lib/sidecar-api";
 
-function isHttpUrl(value: string): boolean {
+export function isHttpListingImageUrl(value: string): boolean {
   try {
     const url = new URL(value);
     return url.protocol === "http:" || url.protocol === "https:";
@@ -22,7 +22,7 @@ export function parseListingImageUrlsInput(value: string): {
   const invalidUrls: string[] = [];
 
   for (const line of lines) {
-    if (isHttpUrl(line)) {
+    if (isHttpListingImageUrl(line)) {
       urls.push(line);
     } else {
       invalidUrls.push(line);
@@ -40,7 +40,24 @@ export function readListingImageUrls(value: Listing["image_urls"]): string[] {
     return [];
   }
 
-  return value.filter((item): item is string => typeof item === "string");
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item !== "");
+}
+
+export function countListingImageUrls(value: Listing["image_urls"]): number {
+  return readListingImageUrls(value).length;
+}
+
+export function getListingImagePreviewUrl(
+  value: Listing["image_urls"],
+): string | null {
+  return readListingImageUrls(value).find(isHttpListingImageUrl) ?? null;
+}
+
+export function getRemoteListingImageUrls(value: Listing["image_urls"]): string[] {
+  return readListingImageUrls(value).filter(isHttpListingImageUrl);
 }
 
 export function formatListingImageUrls(value: Listing["image_urls"]): string {
