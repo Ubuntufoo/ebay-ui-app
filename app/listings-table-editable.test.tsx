@@ -38,6 +38,7 @@ function buildListing(
   listingId: string,
   status: Listing["status"],
   updatedAt: string,
+  overrides: Partial<Listing> = {},
 ): Listing {
   return {
     approved_for_export_at: null,
@@ -60,6 +61,7 @@ function buildListing(
     item_specifics: {},
     last_error_at: null,
     last_error_code: null,
+    last_error_message: null,
     listing_id: listingId,
     listing_type: null,
     merchant_location_key: null,
@@ -77,6 +79,7 @@ function buildListing(
     sub_status: "idle",
     title: null,
     updated_at: updatedAt,
+    ...overrides,
   };
 }
 
@@ -137,5 +140,37 @@ describe("ListingsTableEditable", () => {
     ).not.toBeNull();
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
     expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
+  });
+
+  it("renders intake rows, safe local image placeholders, and error details", () => {
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("LIST-LOCAL", "record_created", "2026-05-20T02:00:00.000Z", {
+            image_urls: ["/Users/test/local-1.jpg", "/Users/test/local-2.jpg"],
+            last_error_code: "r2_upload_failed",
+            last_error_message: "Could not upload intake images.",
+            sub_status: "waiting_for_r2_upload",
+          }),
+          buildListing("LIST-READY", "assets_ready", "2026-05-20T03:00:00.000Z", {
+            image_urls: [
+              "/Users/test/local-3.jpg",
+              "https://example.com/photo.jpg",
+            ],
+            sub_status: "processing_images",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByText("Intake created").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Assets ready").length).toBeGreaterThan(0);
+    expect(screen.getByText("Local images pending upload")).not.toBeNull();
+    expect(screen.getAllByText("2 images")).toHaveLength(2);
+    expect(screen.getByRole("img", {name: "LIST-READY image 1"})).not.toBeNull();
+    expect(screen.getByText("Needs attention")).not.toBeNull();
+    expect(screen.getByText("r2_upload_failed")).not.toBeNull();
+    expect(screen.getByText("Could not upload intake images.")).not.toBeNull();
+    expect(screen.queryByRole("button", {name: "Open/Edit"})).toBeNull();
   });
 });

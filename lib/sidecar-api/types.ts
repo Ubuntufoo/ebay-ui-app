@@ -61,6 +61,7 @@ export interface Listing {
   item_specifics: Json;
   last_error_at: string | null;
   last_error_code: string | null;
+  last_error_message?: string | null;
   listing_id: string;
   listing_type: "single" | "lot" | null;
   merchant_location_key: string | null;

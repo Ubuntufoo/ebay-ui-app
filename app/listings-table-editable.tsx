@@ -7,6 +7,7 @@ import {ListingImageGallery} from "@/app/listing-image-gallery";
 import {
   getListingStatusBadgeClassName,
   getListingStatusLabel,
+  getListingSubStatusLabel,
 } from "@/app/listing-status-flow";
 import type {Listing} from "@/lib/sidecar-api";
 
@@ -28,10 +29,30 @@ function formatUpdatedAt(updatedAt: string): string {
   }).format(new Date(updatedAt));
 }
 
+function sortNewestFirst(listings: Listing[]): Listing[] {
+  return [...listings].sort((left, right) => {
+    const updatedDelta =
+      new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+
+    if (updatedDelta !== 0) {
+      return updatedDelta;
+    }
+
+    return (
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    );
+  });
+}
+
+function isIntakeListing(status: Listing["status"]): boolean {
+  return status === "record_created" || status === "assets_ready";
+}
+
 export function ListingsTableEditable({listings}: {listings: Listing[]}) {
   const [selectedListingId, setSelectedListingId] = useState<string | null>(
     null,
   );
+  const sortedListings = sortNewestFirst(listings);
 
   return (
     <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
@@ -60,9 +81,10 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
               </tr>
             </thead>
             <tbody>
-              {listings.map((listing) => {
+              {sortedListings.map((listing) => {
                 const isSelected = selectedListingId === listing.listing_id;
                 const isGenerating = listing.status === "generating";
+                const intakeOnly = isIntakeListing(listing.status);
                 const actionLabel = isGenerating
                   ? "View"
                   : listing.status === "needs_review"
@@ -76,19 +98,43 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
 
                 return (
                   <Fragment key={listing.id}>
-                    <tr className="border-b border-stone-950/10">
+                    <tr
+                      className={`border-b border-stone-950/10 ${
+                        intakeOnly ? "bg-stone-100/50" : ""
+                      }`}
+                    >
                       <td className="px-5 py-4 font-mono text-sm text-stone-600">
                         {listing.listing_id}
                       </td>
                       <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getListingStatusBadgeClassName(listing.status)}`}
-                        >
-                          {getListingStatusLabel(listing.status)}
-                        </span>
+                        <div className="space-y-2">
+                          <span
+                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getListingStatusBadgeClassName(listing.status)}`}
+                          >
+                            {getListingStatusLabel(listing.status)}
+                          </span>
+                          {intakeOnly ? (
+                            <div className="inline-flex rounded-full border border-stone-300 bg-stone-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-stone-500">
+                              Intake only
+                            </div>
+                          ) : null}
+                          {listing.last_error_code ? (
+                            <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                              <p className="font-bold uppercase tracking-[0.16em] text-rose-700">
+                                Needs attention
+                              </p>
+                              <p className="mt-1 font-mono">{listing.last_error_code}</p>
+                              {listing.last_error_message ? (
+                                <p className="mt-1 leading-5">
+                                  {listing.last_error_message}
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-sm text-stone-600">
-                        {listing.sub_status}
+                        {getListingSubStatusLabel(listing.sub_status)}
                       </td>
                       <td className="px-5 py-4 text-sm font-semibold text-stone-900">
                         {listing.title ?? "Untitled listing"}
@@ -107,27 +153,46 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                         {formatPrice(listing.price)}
                       </td>
                       <td className="px-5 py-4 text-sm text-stone-600">
-                        {formatUpdatedAt(listing.updated_at)}
+                        <div className="space-y-2">
+                          <div>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">
+                              Created
+                            </p>
+                            <p>{formatUpdatedAt(listing.created_at)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">
+                              Updated
+                            </p>
+                            <p>{formatUpdatedAt(listing.updated_at)}</p>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-sm text-stone-600">
-                        <button
-                          type="button"
-                          title={actionTitle}
-                          onClick={() =>
-                            setSelectedListingId((currentId) =>
-                              currentId === listing.listing_id
-                                ? null
-                                : listing.listing_id,
-                            )
-                          }
-                          className="inline-flex rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
-                        >
-                          {actionLabel}
-                        </button>
+                        {intakeOnly ? (
+                          <span className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">
+                            Read only
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            title={actionTitle}
+                            onClick={() =>
+                              setSelectedListingId((currentId) =>
+                                currentId === listing.listing_id
+                                  ? null
+                                  : listing.listing_id,
+                              )
+                            }
+                            className="inline-flex rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                          >
+                            {actionLabel}
+                          </button>
+                        )}
                       </td>
                     </tr>
 
-                    {isSelected ? (
+                    {!intakeOnly && isSelected ? (
                       <tr className="border-b border-stone-950/10 last:border-b-0">
                         <td colSpan={8} className="px-5 py-5">
                           <ListingEditForm

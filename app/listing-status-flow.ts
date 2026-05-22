@@ -12,7 +12,7 @@ export type AllowedNextManualTestStatus =
   (typeof manualStatusTransitions)[ManualTestStatus][number];
 
 const listingStatusLabels = {
-  record_created: "Record created",
+  record_created: "Intake created",
   image_processing_queued: "Image processing queued",
   images_processed: "Images processed",
   assets_ready: "Assets ready",
