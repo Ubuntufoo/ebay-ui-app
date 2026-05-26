@@ -1,6 +1,6 @@
 "use client";
 
-import {useActionState} from "react";
+import {useActionState, useState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {approveListingForExport} from "@/app/listing-approve-export-actions";
@@ -48,18 +48,34 @@ function StatusActionButton({
   );
 }
 
-function ApproveForExportButton() {
+function ApproveForExportButton({disabled}: {disabled?: boolean}) {
   const {pending} = useFormStatus();
+  const isDisabled = pending || disabled;
 
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={isDisabled}
       className="inline-flex min-w-36 items-center justify-center rounded-full border border-stone-950/15 bg-emerald-700 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
     >
       {pending ? "Approving..." : "Approve For Export"}
     </button>
   );
+}
+
+const FINAL_REVIEW_CHECKLIST_ITEMS = [
+  "Title has been reviewed.",
+  "Price has been reviewed.",
+  "Category/aspects have been reviewed.",
+  "Photos have been reviewed.",
+  "Shipping/condition details have been reviewed.",
+] as const;
+type FinalReviewChecklistItem = (typeof FINAL_REVIEW_CHECKLIST_ITEMS)[number];
+
+function createInitialChecklistState(): Record<FinalReviewChecklistItem, boolean> {
+  return Object.fromEntries(
+    FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => [item, false]),
+  ) as Record<FinalReviewChecklistItem, boolean>;
 }
 
 function ReadOnlyStatusField({
@@ -82,6 +98,71 @@ function ReadOnlyStatusField({
         {value}
       </div>
     </div>
+  );
+}
+
+function ApproveForExportForm({
+  approveFormAction,
+  approveState,
+  listingId,
+  listingStatus,
+}: {
+  approveFormAction: (payload: FormData) => void;
+  approveState: ApproveListingForExportActionState;
+  listingId: string;
+  listingStatus: ListingStatus;
+}) {
+  const [completedChecklistItems, setCompletedChecklistItems] = useState(
+    createInitialChecklistState,
+  );
+  const isReviewChecklistComplete = FINAL_REVIEW_CHECKLIST_ITEMS.every(
+    (item) => completedChecklistItems[item] === true,
+  );
+
+  return (
+    <form action={approveFormAction} className="mt-4 grid gap-4">
+      <input type="hidden" name="listing_id" value={listingId} />
+      <input type="hidden" name="current_status" value={listingStatus} />
+      <div className="rounded-2xl border border-emerald-300 bg-white/80 px-4 py-4">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-800">
+          Final review checklist
+        </p>
+        <p className="mt-2 text-sm leading-6 text-emerald-900">
+          Confirm each item before approving this listing for export. This is a
+          pre-publish safety gate.
+        </p>
+        <div className="mt-3 grid gap-2">
+          {FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => (
+            <label key={item} className="flex items-start gap-2 text-sm text-stone-700">
+              <input
+                type="checkbox"
+                checked={completedChecklistItems[item]}
+                onChange={(event) =>
+                  setCompletedChecklistItems((current) => ({
+                    ...current,
+                    [item]: event.target.checked,
+                  }))
+                }
+              />
+              <span>{item}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <ApproveForExportButton disabled={!isReviewChecklistComplete} />
+      </div>
+      {approveState.success ? (
+        <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {approveState.success}
+        </p>
+      ) : null}
+      {approveState.error ? (
+        <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          {approveState.error}
+        </p>
+      ) : null}
+    </form>
   );
 }
 
@@ -181,23 +262,13 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
       </div>
 
       {isNeedsReview ? (
-        <form action={approveFormAction} className="mt-4 grid gap-4">
-          <input type="hidden" name="listing_id" value={listing.listing_id} />
-          <input type="hidden" name="current_status" value={listing.status} />
-          <div className="flex flex-wrap gap-3">
-            <ApproveForExportButton />
-          </div>
-          {approveState.success ? (
-            <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              {approveState.success}
-            </p>
-          ) : null}
-          {approveState.error ? (
-            <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {approveState.error}
-            </p>
-          ) : null}
-        </form>
+        <ApproveForExportForm
+          key={`${listing.listing_id}:${listing.status}`}
+          approveFormAction={approveFormAction}
+          approveState={approveState}
+          listingId={listing.listing_id}
+          listingStatus={listing.status}
+        />
       ) : null}
 
       <form action={formAction} className="mt-4 grid gap-4">

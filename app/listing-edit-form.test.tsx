@@ -1,4 +1,5 @@
 import {cleanup, render, screen} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {Listing} from "@/lib/sidecar-api";
@@ -136,11 +137,14 @@ describe("ListingEditForm", () => {
       "disabled",
       true,
     );
+    expect(screen.queryByText("Final review checklist")).toBeNull();
+    expect(screen.queryByRole("button", {name: "Approve For Export"})).toBeNull();
     expect(screen.queryByRole("link", {name: "130point"})).toBeNull();
     expect(screen.queryByRole("link", {name: "SportsCardsPro"})).toBeNull();
   });
 
-  it("keeps normal edit behavior available for needs_review", () => {
+  it("keeps normal edit behavior available for needs_review", async () => {
+    const user = userEvent.setup();
     render(<ListingEditForm listing={buildListing("needs_review")} />);
 
     expect(
@@ -166,6 +170,27 @@ describe("ListingEditForm", () => {
       "disabled",
       false,
     );
+    expect(screen.getByText("Final review checklist")).not.toBeNull();
+    expect(
+      screen.getByText(
+        /Confirm each item before approving this listing for export\. This is a pre-publish safety gate\./i,
+      ),
+    ).not.toBeNull();
+
+    const approveButton = screen.getByRole("button", {name: "Approve For Export"});
+    expect(approveButton).toHaveProperty("disabled", true);
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", false);
 
     expect(
       screen.getByRole("link", {name: "130point"}).getAttribute("href"),
