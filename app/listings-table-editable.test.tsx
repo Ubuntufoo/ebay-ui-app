@@ -5,11 +5,13 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {Listing} from "@/lib/sidecar-api";
 
 const {
+  approveListingForExportMock,
   enqueueGenerateListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
   updateListingStatusMock,
 } = vi.hoisted(() => ({
+  approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
@@ -30,6 +32,10 @@ vi.mock("@/app/listing-image-url-actions", () => ({
 
 vi.mock("@/app/listing-status-actions", () => ({
   updateListingStatus: updateListingStatusMock,
+}));
+
+vi.mock("@/app/listing-approve-export-actions", () => ({
+  approveListingForExport: approveListingForExportMock,
 }));
 
 import {ListingsTableEditable} from "@/app/listings-table-editable";
@@ -89,6 +95,7 @@ describe("ListingsTableEditable", () => {
   });
 
   beforeEach(() => {
+    approveListingForExportMock.mockReset();
     enqueueGenerateListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();

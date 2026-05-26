@@ -3,6 +3,11 @@
 import {useActionState} from "react";
 import {useFormStatus} from "react-dom";
 
+import {approveListingForExport} from "@/app/listing-approve-export-actions";
+import {
+  initialApproveListingForExportActionState,
+  type ApproveListingForExportActionState,
+} from "@/app/listing-approve-export-state";
 import {updateListingStatus} from "@/app/listing-status-actions";
 import {
   getAllowedManualStatusTransitions,
@@ -43,6 +48,20 @@ function StatusActionButton({
   );
 }
 
+function ApproveForExportButton() {
+  const {pending} = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex min-w-36 items-center justify-center rounded-full border border-stone-950/15 bg-emerald-700 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
+    >
+      {pending ? "Approving..." : "Approve For Export"}
+    </button>
+  );
+}
+
 function ReadOnlyStatusField({
   label,
   value,
@@ -67,6 +86,13 @@ function ReadOnlyStatusField({
 }
 
 export function ListingStatusControls({listing}: {listing: Listing}) {
+  const [approveState, approveFormAction] = useActionState<
+    ApproveListingForExportActionState,
+    FormData
+  >(
+    approveListingForExport,
+    initialApproveListingForExportActionState,
+  );
   const [state, formAction] = useActionState<
     UpdateListingStatusActionState,
     FormData
@@ -153,6 +179,26 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
       <div className="mt-4">
         <ListingGenerateControls listing={listing} />
       </div>
+
+      {isNeedsReview ? (
+        <form action={approveFormAction} className="mt-4 grid gap-4">
+          <input type="hidden" name="listing_id" value={listing.listing_id} />
+          <input type="hidden" name="current_status" value={listing.status} />
+          <div className="flex flex-wrap gap-3">
+            <ApproveForExportButton />
+          </div>
+          {approveState.success ? (
+            <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              {approveState.success}
+            </p>
+          ) : null}
+          {approveState.error ? (
+            <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+              {approveState.error}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
 
       <form action={formAction} className="mt-4 grid gap-4">
         <fieldset disabled={isGenerating} className="grid gap-4">
