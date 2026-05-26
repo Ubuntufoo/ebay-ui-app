@@ -50,13 +50,6 @@ export async function approveListingForExport(
       };
     }
 
-    if (listing.status !== "needs_review") {
-      return {
-        error: "Only listings in Needs review can be approved for export.",
-        success: null,
-      };
-    }
-
     await updateListingWorkflowState(listingId, {
       status: "approved_for_export",
       subStatus: "publish_queued",
