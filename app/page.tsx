@@ -1,7 +1,7 @@
 import {Suspense} from "react";
 
 import {CreateListingForm} from "@/app/create-listing-form";
-import {ListingsTableEditable} from "@/app/listings-table-editable";
+import {ListingsRealtime} from "@/app/listings-realtime";
 import {
   SidecarApiError,
   getAppSettings,
@@ -152,7 +152,9 @@ async function ListingsSection({
       {listings.length === 0 ? (
         <ListingsEmptyState />
       ) : (
-        <ListingsTableEditable listings={listings} />
+        <ListingsRealtime
+          initialListings={listings}
+        />
       )}
     </>
   );
