@@ -12,9 +12,14 @@
 
 The UI only needs client-side or browser-safe values:
 
-- `SUPABASE_URL` - Supabase project URL
-- `SUPABASE_ANON_KEY` - public anon key used by the UI
+- `NEXT_PUBLIC_SUPABASE_URL` - browser-safe Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` - browser-safe publishable key used by the UI realtime client
 - `SIDECAR_API_URL` - required sidecar REST base URL
+
+Legacy compatibility:
+
+- `SUPABASE_URL` can still backfill the browser URL when `NEXT_PUBLIC_SUPABASE_URL` is not set.
+- `SUPABASE_ANON_KEY` can still backfill the browser realtime key, but only when its JWT `role` claim is `anon`.
 
 Server-side sidecar access can also use:
 

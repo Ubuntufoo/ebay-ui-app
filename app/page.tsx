@@ -9,7 +9,10 @@ import {
   type AppSettings,
   type Listing,
 } from "@/lib/sidecar-api";
-import {getListingsRealtimePublicKey} from "@/lib/supabase/public-key";
+import {
+  getListingsRealtimePublicKey,
+  getListingsRealtimePublicUrl,
+} from "@/lib/supabase/public-key";
 
 export const dynamic = "force-dynamic";
 
@@ -156,7 +159,7 @@ async function ListingsSection({
         <ListingsRealtime
           initialListings={listings}
           realtimeAnonKey={getListingsRealtimePublicKey()}
-          realtimeUrl={process.env.SUPABASE_URL ?? null}
+          realtimeUrl={getListingsRealtimePublicUrl()}
         />
       )}
     </>

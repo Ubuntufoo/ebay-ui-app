@@ -38,6 +38,7 @@ export function ListingsRealtime({
     let queuedRefresh = false;
     let timeoutId: number | null = null;
     let abortController: AbortController | null = null;
+    let hasRetriedAfterSubscribeFailure = false;
 
     async function refreshListings() {
       if (cancelled) {
@@ -110,7 +111,15 @@ export function ListingsRealtime({
           scheduleRefresh();
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (
+          !hasRetriedAfterSubscribeFailure &&
+          (status === "CHANNEL_ERROR" || status === "TIMED_OUT")
+        ) {
+          hasRetriedAfterSubscribeFailure = true;
+          scheduleRefresh();
+        }
+      });
 
     return () => {
       cancelled = true;

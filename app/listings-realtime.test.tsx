@@ -8,6 +8,7 @@ import type {Listing} from "@/lib/sidecar-api";
 const fetchMock = vi.fn();
 const realtimeChannelSubscribeMock = vi.fn();
 const realtimeChannelOnMock = vi.fn();
+const realtimeSubscribeStatusCallbacks: Array<(status: string) => void> = [];
 const realtimeChannel = {
   on: realtimeChannelOnMock,
   subscribe: realtimeChannelSubscribeMock,
@@ -144,7 +145,14 @@ describe("ListingsRealtime", () => {
     saveListingImageUrlsMock.mockReset();
     updateListingStatusMock.mockReset();
     realtimeChannelOnMock.mockReturnValue(realtimeChannel);
-    realtimeChannelSubscribeMock.mockReturnValue(realtimeChannel);
+    realtimeSubscribeStatusCallbacks.length = 0;
+    realtimeChannelSubscribeMock.mockImplementation((callback?: (status: string) => void) => {
+      if (callback) {
+        realtimeSubscribeStatusCallbacks.push(callback);
+      }
+
+      return realtimeChannel;
+    });
     getSupabaseBrowserClientMock.mockReturnValue({
       channel: vi.fn(() => realtimeChannel),
       removeChannel: removeChannelMock,
@@ -256,6 +264,23 @@ describe("ListingsRealtime", () => {
     expect(removeChannelMock).toHaveBeenCalledWith(realtimeChannel);
   });
 
+  it("reconciles once when the realtime subscription fails", async () => {
+    fetchMock.mockResolvedValue(jsonResponse([buildListing()]));
+
+    renderListingsRealtime();
+
+    act(() => {
+      realtimeSubscribeStatusCallbacks[0]?.("CHANNEL_ERROR");
+      realtimeSubscribeStatusCallbacks[0]?.("TIMED_OUT");
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("queues one follow-up refresh when update lands mid-fetch", async () => {
     const realtimePayloadHandlers: Array<(payload: unknown) => void> = [];
     let releaseFetch: (() => void) | null = null;
@@ -289,7 +314,7 @@ describe("ListingsRealtime", () => {
     });
 
     await act(async () => {
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(10);
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
