@@ -8,6 +8,11 @@ import {
   initialApproveListingForExportActionState,
   type ApproveListingForExportActionState,
 } from "@/app/listing-approve-export-state";
+import {retryPublishListingAction} from "@/app/listing-retry-publish-actions";
+import {
+  initialRetryPublishListingActionState,
+  type RetryPublishListingActionState,
+} from "@/app/listing-retry-publish-state";
 import {updateListingStatus} from "@/app/listing-status-actions";
 import {
   getAllowedManualStatusTransitions,
@@ -63,6 +68,21 @@ function ApproveForExportButton({disabled}: {disabled?: boolean}) {
   );
 }
 
+function RetryPublishButton({disabled}: {disabled?: boolean}) {
+  const {pending} = useFormStatus();
+  const isDisabled = pending || disabled;
+
+  return (
+    <button
+      type="submit"
+      disabled={isDisabled}
+      className="inline-flex min-w-36 items-center justify-center rounded-full border border-stone-950/15 bg-amber-700 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
+    >
+      {pending ? "Retrying..." : "Retry Publish"}
+    </button>
+  );
+}
+
 const FINAL_REVIEW_CHECKLIST_ITEMS = [
   "Title has been reviewed.",
   "Price has been reviewed.",
@@ -76,6 +96,73 @@ function createInitialChecklistState(): Record<FinalReviewChecklistItem, boolean
   return Object.fromEntries(
     FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => [item, false]),
   ) as Record<FinalReviewChecklistItem, boolean>;
+}
+
+function getLastErrorCategory(listing: Listing): string | null {
+  const context = listing.last_error_context;
+
+  if (context === null || typeof context !== "object" || Array.isArray(context)) {
+    return null;
+  }
+
+  const category = context.category;
+
+  return typeof category === "string" ? category : null;
+}
+
+function canRetryPublish(listing: Listing): boolean {
+  if (listing.status !== "approved_for_export") {
+    return false;
+  }
+
+  if (listing.sub_status !== "idle" && listing.sub_status !== "publish_queued") {
+    return false;
+  }
+
+  if (!listing.last_error_code) {
+    return false;
+  }
+
+  const errorCategory = getLastErrorCategory(listing);
+  return errorCategory === "user_fixable" || errorCategory === "recoverable";
+}
+
+function RetryPublishForm({listing}: {listing: Listing}) {
+  const [state, formAction] = useActionState<
+    RetryPublishListingActionState,
+    FormData
+  >(retryPublishListingAction, initialRetryPublishListingActionState);
+
+  return (
+    <form
+      key={`${listing.listing_id}:${listing.status}:${listing.sub_status}:${listing.last_error_code ?? ""}`}
+      action={formAction}
+      className="mt-4 grid gap-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-4"
+    >
+      <input type="hidden" name="listing_id" value={listing.listing_id} />
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-800">
+          Publish retry available
+        </p>
+        <p className="mt-2 text-sm leading-6 text-amber-900">
+          Fix the fields above, then retry publish.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <RetryPublishButton />
+      </div>
+      {state.success ? (
+        <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {state.success}
+        </p>
+      ) : null}
+      {state.error ? (
+        <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          {state.error}
+        </p>
+      ) : null}
+    </form>
+  );
 }
 
 function ReadOnlyStatusField({
@@ -183,6 +270,7 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
   );
   const isGenerating = listing.status === "generating";
   const isNeedsReview = listing.status === "needs_review";
+  const canRetryPublishListing = canRetryPublish(listing);
   const nextStatuses = getAllowedManualStatusTransitions(listing.status);
   const pricingLinks = isNeedsReview ? getListingPricingLinks(listing) : [];
 
@@ -260,6 +348,8 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
       <div className="mt-4">
         <ListingGenerateControls listing={listing} />
       </div>
+
+      {canRetryPublishListing ? <RetryPublishForm listing={listing} /> : null}
 
       {isNeedsReview ? (
         <ApproveForExportForm

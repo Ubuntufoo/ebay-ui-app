@@ -61,6 +61,7 @@ export interface Listing {
   item_specifics: Json;
   last_error_at: string | null;
   last_error_code: string | null;
+  last_error_context?: Json | null;
   last_error_message?: string | null;
   listing_id: string;
   listing_type: "single" | "lot" | null;
@@ -89,6 +90,13 @@ export interface EnqueueGenerateAiResponse {
   alreadyQueued: boolean;
   job: Json;
   listing: Listing;
+}
+
+export interface RetryPublishListingResponse {
+  alreadyQueued: boolean;
+  job: Json;
+  listing: Listing;
+  workflow: "generate_ai" | "publish";
 }
 
 export interface CreateListingInput {

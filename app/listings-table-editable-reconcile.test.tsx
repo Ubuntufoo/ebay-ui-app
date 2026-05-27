@@ -7,12 +7,14 @@ import type {Listing} from "@/lib/sidecar-api";
 const {
   approveListingForExportMock,
   enqueueGenerateListingMock,
+  retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
   updateListingStatusMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
+  retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
   updateListingStatusMock: vi.fn(),
@@ -36,6 +38,10 @@ vi.mock("@/app/listing-status-actions", () => ({
 
 vi.mock("@/app/listing-approve-export-actions", () => ({
   approveListingForExport: approveListingForExportMock,
+}));
+
+vi.mock("@/app/listing-retry-publish-actions", () => ({
+  retryPublishListingAction: retryPublishListingMock,
 }));
 
 import {ListingsTableEditable} from "@/app/listings-table-editable";
