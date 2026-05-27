@@ -248,7 +248,8 @@ describe("ListingsTableEditable", () => {
     expect(screen.getByText("r2_upload_failed")).not.toBeNull();
     expect(screen.getByText("Could not upload intake images.")).not.toBeNull();
 
-    await user.click(screen.getByRole("button", {name: "Open/Edit"}));
+    const openEditButton = screen.getByRole("button", {name: "Open/Edit"});
+    await user.click(openEditButton);
 
     expect(screen.getByText("Edit listing")).not.toBeNull();
     expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();

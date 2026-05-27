@@ -61,8 +61,8 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   const [imageUrlsText, setImageUrlsText] = useState(() =>
     formatListingImageUrls(listing.image_urls),
   );
-  const isAssetsReady = listing.status === "assets_ready";
   const isGenerating = listing.status === "generating";
+  const isAssetsReady = listing.status === "assets_ready";
 
   const itemSpecificsError = useMemo(() => {
     const trimmed = itemSpecificsText.trim();
@@ -141,8 +141,8 @@ export function ListingEditForm({listing}: {listing: Listing}) {
             >
               {isGenerating ? (
                 <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                  AI generation is in progress. Listing edits are locked until the
-                  draft is ready for review.
+                  AI generation is in progress. Listing edits are locked until
+                  the draft is ready for review.
                 </div>
               ) : null}
 
@@ -283,7 +283,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                     pendingLabel="Saving..."
                   />
                   {itemSpecificsError ? (
-                    <span className="text-sm text-rose-700">Fix JSON to save.</span>
+                    <span className="text-sm text-rose-700">
+                      Fix JSON to save.
+                    </span>
                   ) : null}
                 </div>
 

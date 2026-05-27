@@ -143,7 +143,7 @@ describe("ListingEditForm", () => {
     expect(screen.queryByRole("link", {name: "SportsCardsPro"})).toBeNull();
   });
 
-  it("keeps assets_ready in pre-generation review mode", () => {
+  it("keeps assets_ready pre-generation fields editable and hides review fields", () => {
     render(
       <ListingEditForm
         listing={{
