@@ -10,14 +10,16 @@ export async function GET() {
 
     return NextResponse.json({listings});
   } catch (error) {
+    if (!(error instanceof SidecarApiError)) {
+      console.error("Failed to load listings for realtime refresh.", error);
+    }
+
     return NextResponse.json(
       {
         error:
           error instanceof SidecarApiError
             ? error.message
-            : error instanceof Error
-              ? error.message
-              : "An unexpected error occurred while loading listings.",
+            : "An unexpected error occurred while loading listings.",
       },
       {status: error instanceof SidecarApiError ? error.status : 500},
     );

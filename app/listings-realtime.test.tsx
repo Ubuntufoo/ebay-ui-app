@@ -1,4 +1,4 @@
-import {cleanup, render, screen, waitFor} from "@testing-library/react";
+import {act, cleanup, render, screen} from "@testing-library/react";
 import {fireEvent} from "@testing-library/react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
@@ -94,6 +94,7 @@ function jsonResponse(listings: Listing[]) {
 
 describe("ListingsRealtime", () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     fetchMock.mockReset();
     approveListingForExportMock.mockReset();
     enqueueGenerateListingMock.mockReset();
@@ -106,6 +107,7 @@ describe("ListingsRealtime", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it("updates visible status and generated fields from polled refreshes", async () => {
@@ -147,12 +149,16 @@ describe("ListingsRealtime", () => {
       />,
     );
 
-    await waitFor(() => expect(refreshCount).toBeGreaterThanOrEqual(1));
-
-    await waitFor(() => expect(refreshCount).toBeGreaterThanOrEqual(2));
-    await waitFor(() => {
-      expect(screen.getByRole("button", {name: "View"})).not.toBeNull();
+    await act(async () => {
+      await Promise.resolve();
     });
+    expect(refreshCount).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(refreshCount).toBe(2);
+    expect(screen.getByRole("button", {name: "View"})).not.toBeNull();
 
     expect(
       screen.queryByText(
@@ -160,10 +166,11 @@ describe("ListingsRealtime", () => {
       ),
     ).toBeNull();
 
-    await waitFor(() => expect(refreshCount).toBeGreaterThanOrEqual(3));
-    await waitFor(() => {
-      expect(screen.getByRole("button", {name: "Review"})).not.toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
     });
+    expect(refreshCount).toBe(3);
+    expect(screen.getByRole("button", {name: "Review"})).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", {name: "Review"}));
 
@@ -193,12 +200,22 @@ describe("ListingsRealtime", () => {
       />,
     );
 
-    await waitFor(() => expect(refreshCount).toBeGreaterThanOrEqual(2));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(refreshCount).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(40);
+    });
+    expect(refreshCount).toBeGreaterThanOrEqual(2);
 
     unmount();
 
     const countAfterUnmount = refreshCount;
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
 
     expect(refreshCount).toBe(countAfterUnmount);
   });
