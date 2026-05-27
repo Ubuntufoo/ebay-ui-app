@@ -1,6 +1,6 @@
 "use client";
 
-import {Fragment, useState} from "react";
+import {Fragment, startTransition, useEffect, useMemo, useState} from "react";
 
 import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
@@ -52,7 +52,24 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
   const [selectedListingId, setSelectedListingId] = useState<string | null>(
     null,
   );
-  const sortedListings = sortNewestFirst(listings);
+  const sortedListings = useMemo(() => sortNewestFirst(listings), [listings]);
+  const selectedListing = useMemo(
+    () =>
+      selectedListingId === null
+        ? null
+        : sortedListings.find((listing) => listing.listing_id === selectedListingId) ??
+          null,
+    [selectedListingId, sortedListings],
+  );
+  const activeSelectedListingId = selectedListing?.listing_id ?? null;
+
+  useEffect(() => {
+    if (selectedListingId !== null && selectedListing === null) {
+      startTransition(() => {
+        setSelectedListingId(null);
+      });
+    }
+  }, [selectedListing, selectedListingId]);
 
   return (
     <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
@@ -82,7 +99,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
             </thead>
             <tbody>
               {sortedListings.map((listing) => {
-                const isSelected = selectedListingId === listing.listing_id;
+                const isSelected = activeSelectedListingId === listing.listing_id;
                 const isGenerating = listing.status === "generating";
                 const intakeOnly = isIntakeListing(listing.status);
                 const actionLabel = isGenerating
@@ -196,7 +213,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                       <tr className="border-b border-stone-950/10 last:border-b-0">
                         <td colSpan={8} className="px-5 py-5">
                           <ListingEditForm
-                            key={`${listing.listing_id}:${listing.updated_at}`}
+                            key={`${listing.listing_id}:${listing.status}:${listing.sub_status}:${listing.updated_at}`}
                             listing={listing}
                           />
                         </td>
