@@ -7,12 +7,14 @@ import type {Listing} from "@/lib/sidecar-api";
 const {
   approveListingForExportMock,
   enqueueGenerateListingMock,
+  retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
   updateListingStatusMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
+  retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
   updateListingStatusMock: vi.fn(),
@@ -38,11 +40,16 @@ vi.mock("@/app/listing-approve-export-actions", () => ({
   approveListingForExport: approveListingForExportMock,
 }));
 
+vi.mock("@/app/listing-retry-publish-actions", () => ({
+  retryPublishListingAction: retryPublishListingMock,
+}));
+
 import {ListingEditForm} from "@/app/listing-edit-form";
 
 function buildListing(
   status: Listing["status"],
   imageUrls: string[] = ["https://example.com/image.jpg"],
+  overrides: Partial<Listing> = {},
 ): Listing {
   return {
     approved_for_export_at: null,
@@ -70,6 +77,7 @@ function buildListing(
     },
     last_error_at: null,
     last_error_code: null,
+    last_error_context: null,
     listing_id: "LIST-001",
     listing_type: null,
     merchant_location_key: null,
@@ -87,6 +95,7 @@ function buildListing(
     sub_status: "idle",
     title: "2023 Mike Trout Topps Chrome Rookie Card",
     updated_at: "2026-05-20T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -98,6 +107,7 @@ describe("ListingEditForm", () => {
   beforeEach(() => {
     approveListingForExportMock.mockReset();
     enqueueGenerateListingMock.mockReset();
+    retryPublishListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
     updateListingStatusMock.mockReset();
@@ -145,6 +155,7 @@ describe("ListingEditForm", () => {
     expect(
       screen.queryByRole("button", {name: "Approve For Export"}),
     ).toBeNull();
+    expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
     expect(screen.queryByRole("link", {name: "130point"})).toBeNull();
     expect(screen.queryByRole("link", {name: "SportsCardsPro"})).toBeNull();
   });
@@ -187,6 +198,7 @@ describe("ListingEditForm", () => {
     expect(
       screen.queryByRole("button", {name: "Approve For Export"}),
     ).toBeNull();
+    expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
 
   it("keeps normal edit behavior available for needs_review", async () => {
@@ -238,6 +250,7 @@ describe("ListingEditForm", () => {
         /Confirm each item before approving this listing for export\. This is a pre-publish safety gate\./i,
       ),
     ).not.toBeNull();
+    expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
 
     const approveButton = screen.getByRole("button", {
       name: "Approve For Export",
@@ -268,5 +281,63 @@ describe("ListingEditForm", () => {
     expect(
       screen.getByRole("link", {name: "SportsCardsPro"}).getAttribute("href"),
     ).toContain("type=prices");
+  });
+
+  it("shows retry publish for approved_for_export listings with user-fixable errors and submits listing_id", async () => {
+    const user = userEvent.setup();
+    retryPublishListingMock.mockResolvedValueOnce({error: null, success: "Retry publish queued for LIST-001."});
+
+    render(
+      <ListingEditForm
+        listing={buildListing("approved_for_export", ["https://example.com/retry-image.jpg"], {
+          last_error_code: "publish_offer_failed",
+          last_error_context: {category: "user_fixable"},
+          sub_status: "idle",
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Final review checklist")).toBeNull();
+    expect(screen.queryByRole("button", {name: "Approve For Export"})).toBeNull();
+    expect(screen.getByRole("button", {name: "Retry Publish"})).not.toBeNull();
+    expect(screen.getByText(/Fix the fields above, then retry publish\./i)).not.toBeNull();
+
+    await user.click(screen.getByRole("button", {name: "Retry Publish"}));
+
+    expect(retryPublishListingMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(FormData),
+    );
+
+    const submittedFormData = retryPublishListingMock.mock.calls[0][1] as FormData;
+    expect(submittedFormData.get("listing_id")).toBe("LIST-001");
+  });
+
+  it("hides retry publish while publishing_to_ebay and for approved_for_export listings without a retryable error", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("approved_for_export", ["https://example.com/publish-image.jpg"], {
+          last_error_code: "publish_offer_failed",
+          last_error_context: {category: "user_fixable"},
+          sub_status: "publishing_to_ebay",
+        })}
+      />,
+    );
+
+    expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
+
+    cleanup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing("approved_for_export", ["https://example.com/no-error-image.jpg"], {
+          last_error_code: null,
+          last_error_context: null,
+          sub_status: "idle",
+        })}
+      />,
+    );
+
+    expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
 });

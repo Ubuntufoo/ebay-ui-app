@@ -7,6 +7,7 @@ import type {
   CreateListingInput,
   Listing,
   ListingsResponse,
+  RetryPublishListingResponse,
   UpdateListingInput,
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
@@ -210,6 +211,21 @@ export async function enqueueGenerateAi(
       body: JSON.stringify({
         sellerHints: input.sellerHints ?? null,
       }),
+      headers: {
+        ...buildHeaders(),
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
+export async function retryPublishListing(
+  listingId: string,
+): Promise<RetryPublishListingResponse> {
+  return await sidecarFetch<RetryPublishListingResponse>(
+    `/api/listings/${encodeURIComponent(listingId)}/retry`,
+    {
+      method: "POST",
       headers: {
         ...buildHeaders(),
         "Content-Type": "application/json",
