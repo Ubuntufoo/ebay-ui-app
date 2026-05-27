@@ -149,7 +149,9 @@ describe("ListingsTableEditable", () => {
     expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
   });
 
-  it("renders intake rows, safe local image placeholders, and error details", () => {
+  it("renders intake rows, safe local image placeholders, and editable assets_ready rows", async () => {
+    const user = userEvent.setup();
+
     render(
       <ListingsTableEditable
         listings={[
@@ -164,20 +166,26 @@ describe("ListingsTableEditable", () => {
               "/Users/test/local-3.jpg",
               "https://example.com/photo.jpg",
             ],
-            sub_status: "processing_images",
+            sub_status: "ready_to_generate",
           }),
         ]}
       />,
     );
 
     expect(screen.getAllByText("Intake created").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Assets ready").length).toBeGreaterThan(0);
     expect(screen.getByText("Local images pending upload")).not.toBeNull();
     expect(screen.getAllByText("2 images")).toHaveLength(2);
     expect(screen.getByRole("img", {name: "LIST-READY image 1"})).not.toBeNull();
     expect(screen.getByText("Needs attention")).not.toBeNull();
     expect(screen.getByText("r2_upload_failed")).not.toBeNull();
     expect(screen.getByText("Could not upload intake images.")).not.toBeNull();
-    expect(screen.queryByRole("button", {name: "Open/Edit"})).toBeNull();
+
+    const openEditButton = screen.getByRole("button", {name: "Open/Edit"});
+    await user.click(openEditButton);
+
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();
+    expect(screen.getByLabelText("Seller hints")).not.toBeNull();
+    expect(screen.queryByLabelText("Title")).toBeNull();
   });
 });
