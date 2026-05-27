@@ -40,7 +40,10 @@ vi.mock("@/app/listing-approve-export-actions", () => ({
 
 import {ListingEditForm} from "@/app/listing-edit-form";
 
-function buildListing(status: Listing["status"]): Listing {
+function buildListing(
+  status: Listing["status"],
+  imageUrls: string[] = ["https://example.com/image.jpg"],
+): Listing {
   return {
     approved_for_export_at: null,
     capture_mode: null,
@@ -58,7 +61,7 @@ function buildListing(status: Listing["status"]): Listing {
     exported_at: null,
     handling_days: null,
     id: "listing-row-id",
-    image_urls: ["https://example.com/image.jpg"],
+    image_urls: imageUrls,
     item_specifics: {
       "Card Number": "1",
       Player: "Mike Trout",
@@ -104,7 +107,9 @@ describe("ListingEditForm", () => {
     render(<ListingEditForm listing={buildListing("generating")} />);
 
     expect(
-      screen.getByText(/AI generation is in progress\. Listing edits are locked/i),
+      screen.getByText(
+        /AI generation is in progress\. Listing edits are locked/i,
+      ),
     ).not.toBeNull();
 
     for (const label of [
@@ -125,10 +130,9 @@ describe("ListingEditForm", () => {
       "disabled",
       true,
     );
-    expect(screen.getByRole("button", {name: "Save image URLs"})).toHaveProperty(
-      "disabled",
-      true,
-    );
+    expect(
+      screen.getByRole("button", {name: "Save image URLs"}),
+    ).toHaveProperty("disabled", true);
     expect(screen.getByRole("button", {name: "Assets ready"})).toHaveProperty(
       "disabled",
       true,
@@ -138,7 +142,9 @@ describe("ListingEditForm", () => {
       true,
     );
     expect(screen.queryByText("Final review checklist")).toBeNull();
-    expect(screen.queryByRole("button", {name: "Approve For Export"})).toBeNull();
+    expect(
+      screen.queryByRole("button", {name: "Approve For Export"}),
+    ).toBeNull();
     expect(screen.queryByRole("link", {name: "130point"})).toBeNull();
     expect(screen.queryByRole("link", {name: "SportsCardsPro"})).toBeNull();
   });
@@ -147,7 +153,10 @@ describe("ListingEditForm", () => {
     render(
       <ListingEditForm
         listing={{
-          ...buildListing("assets_ready"),
+          ...buildListing("assets_ready", [
+            "https://example.com/image-1.jpg",
+            "https://example.com/image-2.jpg",
+          ]),
           sub_status: "ready_to_generate",
         }}
       />,
@@ -158,23 +167,43 @@ describe("ListingEditForm", () => {
         /Pre-generation review\. Edit seller hints in Generate AI Draft above/i,
       ),
     ).not.toBeNull();
-    expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();
+    expect(
+      screen.getByRole("button", {name: "Generate AI Draft"}),
+    ).not.toBeNull();
     expect(screen.getByLabelText("Seller hints")).not.toBeNull();
+    expect(screen.getByText("2 images")).not.toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Open LIST-001 image 1"}),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Open LIST-001 image 2"}),
+    ).not.toBeNull();
     expect(screen.queryByRole("button", {name: "Generating"})).toBeNull();
     expect(screen.queryByLabelText("Title")).toBeNull();
     expect(screen.queryByLabelText("Description")).toBeNull();
     expect(screen.queryByLabelText("Price")).toBeNull();
     expect(screen.queryByLabelText("Item specifics (JSON)")).toBeNull();
     expect(screen.queryByText("Final review checklist")).toBeNull();
-    expect(screen.queryByRole("button", {name: "Approve For Export"})).toBeNull();
+    expect(
+      screen.queryByRole("button", {name: "Approve For Export"}),
+    ).toBeNull();
   });
 
   it("keeps normal edit behavior available for needs_review", async () => {
     const user = userEvent.setup();
-    render(<ListingEditForm listing={buildListing("needs_review")} />);
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", [
+          "https://example.com/review-image-1.jpg",
+          "https://example.com/review-image-2.jpg",
+        ])}
+      />,
+    );
 
     expect(
-      screen.queryByText(/AI generation is in progress\. Listing edits are locked/i),
+      screen.queryByText(
+        /AI generation is in progress\. Listing edits are locked/i,
+      ),
     ).toBeNull();
     expect(
       screen.getByText(
@@ -196,6 +225,13 @@ describe("ListingEditForm", () => {
       "disabled",
       false,
     );
+    expect(screen.getByText("2 images")).not.toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Open LIST-001 image 1"}),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Open LIST-001 image 2"}),
+    ).not.toBeNull();
     expect(screen.getByText("Final review checklist")).not.toBeNull();
     expect(
       screen.getByText(
@@ -203,7 +239,9 @@ describe("ListingEditForm", () => {
       ),
     ).not.toBeNull();
 
-    const approveButton = screen.getByRole("button", {name: "Approve For Export"});
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
     expect(approveButton).toHaveProperty("disabled", true);
 
     for (const checklistLabel of [
