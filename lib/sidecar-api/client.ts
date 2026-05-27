@@ -1,3 +1,5 @@
+import "server-only";
+
 import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AppSettings,
