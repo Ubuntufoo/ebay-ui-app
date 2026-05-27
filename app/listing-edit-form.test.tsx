@@ -160,6 +160,7 @@ describe("ListingEditForm", () => {
     ).not.toBeNull();
     expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();
     expect(screen.getByLabelText("Seller hints")).not.toBeNull();
+    expect(screen.queryByRole("button", {name: "Generating"})).toBeNull();
     expect(screen.queryByLabelText("Title")).toBeNull();
     expect(screen.queryByLabelText("Description")).toBeNull();
     expect(screen.queryByLabelText("Price")).toBeNull();
