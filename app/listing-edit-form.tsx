@@ -125,6 +125,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 listingId={listing.listing_id}
                 imageUrls={listing.image_urls}
                 emptyLabel="No listing images available yet."
+                compact
+                showAllImages
+                showUrls={false}
               />
             </div>
           </section>
@@ -147,7 +150,11 @@ export function ListingEditForm({listing}: {listing: Listing}) {
               ) : null}
 
               <fieldset disabled={isGenerating} className="grid gap-4">
-                <input type="hidden" name="listing_id" value={listing.listing_id} />
+                <input
+                  type="hidden"
+                  name="listing_id"
+                  value={listing.listing_id}
+                />
 
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -263,7 +270,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                   <textarea
                     name="item_specifics"
                     value={itemSpecificsText}
-                    onChange={(event) => setItemSpecificsText(event.target.value)}
+                    onChange={(event) =>
+                      setItemSpecificsText(event.target.value)
+                    }
                     rows={8}
                     disabled={isGenerating}
                     className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
@@ -313,7 +322,11 @@ export function ListingEditForm({listing}: {listing: Listing}) {
               className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
             >
               <fieldset disabled={isGenerating} className="grid gap-4">
-                <input type="hidden" name="listing_id" value={listing.listing_id} />
+                <input
+                  type="hidden"
+                  name="listing_id"
+                  value={listing.listing_id}
+                />
 
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -392,6 +405,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                     listingId={listing.listing_id}
                     imageUrls={imageUrlValidation.urls}
                     emptyLabel="Add one or more valid public image URLs to preview them here."
+                    compact
+                    showAllImages
+                    showUrls={false}
                   />
                 </div>
               </fieldset>

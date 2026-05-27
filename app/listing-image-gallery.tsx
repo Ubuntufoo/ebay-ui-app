@@ -56,12 +56,14 @@ export function ListingImageGallery({
   listingId,
   compact = false,
   emptyLabel = "No images uploaded",
+  showAllImages = false,
   showUrls = true,
 }: {
   compact?: boolean;
   emptyLabel?: string;
   imageUrls: Listing["image_urls"] | string[];
   listingId: string;
+  showAllImages?: boolean;
   showUrls?: boolean;
 }) {
   const urls = readListingImageUrls(imageUrls);
@@ -86,11 +88,57 @@ export function ListingImageGallery({
             {imageCount} {imageCount === 1 ? "image" : "images"}
           </span>
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
-            {previewUrl ? "Preview" : hasLocalOnly ? "Local only" : "No preview"}
+            {previewUrl
+              ? "Preview"
+              : hasLocalOnly
+                ? "Local only"
+                : "No preview"}
           </span>
         </div>
 
-        {previewUrl ? (
+        {showAllImages ? (
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,5.75rem))] justify-start gap-2">
+            {urls.map((url, index) => {
+              const isRemote = isHttpListingImageUrl(url);
+              const previewContent = isRemote ? (
+                <ListingImageThumbnail
+                  compact
+                  index={index}
+                  listingId={listingId}
+                  url={url}
+                />
+              ) : (
+                <div className="flex aspect-square w-20 items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-stone-100 px-3 text-center text-[11px] font-medium text-stone-500">
+                  Preview unavailable
+                </div>
+              );
+
+              return isRemote ? (
+                <a
+                  key={`${url}:${index}`}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Open ${listingId} image ${index + 1}`}
+                  title={url}
+                  className="group block space-y-1"
+                >
+                  {previewContent}
+                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500 group-hover:text-stone-700">
+                    Image {index + 1}
+                  </p>
+                </a>
+              ) : (
+                <div key={`${url}:${index}`} className="space-y-1">
+                  {previewContent}
+                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                    Image {index + 1}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        ) : previewUrl ? (
           <ListingImageThumbnail
             compact
             index={0}
@@ -105,7 +153,7 @@ export function ListingImageGallery({
           </div>
         )}
 
-        {showUrls && previewUrl ? (
+        {showUrls && previewUrl && !showAllImages ? (
           <p className="truncate text-xs text-stone-500" title={previewUrl}>
             {previewUrl}
           </p>
@@ -134,7 +182,10 @@ export function ListingImageGallery({
             url={previewUrl}
           />
           {showUrls ? (
-            <p className="mt-2 truncate text-xs text-stone-500" title={previewUrl}>
+            <p
+              className="mt-2 truncate text-xs text-stone-500"
+              title={previewUrl}
+            >
               {previewUrl}
             </p>
           ) : null}

@@ -34,8 +34,36 @@ describe("ListingImageGallery", () => {
     );
 
     expect(screen.getByText("2 images")).not.toBeNull();
-    expect(screen.getByRole("img", {name: "LIST-REMOTE image 1"})).not.toBeNull();
+    expect(
+      screen.getByRole("img", {name: "LIST-REMOTE image 1"}),
+    ).not.toBeNull();
     expect(screen.queryByText("Local images pending upload")).toBeNull();
     expect(screen.queryByText("/Users/test/local-1.jpg")).toBeNull();
+  });
+
+  it("renders all remote images as linked thumbnails in compact gallery mode", () => {
+    render(
+      <ListingImageGallery
+        listingId="LIST-GALLERY"
+        imageUrls={[
+          "https://example.com/photo-1.jpg",
+          "https://example.com/photo-2.jpg",
+        ]}
+        compact
+        showAllImages
+        showUrls={false}
+      />,
+    );
+
+    expect(screen.getByText("2 images")).not.toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Open LIST-GALLERY image 1"}),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Open LIST-GALLERY image 2"}),
+    ).not.toBeNull();
+    expect(
+      screen.getAllByRole("img", {name: /LIST-GALLERY image/i}),
+    ).toHaveLength(2);
   });
 });
