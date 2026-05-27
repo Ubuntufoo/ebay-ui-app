@@ -167,5 +167,16 @@ describe("ListingsTableEditable reconciliation", () => {
     );
 
     expect(screen.queryByText("Edit listing")).toBeNull();
+
+    rerender(
+      <ListingsTableEditable
+        listings={[
+          buildListing("LIST-GEN", "generating", "2026-05-20T02:00:00.000Z"),
+          buildListing("LIST-OTHER", "needs_review", "2026-05-20T01:00:00.000Z"),
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText("Edit listing")).toBeNull();
   });
 });

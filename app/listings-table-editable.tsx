@@ -1,6 +1,6 @@
 "use client";
 
-import {Fragment, useMemo, useState} from "react";
+import {Fragment, startTransition, useEffect, useMemo, useState} from "react";
 
 import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
@@ -62,6 +62,14 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
     [selectedListingId, sortedListings],
   );
   const activeSelectedListingId = selectedListing?.listing_id ?? null;
+
+  useEffect(() => {
+    if (selectedListingId !== null && selectedListing === null) {
+      startTransition(() => {
+        setSelectedListingId(null);
+      });
+    }
+  }, [selectedListing, selectedListingId]);
 
   return (
     <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
