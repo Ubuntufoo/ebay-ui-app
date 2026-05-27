@@ -60,7 +60,7 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
           </p>
           <p className="mt-2 text-sm leading-6 text-stone-600">
             Queue the backend generate_ai job for this listing. Seller hints are
-            optional and persist before enqueue.
+            optional and will be saved before enqueueing.
           </p>
         </div>
       </div>
