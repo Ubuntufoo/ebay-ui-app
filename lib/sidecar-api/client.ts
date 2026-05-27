@@ -1,5 +1,3 @@
-import "server-only";
-
 import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AppSettings,
@@ -223,7 +221,7 @@ export async function retryPublishListing(
   listingId: string,
 ): Promise<RetryPublishListingResponse> {
   return await sidecarFetch<RetryPublishListingResponse>(
-    `/api/listings/${encodeURIComponent(listingId)}/retry`,
+    `/listings/${encodeURIComponent(listingId)}/retry`,
     {
       method: "POST",
       headers: {
