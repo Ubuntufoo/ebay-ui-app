@@ -3,6 +3,7 @@ import "server-only";
 import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AppSettings,
+  EnqueueGenerateAiResponse,
   CreateListingInput,
   Listing,
   ListingsResponse,
@@ -190,6 +191,25 @@ export async function updateListingWorkflowState(
     {
       method: "PATCH",
       body: JSON.stringify(input),
+      headers: {
+        ...buildHeaders(),
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
+export async function enqueueGenerateAi(
+  listingId: string,
+  input: {sellerHints?: string | null},
+): Promise<EnqueueGenerateAiResponse> {
+  return await sidecarFetch<EnqueueGenerateAiResponse>(
+    `/api/listings/${encodeURIComponent(listingId)}/generate-ai`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        sellerHints: input.sellerHints ?? null,
+      }),
       headers: {
         ...buildHeaders(),
         "Content-Type": "application/json",

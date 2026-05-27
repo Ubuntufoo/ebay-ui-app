@@ -2,8 +2,9 @@
 
 import {revalidatePath} from "next/cache";
 
+import {getListingStatusLabel} from "@/app/listing-status-flow";
 import type {GenerateListingActionState} from "@/app/listing-generate-state";
-import {enqueueGenerateAiJob} from "@/lib/supabase/admin";
+import {enqueueGenerateAi, SidecarApiError} from "@/lib/sidecar-api";
 
 function readTextField(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -29,13 +30,16 @@ export async function enqueueGenerateListing(
   }
 
   try {
-    const result = await enqueueGenerateAiJob(listingId);
+    const sellerHints = readTextField(formData.get("seller_hints"));
+    const result = await enqueueGenerateAi(listingId, {
+      sellerHints,
+    });
     revalidatePath("/");
 
     if (result.alreadyQueued) {
       return {
         error: null,
-        info: `Generate already queued or running for ${listingId}.`,
+        info: `Generate AI Draft already queued or running for ${listingId}. Listing now ${getListingStatusLabel(result.listing.status)}.`,
         success: null,
       };
     }
@@ -43,14 +47,16 @@ export async function enqueueGenerateListing(
     return {
       error: null,
       info: null,
-      success: `Queued generate_ai for ${listingId}.`,
+      success: `Queued Generate AI Draft for ${listingId}. Listing now ${getListingStatusLabel(result.listing.status)}.`,
     };
   } catch (error) {
     return {
       error:
-        error instanceof Error
+        error instanceof SidecarApiError
           ? error.message
-          : "An unexpected error occurred while queueing generate_ai.",
+          : error instanceof Error
+          ? error.message
+          : "An unexpected error occurred while queueing Generate AI Draft.",
       info: null,
       success: null,
     };

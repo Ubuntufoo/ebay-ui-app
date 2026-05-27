@@ -85,6 +85,12 @@ export interface ListingsResponse {
   listings: Listing[];
 }
 
+export interface EnqueueGenerateAiResponse {
+  alreadyQueued: boolean;
+  job: Json;
+  listing: Listing;
+}
+
 export interface CreateListingInput {
   listingId?: string;
   mode: "manual" | "test";

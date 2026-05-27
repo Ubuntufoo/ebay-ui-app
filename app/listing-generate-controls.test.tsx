@@ -77,7 +77,8 @@ describe("ListingGenerateControls", () => {
   it("shows Generate only for assets_ready", () => {
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    expect(screen.getByRole("button", {name: "Generate"})).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();
+    expect(screen.getByLabelText("Seller hints")).not.toBeNull();
   });
 
   it.each([
@@ -92,21 +93,28 @@ describe("ListingGenerateControls", () => {
   ] as const)("hides Generate for %s", (status) => {
     render(<ListingGenerateControls listing={buildListing(status)} />);
 
-    expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
+    expect(screen.queryByRole("button", {name: "Generate AI Draft"})).toBeNull();
   });
 
   it("submits listing id and shows pending state", async () => {
-    const deferred = createDeferred<{error: string | null; success: string | null}>();
+    const deferred = createDeferred<{
+      error: string | null;
+      info: string | null;
+      success: string | null;
+    }>();
     enqueueGenerateListingMock.mockReturnValueOnce(deferred.promise);
     const user = userEvent.setup();
 
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    await user.click(screen.getByRole("button", {name: "Generate"}));
+    const sellerHints = screen.getByLabelText("Seller hints");
+    await user.type(sellerHints, "Use padded envelope");
+    await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
 
     expect(enqueueGenerateListingMock).toHaveBeenCalled();
     const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1] as FormData;
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
+    expect(submittedFormData.get("seller_hints")).toBe("Use padded envelope");
 
     await waitFor(() => {
       const button = screen.getByRole("button", {name: "Generating..."});
@@ -114,7 +122,21 @@ describe("ListingGenerateControls", () => {
       expect(button).toHaveProperty("disabled", true);
     });
 
-    deferred.resolve({error: null, success: "Queued generate_ai."});
+    expect(screen.getByLabelText("Seller hints")).toHaveProperty("disabled", true);
+
+    deferred.resolve({
+      error: null,
+      info: null,
+      success: "Queued Generate AI Draft for LIST-001. Listing now Generating.",
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Queued Generate AI Draft for LIST-001. Listing now Generating.",
+        ),
+      ).not.toBeNull();
+    });
   });
 
   it("shows enqueue errors", async () => {
@@ -127,7 +149,7 @@ describe("ListingGenerateControls", () => {
 
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    await user.click(screen.getByRole("button", {name: "Generate"}));
+    await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
 
     const error = await screen.findByText("queue failed");
     expect(error).not.toBeNull();
@@ -136,17 +158,17 @@ describe("ListingGenerateControls", () => {
   it("shows info for already queued listings", async () => {
     enqueueGenerateListingMock.mockResolvedValueOnce({
       error: null,
-      info: "Generate already queued or running for LIST-001.",
+      info: "Generate AI Draft already queued or running for LIST-001. Listing now Generating.",
       success: null,
     });
     const user = userEvent.setup();
 
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    await user.click(screen.getByRole("button", {name: "Generate"}));
+    await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
 
     const info = await screen.findByText(
-      "Generate already queued or running for LIST-001.",
+      "Generate AI Draft already queued or running for LIST-001. Listing now Generating.",
     );
     expect(info).not.toBeNull();
   });

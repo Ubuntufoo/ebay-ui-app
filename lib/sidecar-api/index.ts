@@ -1,5 +1,6 @@
 export {
   createListing,
+  enqueueGenerateAi,
   getAppSettings,
   getListing,
   listListings,
@@ -11,6 +12,7 @@ export {
 export type {
   AppSettings,
   CreateListingInput,
+  EnqueueGenerateAiResponse,
   Listing,
   ListingStatus,
   ListingSubStatus,
