@@ -143,6 +143,31 @@ describe("ListingEditForm", () => {
     expect(screen.queryByRole("link", {name: "SportsCardsPro"})).toBeNull();
   });
 
+  it("keeps assets_ready pre-generation fields editable and hides review fields", () => {
+    render(
+      <ListingEditForm
+        listing={{
+          ...buildListing("assets_ready"),
+          sub_status: "ready_to_generate",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /Pre-generation review\. Edit seller hints in Generate AI Draft above/i,
+      ),
+    ).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();
+    expect(screen.getByLabelText("Seller hints")).not.toBeNull();
+    expect(screen.queryByLabelText("Title")).toBeNull();
+    expect(screen.queryByLabelText("Description")).toBeNull();
+    expect(screen.queryByLabelText("Price")).toBeNull();
+    expect(screen.queryByLabelText("Item specifics (JSON)")).toBeNull();
+    expect(screen.queryByText("Final review checklist")).toBeNull();
+    expect(screen.queryByRole("button", {name: "Approve For Export"})).toBeNull();
+  });
+
   it("keeps normal edit behavior available for needs_review", async () => {
     const user = userEvent.setup();
     render(<ListingEditForm listing={buildListing("needs_review")} />);

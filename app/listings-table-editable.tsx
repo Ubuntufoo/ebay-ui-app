@@ -45,7 +45,7 @@ function sortNewestFirst(listings: Listing[]): Listing[] {
 }
 
 function isIntakeListing(status: Listing["status"]): boolean {
-  return status === "record_created" || status === "assets_ready";
+  return status === "record_created";
 }
 
 export function ListingsTableEditable({listings}: {listings: Listing[]}) {
