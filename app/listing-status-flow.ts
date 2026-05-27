@@ -2,7 +2,6 @@ import type {ListingStatus, ListingSubStatus} from "@/lib/sidecar-api";
 
 export const manualStatusTransitions = {
   record_created: ["assets_ready"],
-  assets_ready: ["generating"],
   generating: ["assets_ready", "needs_review"],
   needs_review: ["assets_ready"],
 } as const satisfies Partial<Record<ListingStatus, readonly ListingStatus[]>>;
