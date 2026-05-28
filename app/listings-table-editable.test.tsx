@@ -1,4 +1,4 @@
-import {cleanup, render, screen} from "@testing-library/react";
+import {cleanup, render, screen, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
@@ -129,7 +129,9 @@ describe("ListingsTableEditable", () => {
 
     expect(screen.getByText("Edit listing")).not.toBeNull();
     expect(
-      screen.getByText(/AI generation is in progress\. Listing edits are locked/i),
+      screen.getByText(
+        /AI generation is in progress\. Listing edits are locked/i,
+      ),
     ).not.toBeNull();
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", true);
   });
@@ -139,7 +141,9 @@ describe("ListingsTableEditable", () => {
 
     render(
       <ListingsTableEditable
-        listings={[buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z")]}
+        listings={[
+          buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z"),
+        ]}
       />,
     );
 
@@ -161,19 +165,32 @@ describe("ListingsTableEditable", () => {
     render(
       <ListingsTableEditable
         listings={[
-          buildListing("LIST-LOCAL", "record_created", "2026-05-20T02:00:00.000Z", {
-            image_urls: ["/Users/test/local-1.jpg", "/Users/test/local-2.jpg"],
-            last_error_code: "r2_upload_failed",
-            last_error_message: "Could not upload intake images.",
-            sub_status: "waiting_for_r2_upload",
-          }),
-          buildListing("LIST-READY", "assets_ready", "2026-05-20T03:00:00.000Z", {
-            image_urls: [
-              "/Users/test/local-3.jpg",
-              "https://example.com/photo.jpg",
-            ],
-            sub_status: "ready_to_generate",
-          }),
+          buildListing(
+            "LIST-LOCAL",
+            "record_created",
+            "2026-05-20T02:00:00.000Z",
+            {
+              image_urls: [
+                "/Users/test/local-1.jpg",
+                "/Users/test/local-2.jpg",
+              ],
+              last_error_code: "r2_upload_failed",
+              last_error_message: "Could not upload intake images.",
+              sub_status: "waiting_for_r2_upload",
+            },
+          ),
+          buildListing(
+            "LIST-READY",
+            "assets_ready",
+            "2026-05-20T03:00:00.000Z",
+            {
+              image_urls: [
+                "/Users/test/local-3.jpg",
+                "https://example.com/photo.jpg",
+              ],
+              sub_status: "ready_to_generate",
+            },
+          ),
         ]}
       />,
     );
@@ -181,7 +198,9 @@ describe("ListingsTableEditable", () => {
     expect(screen.getAllByText("Intake created").length).toBeGreaterThan(0);
     expect(screen.getByText("Local images pending upload")).not.toBeNull();
     expect(screen.getAllByText("2 images")).toHaveLength(2);
-    expect(screen.getByRole("img", {name: "LIST-READY image 1"})).not.toBeNull();
+    expect(
+      screen.getByRole("img", {name: "LIST-READY image 1"}),
+    ).not.toBeNull();
     expect(screen.getByText("Needs attention")).not.toBeNull();
     expect(screen.getByText("r2_upload_failed")).not.toBeNull();
     expect(screen.getByText("Could not upload intake images.")).not.toBeNull();
@@ -190,8 +209,90 @@ describe("ListingsTableEditable", () => {
     await user.click(openEditButton);
 
     expect(screen.getByText("Edit listing")).not.toBeNull();
-    expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();
+    expect(
+      screen.getByRole("button", {name: "Generate AI Draft"}),
+    ).not.toBeNull();
     expect(screen.getByLabelText("Seller hints")).not.toBeNull();
     expect(screen.queryByLabelText("Title")).toBeNull();
+  });
+
+  it("moves exported and listed listings into the Published Listings panel", () => {
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-ACTIVE",
+            "needs_review",
+            "2026-05-20T04:00:00.000Z",
+            {
+              image_urls: ["https://example.com/active.jpg"],
+              title: "Active workflow listing",
+            },
+          ),
+          buildListing("LIST-EXPORTED", "exported" as Listing["status"], "2026-05-20T06:00:00.000Z", {
+            ebay_listing_url: "https://www.ebay.com/itm/123456789",
+            exported_at: "2026-05-20T05:45:00.000Z",
+            image_urls: ["https://example.com/exported.jpg"],
+            sku: "SKU-EXPORTED",
+            title: "Exported listing",
+          }),
+          buildListing("LIST-LISTED", "listed", "2026-05-20T07:00:00.000Z", {
+            ebay_listing_url: null,
+            exported_at: "2026-05-20T06:30:00.000Z",
+            title: "Listed listing",
+          }),
+          buildListing(
+            "LIST-ARCHIVE",
+            "exported" as Listing["status"],
+            "2026-05-20T08:00:00.000Z",
+            {
+              ebay_listing_url: "https://www.ebay.com/itm/987654321",
+              exported_at: "2026-05-20T07:45:00.000Z",
+              title: "Archived exported listing",
+            },
+          ),
+        ]}
+      />,
+    );
+
+    const tables = screen.getAllByRole("table");
+    expect(tables).toHaveLength(2);
+
+    const activeTable = tables[0];
+    expect(
+      within(activeTable).getByRole("button", {name: "Review"}),
+    ).not.toBeNull();
+    expect(within(activeTable).queryByText("Exported listing")).toBeNull();
+    expect(within(activeTable).queryByText("Listed listing")).toBeNull();
+    expect(
+      within(activeTable).queryByText("Archived exported listing"),
+    ).toBeNull();
+
+    const exportedPanelHeading = screen.getByRole("heading", {
+      name: "Published Listings",
+    });
+    const exportedPanel = within(
+      exportedPanelHeading.closest("section") as HTMLElement,
+    );
+
+    expect(exportedPanel.getByText("Exported listing")).not.toBeNull();
+    expect(exportedPanel.getByText("Listed listing")).not.toBeNull();
+    expect(exportedPanel.getByText("Archived exported listing")).not.toBeNull();
+    expect(
+      exportedPanel.getByText("Exported listing").closest("tr")?.textContent,
+    ).toContain("LIST-EXPORTED / SKU-EXPORTED");
+    expect(
+      exportedPanel
+        .getAllByRole("link", {name: "Open"})
+        .find(
+          (link) =>
+            link.getAttribute("href") === "https://www.ebay.com/itm/123456789",
+        ),
+    ).not.toBeUndefined();
+    expect(exportedPanel.queryByRole("button")).toBeNull();
+    expect(exportedPanel.queryByRole("img")).toBeNull();
+    expect(
+      exportedPanel.getByText("Listed listing").closest("tr")?.querySelector("a"),
+    ).toBeNull();
   });
 });
