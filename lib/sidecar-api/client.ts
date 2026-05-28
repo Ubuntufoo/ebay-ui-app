@@ -212,7 +212,7 @@ export async function retryPublishListing(
   listingId: string,
 ): Promise<RetryPublishListingResponse> {
   return await sidecarFetch<RetryPublishListingResponse>(
-    `/listings/${encodeURIComponent(listingId)}/retry`,
+    `/api/listings/${encodeURIComponent(listingId)}/retry`,
     {
       method: "POST",
       headers: {

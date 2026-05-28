@@ -1,10 +1,22 @@
-import {beforeEach, describe, expect, it, vi} from "vitest";
+import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import {retryPublishListingAction} from "@/app/listing-retry-publish-actions";
+import {retryPublishListing} from "@/lib/sidecar-api/client";
 
-const {revalidatePathMock, retryPublishListingMock} = vi.hoisted(() => ({
+const {
+  fetchMock,
+  getSidecarConfigMock,
+  revalidatePathMock,
+  retryPublishListingMock,
+} = vi.hoisted(() => ({
+  fetchMock: vi.fn(),
+  getSidecarConfigMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
+}));
+
+vi.mock("@/lib/config/sidecar", () => ({
+  getSidecarConfig: getSidecarConfigMock,
 }));
 
 vi.mock("next/cache", () => ({
@@ -68,5 +80,45 @@ describe("retryPublishListingAction", () => {
       error: null,
       success: "Retry publish is already queued or running for LIST-001.",
     });
+  });
+});
+
+describe("retryPublishListing", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({apiUrl: "http://sidecar.example"});
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("calls the mounted retry path with an encoded listing id", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          alreadyQueued: false,
+          job: {id: "job-publish-retry"},
+          listing: {listing_id: "Single/000005"},
+          workflow: "publish",
+        }),
+        {
+          headers: {"content-type": "application/json"},
+          status: 200,
+        },
+      ),
+    );
+
+    await retryPublishListing("Single/000005");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/Single%2F000005/retry",
+      expect.objectContaining({
+        method: "POST",
+        cache: "no-store",
+      }),
+    );
   });
 });
