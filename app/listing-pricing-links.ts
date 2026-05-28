@@ -165,6 +165,38 @@ function buildSportsCardsProUrl(query: string): string {
   return `https://www.sportscardspro.com/search-products?${params.toString()}`;
 }
 
+function buildTerapeakUrl(query: string, now = Date.now()): string {
+  const dayRange = 365;
+  const endDate = now;
+  const startDate = endDate - dayRange * 24 * 60 * 60 * 1000;
+  const params = new URLSearchParams();
+
+  params.append("marketplace", "EBAY-US");
+  params.append("keywords", `${query} -psa -signature -sig -autograph -graded -10 -gem -lot`);
+  params.append("dayRange", String(dayRange));
+  params.append("endDate", String(endDate));
+  params.append("startDate", String(startDate));
+  params.append("categoryId", "0");
+  params.append("format", "BEST_OFFER");
+  params.append("format", "FIXED_PRICE");
+  params.append("offset", "0");
+  params.append("limit", "50");
+  params.append("tabName", "SOLD");
+  params.append("tz", "America/New_York");
+
+  return `https://www.ebay.com/sh/research?${params.toString()}`;
+}
+
+function buildTerapeakSearchText(listing: Listing): string | null {
+  const title = listing.title ? normalizeWhitespace(listing.title) : "";
+
+  if (title !== "") {
+    return title;
+  }
+
+  return buildListingPricingSearchText(listing);
+}
+
 export function buildListingPricingSearchText(listing: Listing): string | null {
   const structured = buildStructuredCardQuery(listing);
   if (structured) {
@@ -179,21 +211,37 @@ export function buildListingPricingSearchText(listing: Listing): string | null {
   return fallback === "" ? null : normalizeWhitespace(fallback);
 }
 
-export function getListingPricingLinks(listing: Listing): PricingLink[] {
+export function getListingPricingLinks(
+  listing: Listing,
+  now = Date.now(),
+): PricingLink[] {
   const query = buildListingPricingSearchText(listing);
+  const terapeakQuery = buildTerapeakSearchText(listing);
 
-  if (!query) {
+  if (!query && !terapeakQuery) {
     return [];
   }
 
   return [
-    {
-      label: "130point",
-      href: build130PointUrl(query),
-    },
-    {
-      label: "SportsCardsPro",
-      href: buildSportsCardsProUrl(query),
-    },
+    ...(query
+      ? [
+          {
+            label: "130point",
+            href: build130PointUrl(query),
+          },
+          {
+            label: "SportsCardsPro",
+            href: buildSportsCardsProUrl(query),
+          },
+        ]
+      : []),
+    ...(terapeakQuery
+      ? [
+          {
+            label: "eBay Terapeak",
+            href: buildTerapeakUrl(terapeakQuery, now),
+          },
+        ]
+      : []),
   ];
 }

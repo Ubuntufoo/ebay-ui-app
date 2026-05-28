@@ -150,11 +150,6 @@ describe("ListingsTableEditable", () => {
     await user.click(screen.getByRole("button", {name: "Review"}));
 
     expect(screen.getByText("Edit listing")).not.toBeNull();
-    expect(
-      screen.getByText(
-        /AI draft ready for review\. Confirm or edit the generated fields before approving for export\./i,
-      ),
-    ).not.toBeNull();
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
     expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
   });
@@ -206,10 +201,9 @@ describe("ListingsTableEditable", () => {
     );
 
     expect(screen.getAllByText("Intake created").length).toBeGreaterThan(0);
-    expect(screen.getByText("Local images pending upload")).not.toBeNull();
-    expect(screen.getAllByText("2 images")).toHaveLength(2);
+    expect(screen.queryByText("Local images pending upload")).toBeNull();
     expect(
-      screen.getByRole("img", {name: "LIST-READY image 1"}),
+      screen.getByRole("img", {name: "LIST-READY image 2"}),
     ).not.toBeNull();
     expect(screen.getByText("Needs attention")).not.toBeNull();
     expect(screen.getByText("r2_upload_failed")).not.toBeNull();

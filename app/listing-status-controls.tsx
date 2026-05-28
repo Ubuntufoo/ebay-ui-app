@@ -229,10 +229,6 @@ function ApproveForExportForm({
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-800">
           Final review checklist
         </p>
-        <p className="mt-2 text-sm leading-6 text-emerald-900">
-          Confirm each item before approving this listing for export. This is a
-          pre-publish safety gate.
-        </p>
         {!isTitleLengthValid ? (
           <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
             eBay titles must be 80 characters or fewer. Current title: {titleLength}{" "}
@@ -297,21 +293,6 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
 
   return (
     <section className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-800">
-            Manual test-flow control
-          </p>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-700">
-            Server-side only status advance/reset for local early workflow
-            testing. Seller-editable listing fields are not submitted here.
-          </p>
-        </div>
-        <span className="rounded-full border border-amber-400/80 bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-amber-900">
-          Local testing only
-        </span>
-      </div>
-
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <ReadOnlyStatusField
           label="Current status"
@@ -331,22 +312,12 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
         </div>
       ) : null}
 
-      {isNeedsReview ? (
-        <div className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-900">
-          AI draft ready for review. Confirm or edit the generated fields before
-          approving for export.
-        </div>
-      ) : null}
-
       {pricingLinks.length > 0 ? (
         <div className="mt-4 rounded-2xl border border-stone-950/10 bg-white/70 px-4 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
                 Pricing research
-              </p>
-              <p className="mt-1 text-sm leading-6 text-stone-600">
-                Open external comps from the current draft fields.
               </p>
             </div>
           </div>
@@ -387,23 +358,6 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
         <fieldset disabled={isGenerating} className="grid gap-4">
           <input type="hidden" name="listing_id" value={listing.listing_id} />
           <input type="hidden" name="current_status" value={listing.status} />
-
-          {nextStatuses.length > 0 ? (
-            <div className="flex flex-wrap gap-3">
-              {nextStatuses.map((nextStatus) => (
-                <StatusActionButton
-                  key={nextStatus}
-                  disabled={isGenerating}
-                  nextStatus={nextStatus}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-2xl border border-stone-950/10 bg-white/70 px-4 py-3 text-sm text-stone-600">
-              No manual test transitions are available for{" "}
-              {getListingStatusLabel(listing.status)}.
-            </p>
-          )}
         </fieldset>
       </form>
 
