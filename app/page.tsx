@@ -1,6 +1,6 @@
 import {Suspense} from "react";
 
-import {CreateListingForm} from "@/app/create-listing-form";
+// CreateListingForm removed — panel deprecated and no longer rendered
 import {ListingsRealtime} from "@/app/listings-realtime";
 import {
   SidecarApiError,
@@ -388,27 +388,20 @@ export default function Home() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-3 rounded-full bg-stone-950 px-4 py-2 text-stone-50">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-stone-400">
-              Phase 5 intake
-            </span>
-            <span className="text-sm font-semibold">Watcher visible</span>
+          <div className="w-80">
+            <Suspense fallback={<QueueSectionFallback />}>
+              <QueueSection listingsPromise={listingsPromise} />
+            </Suspense>
           </div>
         </header>
 
-        <section className="rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7">
+        <section className="rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7 min-h-[44rem]">
           <Suspense fallback={<ListingsSectionFallback />}>
             <ListingsSection listingsPromise={listingsPromise} />
           </Suspense>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <CreateListingForm />
-
-          <Suspense fallback={<QueueSectionFallback />}>
-            <QueueSection listingsPromise={listingsPromise} />
-          </Suspense>
-        </section>
+        {/* Create test listing panel removed; queue moved into header */}
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Suspense fallback={<AppSettingsSectionFallback />}>

@@ -73,7 +73,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
 
   return (
     <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
-      <div className="max-h-[24rem] overflow-auto">
+      <div className="max-h-[48rem] overflow-auto">
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse">
             <thead className="sticky top-0 z-10">
@@ -90,7 +90,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                 ].map((column) => (
                   <th
                     key={column}
-                    className="px-5 py-4 text-xs font-bold uppercase tracking-[0.18em] text-stone-500"
+                    className="px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-stone-500"
                   >
                     {column}
                   </th>
@@ -120,10 +120,10 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                         intakeOnly ? "bg-stone-100/50" : ""
                       }`}
                     >
-                      <td className="px-5 py-4 font-mono text-sm text-stone-600">
+                      <td className="px-4 py-3 font-mono text-sm text-stone-600">
                         {listing.listing_id}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <div className="space-y-2">
                           <span
                             className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${getListingStatusBadgeClassName(listing.status)}`}
@@ -150,13 +150,13 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-sm text-stone-600">
+                      <td className="px-4 py-3 text-sm text-stone-600">
                         {getListingSubStatusLabel(listing.sub_status)}
                       </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-stone-900">
+                      <td className="px-4 py-3 text-sm font-semibold text-stone-900">
                         {listing.title ?? "Untitled listing"}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <div className="min-w-40">
                           <ListingImageGallery
                             listingId={listing.listing_id}
@@ -166,10 +166,10 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                           />
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-sm text-stone-600">
+                      <td className="px-4 py-3 text-sm text-stone-600">
                         {formatPrice(listing.price)}
                       </td>
-                      <td className="px-5 py-4 text-sm text-stone-600">
+                      <td className="px-4 py-3 text-sm text-stone-600">
                         <div className="space-y-2">
                           <div>
                             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">
@@ -185,7 +185,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-sm text-stone-600">
+                      <td className="px-4 py-3 text-sm text-stone-600">
                         {intakeOnly ? (
                           <span className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">
                             Read only
@@ -201,7 +201,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                                   : listing.listing_id,
                               )
                             }
-                            className="inline-flex rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                            className="inline-flex rounded-full border border-stone-950/15 bg-white px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
                           >
                             {actionLabel}
                           </button>
@@ -211,7 +211,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
 
                     {!intakeOnly && isSelected ? (
                       <tr className="border-b border-stone-950/10 last:border-b-0">
-                        <td colSpan={8} className="px-5 py-5">
+                        <td colSpan={8} className="px-4 py-4">
                           <ListingEditForm
                             key={`${listing.listing_id}:${listing.status}:${listing.sub_status}:${listing.updated_at}`}
                             listing={listing}
