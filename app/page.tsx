@@ -1,5 +1,6 @@
 import {Suspense} from "react";
 import {ListingsRealtime} from "@/app/listings-realtime";
+import {QueueErrorsPanelFallback} from "@/app/queue-errors-panel";
 import {
   SidecarApiError,
   getAppSettings,
@@ -74,36 +75,6 @@ type ListingsLoadResult =
   | {status: "success"; listings: Listing[]}
   | {status: "error"; message: string};
 
-function buildQueueCards(listings: Listing[]) {
-  const intakeCreatedCount = listings.filter(
-    (listing) => listing.status === "record_created",
-  ).length;
-  const assetsReadyCount = listings.filter(
-    (listing) => listing.status === "assets_ready",
-  ).length;
-  const needsAttentionCount = listings.filter((listing) =>
-    Boolean(listing.last_error_code),
-  ).length;
-
-  return [
-    {
-      label: "Intake created",
-      value: String(intakeCreatedCount),
-      tone: "bg-amber-300 text-stone-950",
-    },
-    {
-      label: "Assets ready",
-      value: String(assetsReadyCount),
-      tone: "bg-emerald-300 text-stone-950",
-    },
-    {
-      label: "Needs attention",
-      value: String(needsAttentionCount),
-      tone: "bg-rose-300 text-stone-950",
-    },
-  ] as const;
-}
-
 async function ListingsSection({
   listingsPromise,
 }: {
@@ -137,25 +108,15 @@ async function ListingsSection({
 
   return (
     <>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-            Listings
-          </p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">
-            Inventory records
-          </h2>
-        </div>
-        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-4 py-2 text-sm text-stone-600">
-          {listings.length} {listings.length === 1 ? "listing" : "listings"}
-        </span>
-      </div>
-
       {listings.length === 0 ? (
-        <ListingsEmptyState />
+        <>
+          <QueueErrorsPanelFallback />
+          <ListingsEmptyState />
+        </>
       ) : (
         <ListingsRealtime
           initialListings={listings}
+          panelErrorMessage={null}
           realtimeAnonKey={getListingsRealtimePublicKey()}
           realtimeUrl={getListingsRealtimePublicUrl()}
         />
@@ -287,142 +248,9 @@ function AppSettingsSectionFallback() {
 function ListingsSectionFallback() {
   return (
     <>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-            Listings
-          </p>
-          <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">
-            Inventory records
-          </h2>
-        </div>
-        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-4 py-2 text-sm text-stone-600">
-          Loading
-        </span>
-      </div>
-
+      <QueueErrorsPanelFallback />
       <ListingsLoadingState />
     </>
-  );
-}
-
-function QueueSectionFallback({compact = false}: {compact?: boolean}) {
-  if (compact) {
-    return (
-      <div className="w-full">
-        <div className="rounded-full border border-stone-950/10 bg-stone-950 p-2 text-stone-50 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-300">
-                Watcher intake
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70" />
-              <div className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70" />
-              <div className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70" />
-            </div>
-            <div className="sr-only">Display only</div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
-      <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">
-        Queue
-      </p>
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        {Array.from({length: 3}).map((_, index) => (
-          <div
-            key={index}
-            className="h-24 animate-pulse rounded-2xl bg-stone-800/70"
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-async function QueueSection({
-  listingsPromise,
-  compact = false,
-}: {
-  listingsPromise: Promise<ListingsLoadResult>;
-  compact?: boolean;
-}) {
-  const listingsResult = await listingsPromise;
-
-  if (compact) {
-    const cards =
-      listingsResult.status === "success"
-        ? buildQueueCards(listingsResult.listings)
-        : [];
-
-    return (
-      <div className="w-full">
-        <div className="rounded-full border border-stone-950/10 bg-stone-950 p-2 text-stone-50 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-300">
-                Watcher intake
-              </p>
-              <p className="hidden sm:block text-sm text-stone-400">
-                Incoming rows surface before asset upload or generation.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {cards.length > 0
-                ? cards.map((card) => (
-                    <div
-                      key={card.label}
-                      className={`rounded-md px-3 py-1 text-sm font-semibold ${card.tone}`}
-                    >
-                      {card.value}
-                    </div>
-                  ))
-                : Array.from({length: 3}).map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70"
-                    />
-                  ))}
-            </div>
-
-            <span className="rounded-full border border-stone-700 bg-stone-900 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-stone-300">
-              Display only
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
-      <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">
-        Queue
-      </p>
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        {listingsResult.status === "error" ? (
-          <div className="rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
-            {listingsResult.message}
-          </div>
-        ) : (
-          buildQueueCards(listingsResult.listings).map((card) => (
-            <div key={card.label} className={`rounded-2xl p-4 ${card.tone}`}>
-              <p className="text-3xl font-semibold">{card.value}</p>
-              <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] opacity-70">
-                {card.label}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-    </section>
   );
 }
 
@@ -433,21 +261,11 @@ export default function Home() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_12%,_rgba(251,191,36,0.38),_transparent_28%),radial-gradient(circle_at_82%_18%,_rgba(20,184,166,0.22),_transparent_30%),linear-gradient(135deg,_rgba(68,64,60,0.08),_transparent_45%)]" />
 
       <section className="relative flex min-h-screen w-full flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
-        <header className="flex w-full items-center rounded-[1.5rem] border border-stone-950/10 bg-stone-50/85 px-3 py-2 shadow-[0_18px_48px_rgba(68,64,60,0.12)] backdrop-blur">
-          <div className="w-full">
-            <Suspense fallback={<QueueSectionFallback compact={true} />}>
-              <QueueSection listingsPromise={listingsPromise} compact={true} />
-            </Suspense>
-          </div>
-        </header>
-
         <section className="rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7 min-h-[44rem]">
           <Suspense fallback={<ListingsSectionFallback />}>
             <ListingsSection listingsPromise={listingsPromise} />
           </Suspense>
         </section>
-
-        
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Suspense fallback={<AppSettingsSectionFallback />}>

@@ -180,6 +180,16 @@ describe("ListingsTableEditable", () => {
             },
           ),
           buildListing(
+            "LIST-FALSE",
+            "assets_ready",
+            "2026-05-20T02:30:00.000Z",
+            {
+              image_urls: ["https://example.com/faux.jpg"],
+              last_error_context: {},
+              sub_status: "ready_to_generate",
+            },
+          ),
+          buildListing(
             "LIST-READY",
             "assets_ready",
             "2026-05-20T03:00:00.000Z",
@@ -203,9 +213,16 @@ describe("ListingsTableEditable", () => {
     ).not.toBeNull();
     expect(screen.getByText("Needs attention")).not.toBeNull();
     expect(screen.getByText("r2_upload_failed")).not.toBeNull();
-    expect(screen.getByText("Could not upload intake images.")).not.toBeNull();
+    expect(screen.queryByText("Could not upload intake images.")).toBeNull();
+    expect(
+      within(
+        screen.getByText("LIST-FALSE").closest("tr") as HTMLTableRowElement,
+      ).queryByText("Needs attention"),
+    ).toBeNull();
 
-    const openEditButton = screen.getByRole("button", {name: "Open/Edit"});
+    const openEditButton = within(
+      screen.getByText("LIST-READY").closest("tr") as HTMLTableRowElement,
+    ).getByRole("button", {name: "Open/Edit"});
     await user.click(openEditButton);
 
     expect(screen.getByText("Edit listing")).not.toBeNull();
@@ -229,13 +246,18 @@ describe("ListingsTableEditable", () => {
               title: "Active workflow listing",
             },
           ),
-          buildListing("LIST-EXPORTED", "exported" as Listing["status"], "2026-05-20T06:00:00.000Z", {
-            ebay_listing_url: "https://www.ebay.com/itm/123456789",
-            exported_at: "2026-05-20T05:45:00.000Z",
-            image_urls: ["https://example.com/exported.jpg"],
-            sku: "SKU-EXPORTED",
-            title: "Exported listing",
-          }),
+          buildListing(
+            "LIST-EXPORTED",
+            "exported" as Listing["status"],
+            "2026-05-20T06:00:00.000Z",
+            {
+              ebay_listing_url: "https://www.ebay.com/itm/123456789",
+              exported_at: "2026-05-20T05:45:00.000Z",
+              image_urls: ["https://example.com/exported.jpg"],
+              sku: "SKU-EXPORTED",
+              title: "Exported listing",
+            },
+          ),
           buildListing("LIST-LISTED", "listed", "2026-05-20T07:00:00.000Z", {
             ebay_listing_url: null,
             exported_at: "2026-05-20T06:30:00.000Z",
@@ -292,7 +314,10 @@ describe("ListingsTableEditable", () => {
     expect(exportedPanel.queryByRole("button")).toBeNull();
     expect(exportedPanel.queryByRole("img")).toBeNull();
     expect(
-      exportedPanel.getByText("Listed listing").closest("tr")?.querySelector("a"),
+      exportedPanel
+        .getByText("Listed listing")
+        .closest("tr")
+        ?.querySelector("a"),
     ).toBeNull();
   });
 });
