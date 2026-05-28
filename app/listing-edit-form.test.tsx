@@ -167,7 +167,9 @@ describe("ListingEditForm", () => {
           ...buildListing("assets_ready", [
             "https://example.com/image-1.jpg",
             "https://example.com/image-2.jpg",
-          ]),
+          ], {
+            title: "A".repeat(81),
+          }),
           sub_status: "ready_to_generate",
         }}
       />,
@@ -195,6 +197,9 @@ describe("ListingEditForm", () => {
     expect(screen.queryByLabelText("Price")).toBeNull();
     expect(screen.queryByLabelText("Item specifics (JSON)")).toBeNull();
     expect(screen.queryByText("Final review checklist")).toBeNull();
+    expect(
+      screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
+    ).toBeNull();
     expect(
       screen.queryByRole("button", {name: "Approve For Export"}),
     ).toBeNull();
@@ -250,6 +255,9 @@ describe("ListingEditForm", () => {
         /Confirm each item before approving this listing for export\. This is a pre-publish safety gate\./i,
       ),
     ).not.toBeNull();
+    expect(
+      screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
+    ).toBeNull();
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
 
     const approveButton = screen.getByRole("button", {
@@ -281,6 +289,72 @@ describe("ListingEditForm", () => {
     expect(
       screen.getByRole("link", {name: "SportsCardsPro"}).getAttribute("href"),
     ).toContain("type=prices");
+  });
+
+  it("shows title-length validation and keeps approve disabled when the title is 81 characters", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/too-long.jpg"], {
+          title: "A".repeat(81),
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /eBay titles must be 80 characters or fewer\. Current title: 81 characters\./i,
+      ),
+    ).not.toBeNull();
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+    expect(approveButton).toHaveProperty("disabled", true);
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", true);
+  });
+
+  it("allows approve once the checklist is complete when the title is exactly 80 characters", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/exact-length.jpg"], {
+          title: "A".repeat(80),
+        })}
+      />,
+    );
+
+    expect(
+      screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
+    ).toBeNull();
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+    expect(approveButton).toHaveProperty("disabled", true);
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", false);
   });
 
   it("shows retry publish for approved_for_export listings with user-fixable errors and submits listing_id", async () => {
