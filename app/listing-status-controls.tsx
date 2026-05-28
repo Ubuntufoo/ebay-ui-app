@@ -28,6 +28,8 @@ import {
 } from "@/app/listing-status-state";
 import type {Listing, ListingStatus} from "@/lib/sidecar-api";
 
+const EBAY_TITLE_MAX_LENGTH = 80;
+
 function StatusActionButton({
   disabled,
   nextStatus,
@@ -96,6 +98,14 @@ function createInitialChecklistState(): Record<FinalReviewChecklistItem, boolean
   return Object.fromEntries(
     FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => [item, false]),
   ) as Record<FinalReviewChecklistItem, boolean>;
+}
+
+function getTitleLength(title: Listing["title"]): number {
+  return typeof title === "string" ? title.length : 0;
+}
+
+function isTitleTooLong(title: Listing["title"]): boolean {
+  return getTitleLength(title) > EBAY_TITLE_MAX_LENGTH;
 }
 
 function getLastErrorCategory(listing: Listing): string | null {
@@ -192,11 +202,13 @@ function ApproveForExportForm({
   approveFormAction,
   approveState,
   listingId,
+  listingTitle,
   listingStatus,
 }: {
   approveFormAction: (payload: FormData) => void;
   approveState: ApproveListingForExportActionState;
   listingId: string;
+  listingTitle: Listing["title"];
   listingStatus: ListingStatus;
 }) {
   const [completedChecklistItems, setCompletedChecklistItems] = useState(
@@ -205,6 +217,9 @@ function ApproveForExportForm({
   const isReviewChecklistComplete = FINAL_REVIEW_CHECKLIST_ITEMS.every(
     (item) => completedChecklistItems[item] === true,
   );
+  const titleLength = getTitleLength(listingTitle);
+  const isTitleLengthValid = !isTitleTooLong(listingTitle);
+  const isApproveDisabled = !isReviewChecklistComplete || !isTitleLengthValid;
 
   return (
     <form action={approveFormAction} className="mt-4 grid gap-4">
@@ -218,6 +233,12 @@ function ApproveForExportForm({
           Confirm each item before approving this listing for export. This is a
           pre-publish safety gate.
         </p>
+        {!isTitleLengthValid ? (
+          <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            eBay titles must be 80 characters or fewer. Current title: {titleLength}{" "}
+            characters.
+          </p>
+        ) : null}
         <div className="mt-3 grid gap-2">
           {FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => (
             <label key={item} className="flex items-start gap-2 text-sm text-stone-700">
@@ -237,7 +258,7 @@ function ApproveForExportForm({
         </div>
       </div>
       <div className="flex flex-wrap gap-3">
-        <ApproveForExportButton disabled={!isReviewChecklistComplete} />
+        <ApproveForExportButton disabled={isApproveDisabled} />
       </div>
       {approveState.success ? (
         <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
@@ -357,6 +378,7 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
           approveFormAction={approveFormAction}
           approveState={approveState}
           listingId={listing.listing_id}
+          listingTitle={listing.title}
           listingStatus={listing.status}
         />
       ) : null}
