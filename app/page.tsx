@@ -166,9 +166,7 @@ async function ListingsSection({
   );
 }
 
-async function loadListings(): Promise<
-  ListingsLoadResult
-> {
+async function loadListings(): Promise<ListingsLoadResult> {
   try {
     return {
       status: "success",
@@ -240,14 +238,20 @@ async function AppSettingsSection() {
             ],
             ["Package type", settingsResult.settings.default_package_type],
             ["Marketplace", settingsResult.settings.ebay_marketplace_id],
-            ["Order syncs/day", settingsResult.settings.max_order_syncs_per_day],
+            [
+              "Order syncs/day",
+              settingsResult.settings.max_order_syncs_per_day,
+            ],
             ["Gemini daily limit", settingsResult.settings.gemini_daily_limit],
             [
               "R2 retention days after sold",
               settingsResult.settings.r2_retention_days_after_sold,
             ],
           ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between gap-4">
+            <div
+              key={label}
+              className="flex items-center justify-between gap-4"
+            >
               <dt className="text-sm text-stone-500">{label}</dt>
               <dd className="text-right font-semibold">
                 {formatSettingValue(value)}
@@ -304,7 +308,29 @@ function ListingsSectionFallback() {
   );
 }
 
-function QueueSectionFallback() {
+function QueueSectionFallback({compact = false}: {compact?: boolean}) {
+  if (compact) {
+    return (
+      <div className="w-full">
+        <div className="rounded-full border border-stone-950/10 bg-stone-950 p-2 text-stone-50 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-300">
+                Watcher intake
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70" />
+              <div className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70" />
+              <div className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70" />
+            </div>
+            <div className="sr-only">Display only</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
       <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">
@@ -324,49 +350,80 @@ function QueueSectionFallback() {
 
 async function QueueSection({
   listingsPromise,
+  compact = false,
 }: {
   listingsPromise: Promise<ListingsLoadResult>;
+  compact?: boolean;
 }) {
   const listingsResult = await listingsPromise;
+
+  if (compact) {
+    const cards =
+      listingsResult.status === "success"
+        ? buildQueueCards(listingsResult.listings)
+        : [];
+
+    return (
+      <div className="w-full">
+        <div className="rounded-full border border-stone-950/10 bg-stone-950 p-2 text-stone-50 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-300">
+                Watcher intake
+              </p>
+              <p className="hidden sm:block text-sm text-stone-400">
+                Incoming rows surface before asset upload or generation.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {cards.length > 0
+                ? cards.map((card) => (
+                    <div
+                      key={card.label}
+                      className={`rounded-md px-3 py-1 text-sm font-semibold ${card.tone}`}
+                    >
+                      {card.value}
+                    </div>
+                  ))
+                : Array.from({length: 3}).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-6 w-10 animate-pulse rounded-md bg-stone-800/70"
+                    />
+                  ))}
+            </div>
+
+            <span className="rounded-full border border-stone-700 bg-stone-900 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-stone-300">
+              Display only
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <section className="rounded-[2rem] border border-stone-950/10 bg-stone-950 p-6 text-stone-50 shadow-[0_18px_60px_rgba(28,25,23,0.22)]">
       <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-400">
         Queue
       </p>
-      <div className="mt-2 flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-[-0.03em]">
-            Watcher intake
-          </h2>
-          <p className="mt-1 text-sm text-stone-400">
-            Incoming rows surface before asset upload or generation.
-          </p>
-        </div>
-        <span className="rounded-full border border-stone-700 bg-stone-900 px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-stone-300">
-          Display only
-        </span>
-      </div>
-
-      {listingsResult.status === "error" ? (
-        <div className="mt-5 rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
-          {listingsResult.message}
-        </div>
-      ) : (
-        <div className="mt-5 grid grid-cols-3 gap-3">
-          {buildQueueCards(listingsResult.listings).map((card) => (
-            <div
-              key={card.label}
-              className={`rounded-2xl p-4 ${card.tone}`}
-            >
+      <div className="mt-5 grid grid-cols-3 gap-3">
+        {listingsResult.status === "error" ? (
+          <div className="rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
+            {listingsResult.message}
+          </div>
+        ) : (
+          buildQueueCards(listingsResult.listings).map((card) => (
+            <div key={card.label} className={`rounded-2xl p-4 ${card.tone}`}>
               <p className="text-3xl font-semibold">{card.value}</p>
               <p className="mt-1 text-xs font-bold uppercase tracking-[0.18em] opacity-70">
                 {card.label}
               </p>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </section>
   );
 }
@@ -378,19 +435,10 @@ export default function Home() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_12%,_rgba(251,191,36,0.38),_transparent_28%),radial-gradient(circle_at_82%_18%,_rgba(20,184,166,0.22),_transparent_30%),linear-gradient(135deg,_rgba(68,64,60,0.08),_transparent_45%)]" />
 
       <section className="relative flex min-h-screen w-full flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/85 px-5 py-3 shadow-[0_18px_48px_rgba(68,64,60,0.12)] backdrop-blur">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.32em] text-stone-500">
-              Murphy Family Hobby
-            </p>
-            <h1 className="mt-1 text-lg font-semibold tracking-[-0.03em] sm:text-xl">
-              Local command center
-            </h1>
-          </div>
-
-          <div className="w-80">
-            <Suspense fallback={<QueueSectionFallback />}>
-              <QueueSection listingsPromise={listingsPromise} />
+        <header className="flex w-full items-center rounded-[1.5rem] border border-stone-950/10 bg-stone-50/85 px-3 py-2 shadow-[0_18px_48px_rgba(68,64,60,0.12)] backdrop-blur">
+          <div className="w-full">
+            <Suspense fallback={<QueueSectionFallback compact={true} />}>
+              <QueueSection listingsPromise={listingsPromise} compact={true} />
             </Suspense>
           </div>
         </header>
@@ -429,7 +477,9 @@ export default function Home() {
                   key={state}
                   className="rounded-2xl border border-stone-950/10 bg-white p-4"
                 >
-                  <p className="font-mono text-xs text-stone-400">0{index + 1}</p>
+                  <p className="font-mono text-xs text-stone-400">
+                    0{index + 1}
+                  </p>
                   <p className="mt-3 break-words text-sm font-semibold">
                     {state}
                   </p>

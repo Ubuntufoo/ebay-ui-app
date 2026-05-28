@@ -32,7 +32,8 @@ function formatUpdatedAt(updatedAt: string): string {
 function sortNewestFirst(listings: Listing[]): Listing[] {
   return [...listings].sort((left, right) => {
     const updatedDelta =
-      new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+      new Date(right.updated_at).getTime() -
+      new Date(left.updated_at).getTime();
 
     if (updatedDelta !== 0) {
       return updatedDelta;
@@ -57,8 +58,9 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
     () =>
       selectedListingId === null
         ? null
-        : sortedListings.find((listing) => listing.listing_id === selectedListingId) ??
-          null,
+        : (sortedListings.find(
+            (listing) => listing.listing_id === selectedListingId,
+          ) ?? null),
     [selectedListingId, sortedListings],
   );
   const activeSelectedListingId = selectedListing?.listing_id ?? null;
@@ -99,7 +101,8 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
             </thead>
             <tbody>
               {sortedListings.map((listing) => {
-                const isSelected = activeSelectedListingId === listing.listing_id;
+                const isSelected =
+                  activeSelectedListingId === listing.listing_id;
                 const isGenerating = listing.status === "generating";
                 const intakeOnly = isIntakeListing(listing.status);
                 const actionLabel = isGenerating
@@ -140,7 +143,9 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                               <p className="font-bold uppercase tracking-[0.16em] text-rose-700">
                                 Needs attention
                               </p>
-                              <p className="mt-1 font-mono">{listing.last_error_code}</p>
+                              <p className="mt-1 font-mono">
+                                {listing.last_error_code}
+                              </p>
                               {listing.last_error_message ? (
                                 <p className="mt-1 leading-5">
                                   {listing.last_error_message}
