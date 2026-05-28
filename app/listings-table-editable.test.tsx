@@ -216,7 +216,7 @@ describe("ListingsTableEditable", () => {
     expect(screen.queryByLabelText("Title")).toBeNull();
   });
 
-  it("moves exported and listed listings into the Exported / Live panel", () => {
+  it("moves exported and listed listings into the Published Listings panel", () => {
     render(
       <ListingsTableEditable
         listings={[
@@ -229,17 +229,17 @@ describe("ListingsTableEditable", () => {
               title: "Active workflow listing",
             },
           ),
-          buildListing("LIST-EXPORTED", "listed", "2026-05-20T06:00:00.000Z", {
+          buildListing("LIST-EXPORTED", "exported" as Listing["status"], "2026-05-20T06:00:00.000Z", {
             ebay_listing_url: "https://www.ebay.com/itm/123456789",
             exported_at: "2026-05-20T05:45:00.000Z",
             image_urls: ["https://example.com/exported.jpg"],
             sku: "SKU-EXPORTED",
             title: "Exported listing",
           }),
-          buildListing("LIST-LIVE", "listed", "2026-05-20T07:00:00.000Z", {
+          buildListing("LIST-LISTED", "listed", "2026-05-20T07:00:00.000Z", {
             ebay_listing_url: null,
             exported_at: "2026-05-20T06:30:00.000Z",
-            title: "Live listing",
+            title: "Listed listing",
           }),
           buildListing(
             "LIST-ARCHIVE",
@@ -263,20 +263,20 @@ describe("ListingsTableEditable", () => {
       within(activeTable).getByRole("button", {name: "Review"}),
     ).not.toBeNull();
     expect(within(activeTable).queryByText("Exported listing")).toBeNull();
-    expect(within(activeTable).queryByText("Live listing")).toBeNull();
+    expect(within(activeTable).queryByText("Listed listing")).toBeNull();
     expect(
       within(activeTable).queryByText("Archived exported listing"),
     ).toBeNull();
 
     const exportedPanelHeading = screen.getByRole("heading", {
-      name: "Exported / Live",
+      name: "Published Listings",
     });
     const exportedPanel = within(
       exportedPanelHeading.closest("section") as HTMLElement,
     );
 
     expect(exportedPanel.getByText("Exported listing")).not.toBeNull();
-    expect(exportedPanel.getByText("Live listing")).not.toBeNull();
+    expect(exportedPanel.getByText("Listed listing")).not.toBeNull();
     expect(exportedPanel.getByText("Archived exported listing")).not.toBeNull();
     expect(
       exportedPanel.getByText("Exported listing").closest("tr")?.textContent,
@@ -292,7 +292,7 @@ describe("ListingsTableEditable", () => {
     expect(exportedPanel.queryByRole("button")).toBeNull();
     expect(exportedPanel.queryByRole("img")).toBeNull();
     expect(
-      exportedPanel.getByText("Live listing").closest("tr")?.querySelector("a"),
+      exportedPanel.getByText("Listed listing").closest("tr")?.querySelector("a"),
     ).toBeNull();
   });
 });

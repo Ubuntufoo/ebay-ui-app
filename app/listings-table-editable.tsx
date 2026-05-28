@@ -57,21 +57,22 @@ function isIntakeListing(status: Listing["status"]): boolean {
   return status === "record_created";
 }
 
-function isCompletedLiveListing(status: Listing["status"] | string): boolean {
+// Treat `exported` as the canonical published/completed status. `listed`
+// remains supported for backward compatibility and will also render in this
+// read-only published panel if present.
+function isPublishedListing(status: Listing["status"] | string): boolean {
   const normalizedStatus = String(status);
 
   return normalizedStatus === "exported" || normalizedStatus === "listed";
 }
 
-function getCompletedLiveStatusLabel(
-  status: Listing["status"] | string,
-): string {
+function getPublishedStatusLabel(status: Listing["status"] | string): string {
   return String(status) === "exported"
     ? "Exported"
     : getListingStatusLabel(status as Listing["status"]);
 }
 
-function ExportedLiveListingsPanel({listings}: {listings: Listing[]}) {
+function PublishedListingsPanel({listings}: {listings: Listing[]}) {
   if (listings.length === 0) {
     return null;
   }
@@ -80,7 +81,7 @@ function ExportedLiveListingsPanel({listings}: {listings: Listing[]}) {
     <section className="mt-6 overflow-hidden rounded-[1.5rem] border border-stone-950/10 bg-white/80 shadow-[0_10px_28px_rgba(68,64,60,0.08)]">
       <div className="border-b border-stone-950/10 bg-stone-100/80 px-5 py-4">
         <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
-          Exported / Live
+          Published Listings
         </h2>
       </div>
       <div className="overflow-x-auto">
@@ -123,7 +124,7 @@ function ExportedLiveListingsPanel({listings}: {listings: Listing[]}) {
                 </td>
                 <td className="px-4 py-3 text-sm text-stone-600">
                   <span className="inline-flex rounded-full border border-stone-300 bg-stone-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-stone-700">
-                    {getCompletedLiveStatusLabel(listing.status)}
+                    {getPublishedStatusLabel(listing.status)}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-sm text-stone-600">
@@ -166,17 +167,11 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
   );
   const sortedListings = useMemo(() => sortNewestFirst(listings), [listings]);
   const activeListings = useMemo(
-    () =>
-      sortedListings.filter(
-        (listing) => !isCompletedLiveListing(listing.status),
-      ),
+    () => sortedListings.filter((listing) => !isPublishedListing(listing.status)),
     [sortedListings],
   );
-  const exportedLiveListings = useMemo(
-    () =>
-      sortedListings.filter((listing) =>
-        isCompletedLiveListing(listing.status),
-      ),
+  const publishedListings = useMemo(
+    () => sortedListings.filter((listing) => isPublishedListing(listing.status)),
     [sortedListings],
   );
   const selectedListing = useMemo(
@@ -361,7 +356,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
         </div>
       ) : null}
 
-      <ExportedLiveListingsPanel listings={exportedLiveListings} />
+      <PublishedListingsPanel listings={publishedListings} />
     </div>
   );
 }
