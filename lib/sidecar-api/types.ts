@@ -98,12 +98,6 @@ export interface RetryPublishListingResponse {
   listing: Listing;
   workflow: "generate_ai" | "publish";
 }
-
-export interface CreateListingInput {
-  listingId?: string;
-  mode: "manual" | "test";
-}
-
 export interface UpdateListingInput {
   categoryId?: string | null;
   conditionId?: string | null;

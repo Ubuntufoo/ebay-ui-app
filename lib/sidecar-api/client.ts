@@ -4,7 +4,6 @@ import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AppSettings,
   EnqueueGenerateAiResponse,
-  CreateListingInput,
   Listing,
   ListingsResponse,
   RetryPublishListingResponse,
@@ -121,18 +120,8 @@ export async function getAppSettings(): Promise<AppSettings> {
   return await sidecarFetch<AppSettings>("/api/app-settings");
 }
 
-export async function createListing(
-  input: CreateListingInput,
-): Promise<Listing> {
-  return await sidecarFetch<Listing>("/api/listings", {
-    method: "POST",
-    body: JSON.stringify(input),
-    headers: {
-      ...buildHeaders(),
-      "Content-Type": "application/json",
-    },
-  });
-}
+// `createListing` client wrapper removed: manual/test create listing UI deleted.
+// Backend APIs remain available at the sidecar; call directly from server code where needed.
 
 function mapUpdateListingInput(
   input: UpdateListingInput,

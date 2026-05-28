@@ -1,6 +1,4 @@
 import {Suspense} from "react";
-
-// CreateListingForm removed — panel deprecated and no longer rendered
 import {ListingsRealtime} from "@/app/listings-realtime";
 import {
   SidecarApiError,
@@ -449,7 +447,7 @@ export default function Home() {
           </Suspense>
         </section>
 
-        {/* Create test listing panel removed; queue moved into header */}
+        
 
         <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Suspense fallback={<AppSettingsSectionFallback />}>

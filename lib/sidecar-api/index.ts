@@ -1,5 +1,4 @@
 export {
-  createListing,
   enqueueGenerateAi,
   getAppSettings,
   getListing,
@@ -12,7 +11,6 @@ export {
 } from "@/lib/sidecar-api/client";
 export type {
   AppSettings,
-  CreateListingInput,
   EnqueueGenerateAiResponse,
   Listing,
   ListingStatus,
