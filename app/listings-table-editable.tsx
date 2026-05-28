@@ -4,6 +4,7 @@ import {Fragment, startTransition, useEffect, useMemo, useState} from "react";
 
 import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
+import {hasPersistedListingError} from "@/app/listing-error-utils";
 import {
   getListingStatusBadgeClassName,
   getListingStatusLabel,
@@ -167,11 +168,13 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
   );
   const sortedListings = useMemo(() => sortNewestFirst(listings), [listings]);
   const activeListings = useMemo(
-    () => sortedListings.filter((listing) => !isPublishedListing(listing.status)),
+    () =>
+      sortedListings.filter((listing) => !isPublishedListing(listing.status)),
     [sortedListings],
   );
   const publishedListings = useMemo(
-    () => sortedListings.filter((listing) => isPublishedListing(listing.status)),
+    () =>
+      sortedListings.filter((listing) => isPublishedListing(listing.status)),
     [sortedListings],
   );
   const selectedListing = useMemo(
@@ -260,17 +263,14 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                                   Intake only
                                 </div>
                               ) : null}
-                              {listing.last_error_code ? (
+                              {hasPersistedListingError(listing) ? (
                                 <div className="rounded-2xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs text-rose-800">
                                   <p className="font-bold uppercase tracking-[0.16em] text-rose-700">
                                     Needs attention
                                   </p>
-                                  <p className="mt-1 font-mono">
-                                    {listing.last_error_code}
-                                  </p>
-                                  {listing.last_error_message ? (
-                                    <p className="mt-1 leading-5">
-                                      {listing.last_error_message}
+                                  {listing.last_error_code ? (
+                                    <p className="mt-1 font-mono">
+                                      {listing.last_error_code}
                                     </p>
                                   ) : null}
                                 </div>

@@ -3,11 +3,13 @@
 import {useEffect, useState} from "react";
 
 import {ListingsTableEditable} from "@/app/listings-table-editable";
+import {QueueErrorsPanel} from "@/app/queue-errors-panel";
 import type {Listing} from "@/lib/sidecar-api";
 import {getSupabaseBrowserClient} from "@/lib/supabase/browser";
 
 type ListingsRealtimeProps = {
   initialListings: Listing[];
+  panelErrorMessage?: string | null;
   realtimeAnonKey?: string | null;
   realtimeDebounceMs?: number;
   refreshPath?: string;
@@ -18,6 +20,7 @@ type ListingsRealtimeProps = {
 
 export function ListingsRealtime({
   initialListings,
+  panelErrorMessage = null,
   realtimeAnonKey = null,
   realtimeDebounceMs = 200,
   refreshPath = "/api/listings",
@@ -140,5 +143,10 @@ export function ListingsRealtime({
     refreshPath,
   ]);
 
-  return <ListingsTableEditable listings={listings} />;
+  return (
+    <>
+      <QueueErrorsPanel errorMessage={panelErrorMessage} listings={listings} />
+      <ListingsTableEditable listings={listings} />
+    </>
+  );
 }
