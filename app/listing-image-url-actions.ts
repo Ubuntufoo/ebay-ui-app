@@ -2,25 +2,17 @@
 
 import {revalidatePath} from "next/cache";
 
+import {getActionErrorMessage, readTrimmedFormField} from "@/app/action-utils";
 import {initialSaveListingImageUrlsActionState} from "@/app/listing-image-url-state";
 import {parseListingImageUrlsInput} from "@/app/listing-image-url-utils";
 import {SidecarApiError, updateListingImageUrls} from "@/lib/sidecar-api";
 import type {SaveListingImageUrlsActionState} from "@/app/listing-image-url-state";
 
-function readTextField(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
-
 export async function saveListingImageUrls(
   _previousState: SaveListingImageUrlsActionState,
   formData: FormData,
 ): Promise<SaveListingImageUrlsActionState> {
-  const listingId = readTextField(formData.get("listing_id"));
+  const listingId = readTrimmedFormField(formData.get("listing_id"));
 
   if (!listingId) {
     return {
@@ -29,10 +21,7 @@ export async function saveListingImageUrls(
     };
   }
 
-  const imageUrlsText =
-    typeof formData.get("image_urls") === "string"
-      ? (formData.get("image_urls") as string)
-      : "";
+  const imageUrlsText = readTrimmedFormField(formData.get("image_urls")) ?? "";
 
   const {invalidUrls, urls} = parseListingImageUrlsInput(imageUrlsText);
 
@@ -56,9 +45,10 @@ export async function saveListingImageUrls(
       error:
         error instanceof SidecarApiError
           ? error.message
-          : error instanceof Error
-            ? error.message
-            : "An unexpected error occurred while saving image URLs.",
+          : getActionErrorMessage(
+              error,
+              "An unexpected error occurred while saving image URLs.",
+            ),
       success: false,
     };
   }

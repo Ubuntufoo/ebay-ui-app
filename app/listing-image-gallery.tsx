@@ -3,8 +3,6 @@
 import {useState} from "react";
 
 import {
-  countListingImageUrls,
-  getListingImagePreviewUrl,
   isHttpListingImageUrl,
   readListingImageUrls,
 } from "@/app/listing-image-url-utils";
@@ -82,10 +80,10 @@ export function ListingImageGallery({
   showUrls?: boolean;
 }) {
   const urls = readListingImageUrls(imageUrls);
-  const previewUrl = getListingImagePreviewUrl(imageUrls);
   const remoteUrls = urls.filter(isHttpListingImageUrl);
   const hasLocalOnly = urls.length > 0 && remoteUrls.length === 0;
-  const imageCount = countListingImageUrls(imageUrls);
+  const imageCount = urls.length;
+  const previewUrl = remoteUrls[0] ?? null;
 
   if (urls.length === 0) {
     return (

@@ -10,14 +10,12 @@ const {
   retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
-  updateListingStatusMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
-  updateListingStatusMock: vi.fn(),
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -30,10 +28,6 @@ vi.mock("@/app/listing-actions", () => ({
 
 vi.mock("@/app/listing-image-url-actions", () => ({
   saveListingImageUrls: saveListingImageUrlsMock,
-}));
-
-vi.mock("@/app/listing-status-actions", () => ({
-  updateListingStatus: updateListingStatusMock,
 }));
 
 vi.mock("@/app/listing-approve-export-actions", () => ({
@@ -110,7 +104,6 @@ describe("ListingEditForm", () => {
     retryPublishListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
-    updateListingStatusMock.mockReset();
   });
 
   it("locks edit controls and shows generating notice while generating", () => {

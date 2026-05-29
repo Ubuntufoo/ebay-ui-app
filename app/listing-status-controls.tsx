@@ -13,9 +13,7 @@ import {
   initialRetryPublishListingActionState,
   type RetryPublishListingActionState,
 } from "@/app/listing-retry-publish-state";
-import {updateListingStatus} from "@/app/listing-status-actions";
 import {
-  getAllowedManualStatusTransitions,
   getListingStatusBadgeClassName,
   getListingStatusLabel,
   getListingSubStatusLabel,
@@ -23,38 +21,9 @@ import {
 import {getListingPricingLinks} from "@/app/listing-pricing-links";
 import {getTradingCardConditionApprovalMessage} from "@/app/trading-card-condition-utils";
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
-import {
-  initialUpdateListingStatusActionState,
-  type UpdateListingStatusActionState,
-} from "@/app/listing-status-state";
-import type {Listing, ListingStatus} from "@/lib/sidecar-api";
+import type {Listing} from "@/lib/sidecar-api";
 
 const EBAY_TITLE_MAX_LENGTH = 80;
-
-function StatusActionButton({
-  disabled,
-  nextStatus,
-}: {
-  disabled?: boolean;
-  nextStatus: ListingStatus;
-}) {
-  const {data, pending} = useFormStatus();
-  const submittedStatus = data?.get("next_status");
-  const isActiveAction =
-    pending && typeof submittedStatus === "string" && submittedStatus === nextStatus;
-
-  return (
-    <button
-      type="submit"
-      name="next_status"
-      value={nextStatus}
-      disabled={pending || disabled}
-      className="inline-flex min-w-36 items-center justify-center rounded-full border border-stone-950/15 bg-stone-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
-    >
-      {isActiveAction ? "Updating..." : getListingStatusLabel(nextStatus)}
-    </button>
-  );
-}
 
 function ApproveForExportButton({disabled}: {disabled?: boolean}) {
   const {pending} = useFormStatus();
@@ -295,17 +264,9 @@ export function ListingStatusControls({
     approveListingForExport,
     initialApproveListingForExportActionState,
   );
-  const [state, formAction] = useActionState<
-    UpdateListingStatusActionState,
-    FormData
-  >(
-    updateListingStatus,
-    initialUpdateListingStatusActionState,
-  );
   const isGenerating = listing.status === "generating";
   const isNeedsReview = listing.status === "needs_review";
   const canRetryPublishListing = canRetryPublish(listing);
-  const nextStatuses = getAllowedManualStatusTransitions(listing.status);
   const pricingLinks = isNeedsReview ? getListingPricingLinks(listing) : [];
   const cardConditionApprovalMessage = getTradingCardConditionApprovalMessage(
     listing,
@@ -374,25 +335,6 @@ export function ListingStatusControls({
           listingTitle={listing.title}
           listingStatus={listing.status}
         />
-      ) : null}
-
-      <form action={formAction} className="mt-4 grid gap-4">
-        <fieldset disabled={isGenerating} className="grid gap-4">
-          <input type="hidden" name="listing_id" value={listing.listing_id} />
-          <input type="hidden" name="current_status" value={listing.status} />
-        </fieldset>
-      </form>
-
-      {state.success ? (
-        <p className="mt-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          {state.success}
-        </p>
-      ) : null}
-
-      {state.error ? (
-        <p className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {state.error}
-        </p>
       ) : null}
     </section>
   );

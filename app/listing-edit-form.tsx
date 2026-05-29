@@ -1,6 +1,6 @@
 "use client";
 
-import {useActionState, useMemo, useState} from "react";
+import {useActionState, useState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
@@ -86,16 +86,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   const [imageUrlsText, setImageUrlsText] = useState(() =>
     formatListingImageUrls(listing.image_urls),
   );
-  const itemSpecificsState = useMemo(
-    () => parseItemSpecificsText(itemSpecificsText),
-    [itemSpecificsText],
-  );
-  const cardConditionToken = useMemo(
-    () =>
-      getCardConditionTokenFromItemSpecifics(
-        itemSpecificsState.value as Parameters<typeof getCardConditionTokenFromItemSpecifics>[0],
-      ),
-    [itemSpecificsState.value],
+  const itemSpecificsState = parseItemSpecificsText(itemSpecificsText);
+  const cardConditionToken = getCardConditionTokenFromItemSpecifics(
+    itemSpecificsState.value as Parameters<typeof getCardConditionTokenFromItemSpecifics>[0],
   );
   const selectedCardConditionValue = isSupportedTradingCardConditionToken(
     cardConditionToken,
@@ -107,10 +100,7 @@ export function ListingEditForm({listing}: {listing: Listing}) {
 
   const itemSpecificsError = itemSpecificsState.error;
 
-  const imageUrlValidation = useMemo(
-    () => parseListingImageUrlsInput(imageUrlsText),
-    [imageUrlsText],
-  );
+  const imageUrlValidation = parseListingImageUrlsInput(imageUrlsText);
 
   const imageUrlsError =
     imageUrlValidation.invalidUrls.length > 0
