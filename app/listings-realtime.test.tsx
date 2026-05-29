@@ -21,14 +21,12 @@ const {
   retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
-  updateListingStatusMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
-  updateListingStatusMock: vi.fn(),
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -41,10 +39,6 @@ vi.mock("@/app/listing-actions", () => ({
 
 vi.mock("@/app/listing-image-url-actions", () => ({
   saveListingImageUrls: saveListingImageUrlsMock,
-}));
-
-vi.mock("@/app/listing-status-actions", () => ({
-  updateListingStatus: updateListingStatusMock,
 }));
 
 vi.mock("@/app/listing-approve-export-actions", () => ({
@@ -149,7 +143,6 @@ describe("ListingsRealtime", () => {
     enqueueGenerateListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
-    updateListingStatusMock.mockReset();
     realtimeChannelOnMock.mockReturnValue(realtimeChannel);
     realtimeSubscribeStatusCallbacks.length = 0;
     realtimeChannelSubscribeMock.mockImplementation((callback?: (status: string) => void) => {
@@ -302,9 +295,7 @@ describe("ListingsRealtime", () => {
 
     expect(screen.getByRole("button", {name: "Review"})).not.toBeNull();
     expect(
-      screen.getByText(
-        /AI draft ready for review\. Confirm or edit the generated fields before approving for export\./i,
-      ),
+      screen.getByText(/Final review checklist/i),
     ).not.toBeNull();
     expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
       "Gemini draft title",

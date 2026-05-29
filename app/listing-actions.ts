@@ -2,18 +2,10 @@
 
 import {revalidatePath} from "next/cache";
 
-import {SidecarApiError, updateListing} from "@/lib/sidecar-api";
+import {readTrimmedFormField, getActionErrorMessage} from "@/app/action-utils";
 import type {Json, UpdateListingInput} from "@/lib/sidecar-api/types";
+import {SidecarApiError, updateListing} from "@/lib/sidecar-api";
 import type {SaveListingEditsActionState} from "@/app/listing-edit-state";
-
-function readTextField(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
 
 function readNumericField(value: FormDataEntryValue | null): {
   value: number | null;
@@ -63,7 +55,7 @@ export async function saveListingEdits(
   _previousState: SaveListingEditsActionState,
   formData: FormData,
 ): Promise<SaveListingEditsActionState> {
-  const listingId = readTextField(formData.get("listing_id"));
+  const listingId = readTrimmedFormField(formData.get("listing_id"));
 
   if (!listingId) {
     return {
@@ -75,27 +67,27 @@ export async function saveListingEdits(
   const patch: UpdateListingInput = {};
 
   if (formData.has("title")) {
-    patch.title = readTextField(formData.get("title"));
+    patch.title = readTrimmedFormField(formData.get("title"));
   }
 
   if (formData.has("seller_hints")) {
-    patch.sellerHints = readTextField(formData.get("seller_hints"));
+    patch.sellerHints = readTrimmedFormField(formData.get("seller_hints"));
   }
 
   if (formData.has("description")) {
-    patch.description = readTextField(formData.get("description"));
+    patch.description = readTrimmedFormField(formData.get("description"));
   }
 
   if (formData.has("category_id")) {
-    patch.categoryId = readTextField(formData.get("category_id"));
+    patch.categoryId = readTrimmedFormField(formData.get("category_id"));
   }
 
   if (formData.has("condition_id")) {
-    patch.conditionId = readTextField(formData.get("condition_id"));
+    patch.conditionId = readTrimmedFormField(formData.get("condition_id"));
   }
 
   if (formData.has("condition_notes")) {
-    patch.conditionNotes = readTextField(formData.get("condition_notes"));
+    patch.conditionNotes = readTrimmedFormField(formData.get("condition_notes"));
   }
 
   if (formData.has("price")) {
@@ -135,9 +127,10 @@ export async function saveListingEdits(
       error:
         error instanceof SidecarApiError
           ? error.message
-          : error instanceof Error
-            ? error.message
-            : "An unexpected error occurred while saving listing edits.",
+          : getActionErrorMessage(
+              error,
+              "An unexpected error occurred while saving listing edits.",
+            ),
       success: false,
     };
   }

@@ -3,8 +3,6 @@
 import {useState} from "react";
 
 import {
-  countListingImageUrls,
-  getListingImagePreviewUrl,
   isHttpListingImageUrl,
   readListingImageUrls,
 } from "@/app/listing-image-url-utils";
@@ -15,15 +13,28 @@ function ListingImageThumbnail({
   listingId,
   index,
   compact,
+  quietFallback = false,
 }: {
   compact: boolean;
   index: number;
   listingId: string;
+  quietFallback?: boolean;
   url: string;
 }) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {
+    if (quietFallback) {
+      return (
+        <div
+          className={`aspect-square rounded-2xl border border-dashed border-stone-300 bg-stone-100 ${
+            compact ? "w-20" : "w-full"
+          }`}
+          aria-hidden="true"
+        />
+      );
+    }
+
     return (
       <div
         className={`flex aspect-square items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-stone-100 px-3 text-center text-xs font-medium text-stone-500 ${
@@ -57,6 +68,7 @@ export function ListingImageGallery({
   compact = false,
   emptyLabel = "No images uploaded",
   showAllImages = false,
+  showCaptions = true,
   showUrls = true,
 }: {
   compact?: boolean;
@@ -64,13 +76,14 @@ export function ListingImageGallery({
   imageUrls: Listing["image_urls"] | string[];
   listingId: string;
   showAllImages?: boolean;
+  showCaptions?: boolean;
   showUrls?: boolean;
 }) {
   const urls = readListingImageUrls(imageUrls);
-  const previewUrl = getListingImagePreviewUrl(imageUrls);
   const remoteUrls = urls.filter(isHttpListingImageUrl);
   const hasLocalOnly = urls.length > 0 && remoteUrls.length === 0;
-  const imageCount = countListingImageUrls(imageUrls);
+  const imageCount = urls.length;
+  const previewUrl = remoteUrls[0] ?? null;
 
   if (urls.length === 0) {
     return (
@@ -83,21 +96,45 @@ export function ListingImageGallery({
   if (compact) {
     return (
       <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <span className="rounded-full border border-stone-950/10 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-500">
-            {imageCount} {imageCount === 1 ? "image" : "images"}
-          </span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-400">
-            {previewUrl
-              ? "Preview"
-              : hasLocalOnly
-                ? "Local only"
-                : "No preview"}
-          </span>
-        </div>
+        {showCaptions ? (
+          <div className="flex items-center gap-3">
+            <span className="rounded-full border border-stone-950/10 bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-500">
+              {imageCount} {imageCount === 1 ? "image" : "images"}
+            </span>
+          </div>
+        ) : null}
 
-        {showAllImages ? (
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(5.75rem,5.75rem))] justify-start gap-2">
+        {showAllImages && hasLocalOnly ? (
+          showCaptions ? (
+            <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-100 px-3 py-4 text-sm text-stone-500">
+              Local images pending upload
+            </div>
+          ) : (
+            <div className="flex flex-nowrap items-start gap-2 overflow-x-auto pb-1">
+              {urls.map((url, index) => {
+                const isRemote = isHttpListingImageUrl(url);
+
+                return isRemote ? (
+                  <ListingImageThumbnail
+                    key={`${url}:${index}`}
+                    compact
+                    index={index}
+                    listingId={listingId}
+                    quietFallback
+                    url={url}
+                  />
+                ) : (
+                  <div
+                    key={`${url}:${index}`}
+                    className="aspect-square w-20 shrink-0 rounded-2xl border border-dashed border-stone-300 bg-stone-100"
+                    aria-hidden="true"
+                  />
+                );
+              })}
+            </div>
+          )
+        ) : showAllImages ? (
+          <div className="flex flex-nowrap items-start gap-2 overflow-x-auto pb-1">
             {urls.map((url, index) => {
               const isRemote = isHttpListingImageUrl(url);
               const previewContent = isRemote ? (
@@ -105,12 +142,14 @@ export function ListingImageGallery({
                   compact
                   index={index}
                   listingId={listingId}
+                  quietFallback={!showCaptions}
                   url={url}
                 />
               ) : (
-                <div className="flex aspect-square w-20 items-center justify-center rounded-2xl border border-dashed border-stone-300 bg-stone-100 px-3 text-center text-[11px] font-medium text-stone-500">
-                  Preview unavailable
-                </div>
+                <div
+                  className="aspect-square w-20 rounded-2xl border border-dashed border-stone-300 bg-stone-100"
+                  aria-hidden="true"
+                />
               );
 
               return isRemote ? (
@@ -121,19 +160,23 @@ export function ListingImageGallery({
                   rel="noreferrer"
                   aria-label={`Open ${listingId} image ${index + 1}`}
                   title={url}
-                  className="group block space-y-1"
+                  className="group block shrink-0 space-y-1"
                 >
                   {previewContent}
-                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500 group-hover:text-stone-700">
-                    Image {index + 1}
-                  </p>
+                  {showCaptions ? (
+                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500 group-hover:text-stone-700">
+                      Image {index + 1}
+                    </p>
+                  ) : null}
                 </a>
               ) : (
-                <div key={`${url}:${index}`} className="space-y-1">
+                <div key={`${url}:${index}`} className="shrink-0 space-y-1">
                   {previewContent}
-                  <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
-                    Image {index + 1}
-                  </p>
+                  {showCaptions ? (
+                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-500">
+                      Image {index + 1}
+                    </p>
+                  ) : null}
                 </div>
               );
             })}
@@ -143,13 +186,20 @@ export function ListingImageGallery({
             compact
             index={0}
             listingId={listingId}
+            quietFallback={!showCaptions}
             url={previewUrl}
           />
         ) : (
-          <div className="rounded-2xl border border-dashed border-stone-300 bg-stone-100 px-3 py-4 text-sm text-stone-500">
-            {hasLocalOnly
-              ? "Local images pending upload"
-              : "No remote preview available"}
+          <div
+            className={`rounded-2xl border border-dashed border-stone-300 bg-stone-100 ${
+              showCaptions ? "px-3 py-4 text-sm text-stone-500" : "aspect-square w-20"
+            }`}
+          >
+            {showCaptions
+              ? hasLocalOnly
+                ? "Local images pending upload"
+                : "No remote preview available"
+              : null}
           </div>
         )}
 

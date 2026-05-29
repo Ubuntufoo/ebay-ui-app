@@ -217,7 +217,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                     ].map((column) => (
                       <th
                         key={column}
-                        className="px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-stone-500"
+                        className="px-4 py-3 text-xs font-bold text-center uppercase tracking-[0.18em] text-stone-500"
                       >
                         {column}
                       </th>
@@ -289,6 +289,8 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                                 listingId={listing.listing_id}
                                 imageUrls={listing.image_urls}
                                 compact
+                                showAllImages
+                                showCaptions={false}
                                 showUrls={false}
                               />
                             </div>

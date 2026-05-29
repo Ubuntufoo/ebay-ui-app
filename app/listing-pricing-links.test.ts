@@ -80,6 +80,7 @@ describe("listing pricing links", () => {
     expect(links.map((link) => link.label)).toEqual([
       "130point",
       "SportsCardsPro",
+      "eBay Terapeak",
     ]);
     expect(links[0]?.href).toBe(
       "https://130point.com/search#q=1990%20Nba%20Hoops%3A%20Michael%20Jordan",
@@ -87,6 +88,39 @@ describe("listing pricing links", () => {
     expect(links[1]?.href).toBe(
       "https://www.sportscardspro.com/search-products?q=1990+Nba+Hoops%3A+Michael+Jordan&type=prices",
     );
+  });
+
+  it("builds an eBay Terapeak URL from the listing title", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        title: "Michael Jordan 1990 NBA Hoops #65",
+      }),
+      1789920000000,
+    );
+
+    expect(links[2]?.label).toBe("eBay Terapeak");
+    expect(links[2]?.href).toBe(
+      "https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=Michael+Jordan+1990+NBA+Hoops+%2365+-psa+-signature+-sig+-autograph+-graded+-10+-gem+-lot&dayRange=365&endDate=1789920000000&startDate=1758384000000&categoryId=0&format=BEST_OFFER&format=FIXED_PRICE&offset=0&limit=50&tabName=SOLD&tz=America%2FNew_York",
+    );
+  });
+
+  it("preserves card title casing for Terapeak even when structured fields are available", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        item_specifics: {
+          Manufacturer: "nba hoops",
+          Player: "michael jordan",
+          Year: "1990",
+        },
+        title: "Michael Jordan 1990 NBA Hoops #65",
+      }),
+      1789920000000,
+    );
+
+    expect(links[2]?.href).toContain(
+      "keywords=Michael+Jordan+1990+NBA+Hoops+%2365",
+    );
+    expect(links[2]?.href).not.toContain("Nba");
   });
 
   it("falls back to title-derived normalized text when specifics are missing", () => {

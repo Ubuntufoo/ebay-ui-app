@@ -1,6 +1,6 @@
 "use client";
 
-import {useActionState, useMemo, useState} from "react";
+import {useActionState, useState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
@@ -13,6 +13,12 @@ import {
   parseListingImageUrlsInput,
 } from "@/app/listing-image-url-utils";
 import {ListingStatusControls} from "@/app/listing-status-controls";
+import {
+  getCardConditionTokenFromItemSpecifics,
+  isSupportedTradingCardConditionToken,
+  tradingCardConditionOptions,
+  updateItemSpecificsTradingCardCondition,
+} from "@/app/trading-card-condition-utils";
 import type {Listing} from "@/lib/sidecar-api";
 
 function formatItemSpecifics(value: Listing["item_specifics"]): string {
@@ -21,6 +27,25 @@ function formatItemSpecifics(value: Listing["item_specifics"]): string {
   }
 
   return JSON.stringify(value, null, 2);
+}
+
+function parseItemSpecificsText(value: string): {
+  error: string | null;
+  value: unknown;
+} {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return {error: null, value: null};
+  }
+
+  try {
+    return {error: null, value: JSON.parse(trimmed)};
+  } catch {
+    return {
+      error: "Item specifics must be valid JSON.",
+      value: null,
+    };
+  }
 }
 
 function SaveButton({
@@ -61,27 +86,21 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   const [imageUrlsText, setImageUrlsText] = useState(() =>
     formatListingImageUrls(listing.image_urls),
   );
+  const itemSpecificsState = parseItemSpecificsText(itemSpecificsText);
+  const cardConditionToken = getCardConditionTokenFromItemSpecifics(
+    itemSpecificsState.value as Parameters<typeof getCardConditionTokenFromItemSpecifics>[0],
+  );
+  const selectedCardConditionValue = isSupportedTradingCardConditionToken(
+    cardConditionToken,
+  )
+    ? cardConditionToken
+    : "";
   const isGenerating = listing.status === "generating";
   const isAssetsReady = listing.status === "assets_ready";
 
-  const itemSpecificsError = useMemo(() => {
-    const trimmed = itemSpecificsText.trim();
-    if (trimmed === "") {
-      return null;
-    }
+  const itemSpecificsError = itemSpecificsState.error;
 
-    try {
-      JSON.parse(trimmed);
-      return null;
-    } catch {
-      return "Item specifics must be valid JSON.";
-    }
-  }, [itemSpecificsText]);
-
-  const imageUrlValidation = useMemo(
-    () => parseListingImageUrlsInput(imageUrlsText),
-    [imageUrlsText],
-  );
+  const imageUrlValidation = parseListingImageUrlsInput(imageUrlsText);
 
   const imageUrlsError =
     imageUrlValidation.invalidUrls.length > 0
@@ -100,7 +119,10 @@ export function ListingEditForm({listing}: {listing: Listing}) {
       </div>
 
       <div className="mt-4">
-        <ListingStatusControls listing={listing} />
+        <ListingStatusControls
+          cardConditionToken={cardConditionToken}
+          listing={listing}
+        />
       </div>
 
       <div className="mt-4 grid gap-5 border-t border-stone-950/10 pt-4">
@@ -262,6 +284,57 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                     className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
                   />
                 </label>
+
+                <div className="grid gap-2">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                      Card Condition
+                    </span>
+                    <select
+                      name="card_condition"
+                      value={selectedCardConditionValue}
+                      onChange={(event) => {
+                        if (itemSpecificsState.error !== null) {
+                          return;
+                        }
+
+                        const nextToken = event.target.value;
+                        const updatedItemSpecifics = updateItemSpecificsTradingCardCondition(
+                          itemSpecificsState.value as Parameters<typeof updateItemSpecificsTradingCardCondition>[0],
+                          nextToken === "" ? null : nextToken,
+                        );
+
+                        if (updatedItemSpecifics === null) {
+                          return;
+                        }
+
+                        setItemSpecificsText(
+                          updatedItemSpecifics === null
+                            ? ""
+                            : JSON.stringify(updatedItemSpecifics, null, 2),
+                        );
+                      }}
+                      disabled={isGenerating || itemSpecificsError !== null}
+                      className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+                    >
+                      <option value="">Select card condition</option>
+                      {tradingCardConditionOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {cardConditionToken !== null &&
+                  !isSupportedTradingCardConditionToken(cardConditionToken) ? (
+                    <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      Current saved Card Condition {cardConditionToken} is not
+                      supported. Choose a supported value before approving for
+                      export.
+                    </p>
+                  ) : null}
+                </div>
 
                 <label className="block">
                   <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">

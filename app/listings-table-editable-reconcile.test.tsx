@@ -10,14 +10,12 @@ const {
   retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
-  updateListingStatusMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
-  updateListingStatusMock: vi.fn(),
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -30,10 +28,6 @@ vi.mock("@/app/listing-actions", () => ({
 
 vi.mock("@/app/listing-image-url-actions", () => ({
   saveListingImageUrls: saveListingImageUrlsMock,
-}));
-
-vi.mock("@/app/listing-status-actions", () => ({
-  updateListingStatus: updateListingStatusMock,
 }));
 
 vi.mock("@/app/listing-approve-export-actions", () => ({
@@ -105,7 +99,6 @@ describe("ListingsTableEditable reconciliation", () => {
     enqueueGenerateListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
-    updateListingStatusMock.mockReset();
   });
 
   it("reconciles an open listing to fresh workflow data on rerender", async () => {
@@ -136,9 +129,7 @@ describe("ListingsTableEditable reconciliation", () => {
     );
 
     expect(
-      screen.getByText(
-        /AI draft ready for review\. Confirm or edit the generated fields before approving for export\./i,
-      ),
+      screen.getByText(/Final review checklist/i),
     ).not.toBeNull();
     expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
       "Gemini draft title",

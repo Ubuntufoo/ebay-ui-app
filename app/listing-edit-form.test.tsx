@@ -10,14 +10,12 @@ const {
   retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
-  updateListingStatusMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
-  updateListingStatusMock: vi.fn(),
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -30,10 +28,6 @@ vi.mock("@/app/listing-actions", () => ({
 
 vi.mock("@/app/listing-image-url-actions", () => ({
   saveListingImageUrls: saveListingImageUrlsMock,
-}));
-
-vi.mock("@/app/listing-status-actions", () => ({
-  updateListingStatus: updateListingStatusMock,
 }));
 
 vi.mock("@/app/listing-approve-export-actions", () => ({
@@ -110,7 +104,6 @@ describe("ListingEditForm", () => {
     retryPublishListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
-    updateListingStatusMock.mockReset();
   });
 
   it("locks edit controls and shows generating notice while generating", () => {
@@ -130,6 +123,7 @@ describe("ListingEditForm", () => {
       "Category ID",
       "Condition ID",
       "Condition notes",
+      "Card Condition",
       "Item specifics (JSON)",
       "Manual image URLs",
     ]) {
@@ -143,14 +137,8 @@ describe("ListingEditForm", () => {
     expect(
       screen.getByRole("button", {name: "Save image URLs"}),
     ).toHaveProperty("disabled", true);
-    expect(screen.getByRole("button", {name: "Assets ready"})).toHaveProperty(
-      "disabled",
-      true,
-    );
-    expect(screen.getByRole("button", {name: "Needs review"})).toHaveProperty(
-      "disabled",
-      true,
-    );
+    expect(screen.queryByRole("button", {name: "Assets ready"})).toBeNull();
+    expect(screen.queryByRole("button", {name: "Needs review"})).toBeNull();
     expect(screen.queryByText("Final review checklist")).toBeNull();
     expect(
       screen.queryByRole("button", {name: "Approve For Export"}),
@@ -206,6 +194,122 @@ describe("ListingEditForm", () => {
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
 
+  it("shows saved card condition, helper label, condition notes, and raw item specifics JSON", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/card.jpg"], {
+          item_specifics: {
+            "Card Condition": "VG",
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            Year: "2023",
+          },
+        })}
+      />,
+    );
+
+    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
+      .toBe("VG");
+    expect(
+      screen.getByRole("option", {name: "VG — Very Good", selected: true}),
+    ).not.toBeNull();
+    expect(screen.getByDisplayValue("Visible notes")).not.toBeNull();
+    expect(
+      (screen.getByLabelText("Item specifics (JSON)") as HTMLTextAreaElement)
+        .value,
+    ).toContain('"Card Condition": "VG"');
+  });
+
+  it("shows an unknown card condition token without crashing", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/unknown-card.jpg"], {
+          item_specifics: {
+            "Card Condition": "MYSTERY",
+          },
+        })}
+      />,
+    );
+
+    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
+      .toBe("");
+    expect(
+      screen.getByRole("option", {
+        name: "Select card condition",
+        selected: true,
+      }),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(/Current saved Card Condition MYSTERY is not supported/i),
+    ).not.toBeNull();
+  });
+
+  it("does not show a Card Condition section when no saved card condition exists", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/plain-card.jpg"], {
+          condition_notes: null,
+          item_specifics: {
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            Year: "2023",
+          },
+        })}
+      />,
+    );
+
+    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
+      .toBe("");
+    expect(
+      screen.getByRole("option", {
+        name: "Select card condition",
+        selected: true,
+      }),
+    ).not.toBeNull();
+    expect(screen.getByLabelText("Condition notes")).not.toBeNull();
+  });
+
+  it("saves Card Condition changes through the existing item specifics JSON payload", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/save-card.jpg"], {
+          item_specifics: {
+            "Card Condition": "VG",
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            Year: "2023",
+          },
+        })}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("Card Condition"), "EX");
+    await user.clear(screen.getByLabelText("Condition notes"));
+    await user.type(screen.getByLabelText("Condition notes"), "Updated notes");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(FormData),
+    );
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const submittedItemSpecifics = JSON.parse(
+      String(submittedFormData.get("item_specifics")),
+    ) as Record<string, unknown>;
+
+    expect(submittedItemSpecifics["Card Condition"]).toBe("EX");
+    expect(submittedItemSpecifics["Player"]).toBe("Mike Trout");
+    expect(JSON.stringify(submittedItemSpecifics)).not.toContain("Very Good");
+    expect(submittedFormData.get("condition_notes")).toBe("Updated notes");
+  });
+
   it("keeps normal edit behavior available for needs_review", async () => {
     const user = userEvent.setup();
     render(
@@ -223,12 +327,12 @@ describe("ListingEditForm", () => {
       ),
     ).toBeNull();
     expect(
-      screen.getByText(
-        /AI draft ready for review\. Confirm or edit the generated fields before approving for export\./i,
-      ),
+      screen.getByText("Pricing research"),
     ).not.toBeNull();
 
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
+    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
+      .toBe("");
     expect(screen.getByLabelText("Item specifics (JSON)")).toHaveProperty(
       "disabled",
       false,
@@ -238,10 +342,7 @@ describe("ListingEditForm", () => {
       false,
     );
     expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
-    expect(screen.getByRole("button", {name: "Assets ready"})).toHaveProperty(
-      "disabled",
-      false,
-    );
+    expect(screen.queryByRole("button", {name: "Assets ready"})).toBeNull();
     expect(screen.getByText("2 images")).not.toBeNull();
     expect(
       screen.getByRole("link", {name: "Open LIST-001 image 1"}),
@@ -250,11 +351,6 @@ describe("ListingEditForm", () => {
       screen.getByRole("link", {name: "Open LIST-001 image 2"}),
     ).not.toBeNull();
     expect(screen.getByText("Final review checklist")).not.toBeNull();
-    expect(
-      screen.getByText(
-        /Confirm each item before approving this listing for export\. This is a pre-publish safety gate\./i,
-      ),
-    ).not.toBeNull();
     expect(
       screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
     ).toBeNull();
@@ -289,6 +385,164 @@ describe("ListingEditForm", () => {
     expect(
       screen.getByRole("link", {name: "SportsCardsPro"}).getAttribute("href"),
     ).toContain("type=prices");
+  });
+
+  it("blocks approve for raw trading-card listings without a supported Card Condition", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/raw-card.jpg"], {
+          category_id: "183050",
+          condition_id: "4000",
+          item_specifics: {
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            Year: "2023",
+          },
+          title: "Raw trading card title",
+        })}
+      />,
+    );
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", true);
+    expect(
+      screen.getByText(
+        /Trading-card listings require a supported Card Condition before export\./i,
+      ),
+    ).not.toBeNull();
+  });
+
+  it("allows approve for raw trading-card listings with a supported Card Condition", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/raw-valid-card.jpg"], {
+          category_id: "183050",
+          condition_id: "4000",
+          item_specifics: {
+            "Card Condition": "VG",
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            Year: "2023",
+          },
+          title: "Valid trading card title",
+        })}
+      />,
+    );
+
+    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
+      .toBe("VG");
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", false);
+  });
+
+  it("blocks approve for graded trading-card listings", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/graded-card.jpg"], {
+          category_id: "183454",
+          condition_id: "2750",
+          item_specifics: {
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            Year: "2023",
+          },
+          title: "Graded trading card title",
+        })}
+      />,
+    );
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", true);
+    expect(
+      screen.getByText(
+        /Graded trading-card descriptors are not supported yet\. Use raw\/ungraded condition for this workflow\./i,
+      ),
+    ).not.toBeNull();
+  });
+
+  it("does not require Card Condition for non-trading-card listings", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/non-card.jpg"], {
+          category_id: "CAT-1",
+          condition_id: "COND-1",
+          item_specifics: {
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            Year: "2023",
+          },
+          title: "Non-trading-card title",
+        })}
+      />,
+    );
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", false);
   });
 
   it("shows title-length validation and keeps approve disabled when the title is 81 characters", async () => {

@@ -2,6 +2,7 @@
 
 import {revalidatePath} from "next/cache";
 
+import {getActionErrorMessage, readTrimmedFormField} from "@/app/action-utils";
 import {getListingStatusLabel} from "@/app/listing-status-flow";
 import type {ApproveListingForExportActionState} from "@/app/listing-approve-export-state";
 import {
@@ -10,21 +11,12 @@ import {
   updateListingWorkflowState,
 } from "@/lib/sidecar-api";
 
-function readTextField(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
-
 export async function approveListingForExport(
   _previousState: ApproveListingForExportActionState,
   formData: FormData,
 ): Promise<ApproveListingForExportActionState> {
-  const listingId = readTextField(formData.get("listing_id"));
-  const currentStatus = readTextField(formData.get("current_status"));
+  const listingId = readTrimmedFormField(formData.get("listing_id"));
+  const currentStatus = readTrimmedFormField(formData.get("current_status"));
 
   if (!listingId) {
     return {
@@ -65,9 +57,10 @@ export async function approveListingForExport(
       error:
         error instanceof SidecarApiError
           ? error.message
-          : error instanceof Error
-            ? error.message
-            : "An unexpected error occurred while approving listing for export.",
+          : getActionErrorMessage(
+              error,
+              "An unexpected error occurred while approving listing for export.",
+            ),
       success: null,
     };
   }
