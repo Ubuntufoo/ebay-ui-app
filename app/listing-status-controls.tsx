@@ -21,6 +21,7 @@ import {
   getListingSubStatusLabel,
 } from "@/app/listing-status-flow";
 import {getListingPricingLinks} from "@/app/listing-pricing-links";
+import {getTradingCardConditionApprovalMessage} from "@/app/trading-card-condition-utils";
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
 import {
   initialUpdateListingStatusActionState,
@@ -201,12 +202,14 @@ function ReadOnlyStatusField({
 function ApproveForExportForm({
   approveFormAction,
   approveState,
+  cardConditionApprovalMessage,
   listingId,
   listingTitle,
   listingStatus,
 }: {
   approveFormAction: (payload: FormData) => void;
   approveState: ApproveListingForExportActionState;
+  cardConditionApprovalMessage: string | null;
   listingId: string;
   listingTitle: Listing["title"];
   listingStatus: ListingStatus;
@@ -219,7 +222,10 @@ function ApproveForExportForm({
   );
   const titleLength = getTitleLength(listingTitle);
   const isTitleLengthValid = !isTitleTooLong(listingTitle);
-  const isApproveDisabled = !isReviewChecklistComplete || !isTitleLengthValid;
+  const isApproveDisabled =
+    !isReviewChecklistComplete ||
+    !isTitleLengthValid ||
+    cardConditionApprovalMessage !== null;
 
   return (
     <form action={approveFormAction} className="mt-4 grid gap-4">
@@ -229,6 +235,11 @@ function ApproveForExportForm({
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-800">
           Final review checklist
         </p>
+        {cardConditionApprovalMessage !== null ? (
+          <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+            {cardConditionApprovalMessage}
+          </p>
+        ) : null}
         {!isTitleLengthValid ? (
           <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
             eBay titles must be 80 characters or fewer. Current title: {titleLength}{" "}
@@ -270,7 +281,13 @@ function ApproveForExportForm({
   );
 }
 
-export function ListingStatusControls({listing}: {listing: Listing}) {
+export function ListingStatusControls({
+  cardConditionToken = null,
+  listing,
+}: {
+  cardConditionToken?: string | null;
+  listing: Listing;
+}) {
   const [approveState, approveFormAction] = useActionState<
     ApproveListingForExportActionState,
     FormData
@@ -290,6 +307,10 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
   const canRetryPublishListing = canRetryPublish(listing);
   const nextStatuses = getAllowedManualStatusTransitions(listing.status);
   const pricingLinks = isNeedsReview ? getListingPricingLinks(listing) : [];
+  const cardConditionApprovalMessage = getTradingCardConditionApprovalMessage(
+    listing,
+    cardConditionToken,
+  );
 
   return (
     <section className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-5">
@@ -348,6 +369,7 @@ export function ListingStatusControls({listing}: {listing: Listing}) {
           key={`${listing.listing_id}:${listing.status}`}
           approveFormAction={approveFormAction}
           approveState={approveState}
+          cardConditionApprovalMessage={cardConditionApprovalMessage}
           listingId={listing.listing_id}
           listingTitle={listing.title}
           listingStatus={listing.status}
