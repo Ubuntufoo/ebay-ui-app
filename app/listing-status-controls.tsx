@@ -21,7 +21,7 @@ import {
 import {getListingPricingLinks} from "@/app/listing-pricing-links";
 import {getTradingCardConditionApprovalMessage} from "@/app/trading-card-condition-utils";
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
-import type {Listing} from "@/lib/sidecar-api";
+import type {Listing, ListingStatus} from "@/lib/sidecar-api";
 
 const EBAY_TITLE_MAX_LENGTH = 80;
 
