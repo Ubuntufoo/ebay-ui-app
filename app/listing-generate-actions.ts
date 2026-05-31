@@ -2,24 +2,16 @@
 
 import {revalidatePath} from "next/cache";
 
+import {getActionErrorMessage, readTrimmedFormField} from "@/app/action-utils";
 import {getListingStatusLabel} from "@/app/listing-status-flow";
 import type {GenerateListingActionState} from "@/app/listing-generate-state";
 import {enqueueGenerateAi, SidecarApiError} from "@/lib/sidecar-api";
-
-function readTextField(value: FormDataEntryValue | null): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
-}
 
 export async function enqueueGenerateListing(
   _previousState: GenerateListingActionState,
   formData: FormData,
 ): Promise<GenerateListingActionState> {
-  const listingId = readTextField(formData.get("listing_id"));
+  const listingId = readTrimmedFormField(formData.get("listing_id"));
 
   if (!listingId) {
     return {
@@ -30,7 +22,7 @@ export async function enqueueGenerateListing(
   }
 
   try {
-    const sellerHints = readTextField(formData.get("seller_hints"));
+    const sellerHints = readTrimmedFormField(formData.get("seller_hints"));
     const result = await enqueueGenerateAi(listingId, {
       sellerHints,
     });
@@ -54,9 +46,10 @@ export async function enqueueGenerateListing(
       error:
         error instanceof SidecarApiError
           ? error.message
-          : error instanceof Error
-          ? error.message
-          : "An unexpected error occurred while queueing Generate AI Draft.",
+          : getActionErrorMessage(
+              error,
+              "An unexpected error occurred while queueing Generate AI Draft.",
+            ),
       info: null,
       success: null,
     };

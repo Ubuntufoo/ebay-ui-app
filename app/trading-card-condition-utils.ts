@@ -53,20 +53,6 @@ export function isSupportedTradingCardConditionToken(
   return token !== null && token in tradingCardConditionLabels;
 }
 
-export function getTradingCardConditionLabel(
-  token: string,
-): string | null {
-  return tradingCardConditionLabels[
-    token as keyof typeof tradingCardConditionLabels
-  ] ?? null;
-}
-
-export function formatTradingCardConditionDisplay(token: string): string {
-  const label = getTradingCardConditionLabel(token);
-
-  return label === null ? token : `${token} — ${label}`;
-}
-
 export function updateItemSpecificsTradingCardCondition(
   itemSpecifics: Json | null,
   token: string | null,

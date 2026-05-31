@@ -46,20 +46,6 @@ export function readListingImageUrls(value: Listing["image_urls"]): string[] {
     .filter((item) => item !== "");
 }
 
-export function countListingImageUrls(value: Listing["image_urls"]): number {
-  return readListingImageUrls(value).length;
-}
-
-export function getListingImagePreviewUrl(
-  value: Listing["image_urls"],
-): string | null {
-  return readListingImageUrls(value).find(isHttpListingImageUrl) ?? null;
-}
-
-export function getRemoteListingImageUrls(value: Listing["image_urls"]): string[] {
-  return readListingImageUrls(value).filter(isHttpListingImageUrl);
-}
-
 export function formatListingImageUrls(value: Listing["image_urls"]): string {
   return readListingImageUrls(value).join("\n");
 }
