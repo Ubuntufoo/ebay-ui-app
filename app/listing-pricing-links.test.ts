@@ -51,28 +51,31 @@ function buildListing(overrides: Partial<Listing> = {}): Listing {
 }
 
 describe("listing pricing links", () => {
-  it("builds normalized card query from structured draft fields", () => {
+  it("uses the exact listing title for pricing searches", () => {
     const query = buildListingPricingSearchText(
       buildListing({
+        title: "1995-96 SkyBox NBA Hoops #379 Jim McIlvaine Rookie Card",
         item_specifics: {
           Manufacturer: "nba hoops",
-          Player: "michael jordan",
-          Year: "1990",
+          Player: "jim mcilvaine",
+          Year: "1995-96",
         },
-        title: "ignored when structured fields are stronger",
       }),
     );
 
-    expect(query).toBe("1990 Nba Hoops: Michael Jordan");
+    expect(query).toBe(
+      "1995-96 SkyBox NBA Hoops #379 Jim McIlvaine Rookie Card",
+    );
   });
 
   it("builds exact 130point and SportsCardsPro URLs", () => {
     const links = getListingPricingLinks(
       buildListing({
+        title: "1995-96 SkyBox NBA Hoops #379 Jim McIlvaine Rookie Card",
         item_specifics: {
           Manufacturer: "nba hoops",
-          Player: "michael jordan",
-          Year: "1990",
+          Player: "jim mcilvaine",
+          Year: "1995-96",
         },
       }),
     );
@@ -83,11 +86,26 @@ describe("listing pricing links", () => {
       "eBay Terapeak",
     ]);
     expect(links[0]?.href).toBe(
-      "https://130point.com/search#q=1990%20Nba%20Hoops%3A%20Michael%20Jordan",
+      "https://130point.com/search#q=1995-96%20SkyBox%20NBA%20Hoops%20%23379%20Jim%20McIlvaine%20Rookie%20Card",
     );
     expect(links[1]?.href).toBe(
-      "https://www.sportscardspro.com/search-products?q=1990+Nba+Hoops%3A+Michael+Jordan&type=prices",
+      "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+%23379+Jim+McIlvaine+Rookie+Card&type=prices",
     );
+  });
+
+  it("falls back to structured pricing text when the title is missing", () => {
+    const query = buildListingPricingSearchText(
+      buildListing({
+        title: null,
+        item_specifics: {
+          Manufacturer: "nba hoops",
+          Player: "michael jordan",
+          Year: "1990",
+        },
+      }),
+    );
+
+    expect(query).toBe("1990 Nba Hoops: Michael Jordan");
   });
 
   it("builds an eBay Terapeak URL from the listing title", () => {
@@ -123,7 +141,7 @@ describe("listing pricing links", () => {
     expect(links[2]?.href).not.toContain("Nba");
   });
 
-  it("falls back to title-derived normalized text when specifics are missing", () => {
+  it("returns the title text normalized for whitespace when specifics are missing", () => {
     const query = buildListingPricingSearchText(
       buildListing({
         item_specifics: {},
@@ -131,7 +149,7 @@ describe("listing pricing links", () => {
       }),
     );
 
-    expect(query).toBe("1990 Nba Hoops Michael Jordan");
+    expect(query).toBe("1990 nba hoops michael jordan");
   });
 
   it("returns no links without usable query text", () => {

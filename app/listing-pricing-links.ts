@@ -23,7 +23,10 @@ function isRecord(
 }
 
 function normalizeKey(key: string): string {
-  return key.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return key
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function normalizeWhitespace(value: string): string {
@@ -110,7 +113,8 @@ function joinUnique(parts: Array<string | null | undefined>): string {
   const values: string[] = [];
 
   for (const part of parts) {
-    const normalized = typeof part === "string" ? normalizeWhitespace(part) : "";
+    const normalized =
+      typeof part === "string" ? normalizeWhitespace(part) : "";
     if (normalized === "" || seen.has(normalized)) {
       continue;
     }
@@ -128,7 +132,10 @@ function buildStructuredCardQuery(listing: Listing): string | null {
   const set = readSpecificValue(listing.item_specifics, keyAliases.set);
   const series = readSpecificValue(listing.item_specifics, keyAliases.series);
   const player = readSpecificValue(listing.item_specifics, keyAliases.player);
-  const cardName = readSpecificValue(listing.item_specifics, keyAliases.cardName);
+  const cardName = readSpecificValue(
+    listing.item_specifics,
+    keyAliases.cardName,
+  );
   const cardNumber = readSpecificValue(
     listing.item_specifics,
     keyAliases.cardNumber,
@@ -172,7 +179,10 @@ function buildTerapeakUrl(query: string, now = Date.now()): string {
   const params = new URLSearchParams();
 
   params.append("marketplace", "EBAY-US");
-  params.append("keywords", `${query} -psa -signature -sig -autograph -graded -10 -gem -lot`);
+  params.append(
+    "keywords",
+    `${query} -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot`,
+  );
   params.append("dayRange", String(dayRange));
   params.append("endDate", String(endDate));
   params.append("startDate", String(startDate));
@@ -198,13 +208,17 @@ function buildTerapeakSearchText(listing: Listing): string | null {
 }
 
 export function buildListingPricingSearchText(listing: Listing): string | null {
+  const title = listing.title ? normalizeWhitespace(listing.title) : "";
+  if (title !== "") {
+    return title;
+  }
+
   const structured = buildStructuredCardQuery(listing);
   if (structured) {
     return normalizeWhitespace(structured);
   }
 
   const fallback = joinUnique([
-    listing.title ? toDisplayCase(listing.title) : null,
     ...collectFallbackTerms(listing.item_specifics).slice(0, 6),
   ]);
 
