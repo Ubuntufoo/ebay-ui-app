@@ -152,12 +152,16 @@ describe("ListingEditForm", () => {
     render(
       <ListingEditForm
         listing={{
-          ...buildListing("assets_ready", [
-            "https://example.com/image-1.jpg",
-            "https://example.com/image-2.jpg",
-          ], {
-            title: "A".repeat(81),
-          }),
+          ...buildListing(
+            "assets_ready",
+            [
+              "https://example.com/image-1.jpg",
+              "https://example.com/image-2.jpg",
+            ],
+            {
+              title: "A".repeat(81),
+            },
+          ),
           sub_status: "ready_to_generate",
         }}
       />,
@@ -197,20 +201,25 @@ describe("ListingEditForm", () => {
   it("shows saved card condition, helper label, condition notes, and raw item specifics JSON", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/card.jpg"], {
-          item_specifics: {
-            "Card Condition": "VG",
-            "Card Number": "1",
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            Year: "2023",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "VG",
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
           },
-        })}
+        )}
       />,
     );
 
-    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
-      .toBe("VG");
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("VG");
     expect(
       screen.getByRole("option", {name: "VG — Very Good", selected: true}),
     ).not.toBeNull();
@@ -224,16 +233,21 @@ describe("ListingEditForm", () => {
   it("shows an unknown card condition token without crashing", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/unknown-card.jpg"], {
-          item_specifics: {
-            "Card Condition": "MYSTERY",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/unknown-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "MYSTERY",
+            },
           },
-        })}
+        )}
       />,
     );
 
-    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
-      .toBe("");
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("");
     expect(
       screen.getByRole("option", {
         name: "Select card condition",
@@ -241,27 +255,34 @@ describe("ListingEditForm", () => {
       }),
     ).not.toBeNull();
     expect(
-      screen.getByText(/Current saved Card Condition MYSTERY is not supported/i),
+      screen.getByText(
+        /Current saved Card Condition MYSTERY is not supported/i,
+      ),
     ).not.toBeNull();
   });
 
   it("does not show a Card Condition section when no saved card condition exists", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/plain-card.jpg"], {
-          condition_notes: null,
-          item_specifics: {
-            "Card Number": "1",
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            Year: "2023",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/plain-card.jpg"],
+          {
+            condition_notes: null,
+            item_specifics: {
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
           },
-        })}
+        )}
       />,
     );
 
-    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
-      .toBe("");
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("");
     expect(
       screen.getByRole("option", {
         name: "Select card condition",
@@ -277,15 +298,19 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/save-card.jpg"], {
-          item_specifics: {
-            "Card Condition": "VG",
-            "Card Number": "1",
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            Year: "2023",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/save-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "VG",
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
           },
-        })}
+        )}
       />,
     );
 
@@ -326,13 +351,12 @@ describe("ListingEditForm", () => {
         /AI generation is in progress\. Listing edits are locked/i,
       ),
     ).toBeNull();
-    expect(
-      screen.getByText("Pricing research"),
-    ).not.toBeNull();
+    expect(screen.getByText("Pricing research")).not.toBeNull();
 
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
-    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
-      .toBe("");
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("");
     expect(screen.getByLabelText("Item specifics (JSON)")).toHaveProperty(
       "disabled",
       false,
@@ -392,17 +416,21 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/raw-card.jpg"], {
-          category_id: "183050",
-          condition_id: "4000",
-          item_specifics: {
-            "Card Number": "1",
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            Year: "2023",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/raw-card.jpg"],
+          {
+            category_id: "183050",
+            condition_id: "4000",
+            item_specifics: {
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
+            title: "Raw trading card title",
           },
-          title: "Raw trading card title",
-        })}
+        )}
       />,
     );
 
@@ -433,23 +461,28 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/raw-valid-card.jpg"], {
-          category_id: "183050",
-          condition_id: "4000",
-          item_specifics: {
-            "Card Condition": "VG",
-            "Card Number": "1",
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            Year: "2023",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/raw-valid-card.jpg"],
+          {
+            category_id: "183050",
+            condition_id: "4000",
+            item_specifics: {
+              "Card Condition": "VG",
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
+            title: "Valid trading card title",
           },
-          title: "Valid trading card title",
-        })}
+        )}
       />,
     );
 
-    expect((screen.getByLabelText("Card Condition") as HTMLSelectElement).value)
-      .toBe("VG");
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("VG");
 
     const approveButton = screen.getByRole("button", {
       name: "Approve For Export",
@@ -473,17 +506,21 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/graded-card.jpg"], {
-          category_id: "183454",
-          condition_id: "2750",
-          item_specifics: {
-            "Card Number": "1",
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            Year: "2023",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/graded-card.jpg"],
+          {
+            category_id: "183454",
+            condition_id: "2750",
+            item_specifics: {
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
+            title: "Graded trading card title",
           },
-          title: "Graded trading card title",
-        })}
+        )}
       />,
     );
 
@@ -514,17 +551,21 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/non-card.jpg"], {
-          category_id: "CAT-1",
-          condition_id: "COND-1",
-          item_specifics: {
-            "Card Number": "1",
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            Year: "2023",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/non-card.jpg"],
+          {
+            category_id: "CAT-1",
+            condition_id: "COND-1",
+            item_specifics: {
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
+            title: "Non-trading-card title",
           },
-          title: "Non-trading-card title",
-        })}
+        )}
       />,
     );
 
@@ -549,9 +590,13 @@ describe("ListingEditForm", () => {
     const user = userEvent.setup();
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/too-long.jpg"], {
-          title: "A".repeat(81),
-        })}
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/too-long.jpg"],
+          {
+            title: "A".repeat(81),
+          },
+        )}
       />,
     );
 
@@ -583,9 +628,13 @@ describe("ListingEditForm", () => {
     const user = userEvent.setup();
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/exact-length.jpg"], {
-          title: "A".repeat(80),
-        })}
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/exact-length.jpg"],
+          {
+            title: "A".repeat(80),
+          },
+        )}
       />,
     );
 
@@ -613,22 +662,33 @@ describe("ListingEditForm", () => {
 
   it("shows retry publish for approved_for_export listings with user-fixable errors and submits listing_id", async () => {
     const user = userEvent.setup();
-    retryPublishListingMock.mockResolvedValueOnce({error: null, success: "Retry publish queued for LIST-001."});
+    retryPublishListingMock.mockResolvedValueOnce({
+      error: null,
+      success: "Retry publish queued for LIST-001.",
+    });
 
     render(
       <ListingEditForm
-        listing={buildListing("approved_for_export", ["https://example.com/retry-image.jpg"], {
-          last_error_code: "publish_offer_failed",
-          last_error_context: {category: "user_fixable"},
-          sub_status: "idle",
-        })}
+        listing={buildListing(
+          "approved_for_export",
+          ["https://example.com/retry-image.jpg"],
+          {
+            last_error_code: "publish_offer_failed",
+            last_error_context: {category: "user_fixable"},
+            sub_status: "idle",
+          },
+        )}
       />,
     );
 
     expect(screen.queryByText("Final review checklist")).toBeNull();
-    expect(screen.queryByRole("button", {name: "Approve For Export"})).toBeNull();
+    expect(
+      screen.queryByRole("button", {name: "Approve For Export"}),
+    ).toBeNull();
     expect(screen.getByRole("button", {name: "Retry Publish"})).not.toBeNull();
-    expect(screen.getByText(/Fix the fields above, then retry publish\./i)).not.toBeNull();
+    expect(
+      screen.getByText(/Fix the fields above, then retry publish\./i),
+    ).not.toBeNull();
 
     await user.click(screen.getByRole("button", {name: "Retry Publish"}));
 
@@ -637,18 +697,23 @@ describe("ListingEditForm", () => {
       expect.any(FormData),
     );
 
-    const submittedFormData = retryPublishListingMock.mock.calls[0][1] as FormData;
+    const submittedFormData = retryPublishListingMock.mock
+      .calls[0][1] as FormData;
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
   });
 
   it("hides retry publish while publishing_to_ebay and for approved_for_export listings without a retryable error", () => {
     render(
       <ListingEditForm
-        listing={buildListing("approved_for_export", ["https://example.com/publish-image.jpg"], {
-          last_error_code: "publish_offer_failed",
-          last_error_context: {category: "user_fixable"},
-          sub_status: "publishing_to_ebay",
-        })}
+        listing={buildListing(
+          "approved_for_export",
+          ["https://example.com/publish-image.jpg"],
+          {
+            last_error_code: "publish_offer_failed",
+            last_error_context: {category: "user_fixable"},
+            sub_status: "publishing_to_ebay",
+          },
+        )}
       />,
     );
 
@@ -658,11 +723,15 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("approved_for_export", ["https://example.com/no-error-image.jpg"], {
-          last_error_code: null,
-          last_error_context: null,
-          sub_status: "idle",
-        })}
+        listing={buildListing(
+          "approved_for_export",
+          ["https://example.com/no-error-image.jpg"],
+          {
+            last_error_code: null,
+            last_error_context: null,
+            sub_status: "idle",
+          },
+        )}
       />,
     );
 

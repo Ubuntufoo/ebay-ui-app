@@ -64,7 +64,10 @@ const FINAL_REVIEW_CHECKLIST_ITEMS = [
 ] as const;
 type FinalReviewChecklistItem = (typeof FINAL_REVIEW_CHECKLIST_ITEMS)[number];
 
-function createInitialChecklistState(): Record<FinalReviewChecklistItem, boolean> {
+function createInitialChecklistState(): Record<
+  FinalReviewChecklistItem,
+  boolean
+> {
   return Object.fromEntries(
     FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => [item, false]),
   ) as Record<FinalReviewChecklistItem, boolean>;
@@ -81,7 +84,11 @@ function isTitleTooLong(title: Listing["title"]): boolean {
 function getLastErrorCategory(listing: Listing): string | null {
   const context = listing.last_error_context;
 
-  if (context === null || typeof context !== "object" || Array.isArray(context)) {
+  if (
+    context === null ||
+    typeof context !== "object" ||
+    Array.isArray(context)
+  ) {
     return null;
   }
 
@@ -95,7 +102,10 @@ function canRetryPublish(listing: Listing): boolean {
     return false;
   }
 
-  if (listing.sub_status !== "idle" && listing.sub_status !== "publish_queued") {
+  if (
+    listing.sub_status !== "idle" &&
+    listing.sub_status !== "publish_queued"
+  ) {
     return false;
   }
 
@@ -211,13 +221,16 @@ function ApproveForExportForm({
         ) : null}
         {!isTitleLengthValid ? (
           <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            eBay titles must be 80 characters or fewer. Current title: {titleLength}{" "}
-            characters.
+            eBay titles must be 80 characters or fewer. Current title:{" "}
+            {titleLength} characters.
           </p>
         ) : null}
         <div className="mt-3 grid gap-2">
           {FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => (
-            <label key={item} className="flex items-start gap-2 text-sm text-stone-700">
+            <label
+              key={item}
+              className="flex items-start gap-2 text-sm text-stone-700"
+            >
               <input
                 type="checkbox"
                 checked={completedChecklistItems[item]}
@@ -260,10 +273,7 @@ export function ListingStatusControls({
   const [approveState, approveFormAction] = useActionState<
     ApproveListingForExportActionState,
     FormData
-  >(
-    approveListingForExport,
-    initialApproveListingForExportActionState,
-  );
+  >(approveListingForExport, initialApproveListingForExportActionState);
   const isGenerating = listing.status === "generating";
   const isNeedsReview = listing.status === "needs_review";
   const canRetryPublishListing = canRetryPublish(listing);
