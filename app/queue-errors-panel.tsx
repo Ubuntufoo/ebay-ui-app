@@ -1,4 +1,5 @@
 import type {Listing} from "@/lib/sidecar-api";
+import Link from "next/link";
 import {
   hasPersistedListingError,
   isNonEmptyString,
@@ -14,6 +15,7 @@ export type OperationalCounter = {
 
 type QueueErrorsPanelProps = {
   errorMessage?: string | null;
+  ordersToShipCount?: number;
   listings: Listing[];
 };
 
@@ -66,6 +68,7 @@ export function buildOperationalCounters(
 
 export function QueueErrorsPanel({
   errorMessage = null,
+  ordersToShipCount = 0,
   listings,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
@@ -78,33 +81,45 @@ export function QueueErrorsPanel({
           Operational summary
         </h2>
 
-        <div className="flex flex-1 flex-wrap justify-end gap-2">
-          {counters.map((counter) => {
-            const isErrorCounter = counter.key === "errors";
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/orders"
+            className="inline-flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-200 transition hover:border-stone-500 hover:text-stone-50"
+          >
+            <span>Orders to ship:</span>
+            <span className="rounded-full bg-amber-200 px-2 py-0.5 text-amber-950">
+              {ordersToShipCount}
+            </span>
+          </Link>
 
-            return (
-              <span
-                key={counter.key}
-                data-testid={`operational-counter-${counter.key}`}
-                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${
-                  isErrorCounter
-                    ? "border-rose-400/40 bg-rose-950/30 text-rose-100"
-                    : "border-stone-700 bg-stone-900/70 text-stone-200"
-                }`}
-              >
-                {counter.label}
+          <div className="flex flex-wrap justify-end gap-2">
+            {counters.map((counter) => {
+              const isErrorCounter = counter.key === "errors";
+
+              return (
                 <span
-                  className={`rounded-full px-2 py-0.5 ${
+                  key={counter.key}
+                  data-testid={`operational-counter-${counter.key}`}
+                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${
                     isErrorCounter
-                      ? "bg-rose-200 text-rose-950"
-                      : "bg-stone-100 text-stone-900"
+                      ? "border-rose-400/40 bg-rose-950/30 text-rose-100"
+                      : "border-stone-700 bg-stone-900/70 text-stone-200"
                   }`}
                 >
-                  {counter.count}
+                  {counter.label}
+                  <span
+                    className={`rounded-full px-2 py-0.5 ${
+                      isErrorCounter
+                        ? "bg-rose-200 text-rose-950"
+                        : "bg-stone-100 text-stone-900"
+                    }`}
+                  >
+                    {counter.count}
+                  </span>
                 </span>
-              </span>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -166,13 +181,16 @@ export function QueueErrorsPanelFallback() {
         <h2 className="text-2xl font-semibold tracking-[-0.03em] text-stone-50">
           Operational summary
         </h2>
-        <div className="flex flex-wrap justify-end gap-2">
-          {Array.from({length: 4}).map((_, index) => (
-            <div
-              key={index}
-              className="h-6 w-20 animate-pulse rounded-full bg-stone-800/70"
-            />
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70" />
+          <div className="flex flex-wrap justify-end gap-2">
+            {Array.from({length: 4}).map((_, index) => (
+              <div
+                key={index}
+                className="h-6 w-20 animate-pulse rounded-full bg-stone-800/70"
+              />
+            ))}
+          </div>
         </div>
       </div>
       <div className="mt-4 h-16 animate-pulse rounded-2xl bg-stone-800/70" />

@@ -9,6 +9,10 @@ import {
   type Listing,
 } from "@/lib/sidecar-api";
 import {
+  countUnshippedOrders,
+  listUnshippedOrders,
+} from "@/lib/unshipped-orders";
+import {
   getListingsRealtimePublicKey,
   getListingsRealtimePublicUrl,
 } from "@/lib/supabase/public-key";
@@ -75,17 +79,50 @@ type ListingsLoadResult =
   | {status: "success"; listings: Listing[]}
   | {status: "error"; message: string};
 
+type UnshippedOrdersLoadResult =
+  | {status: "success"; count: number}
+  | {status: "error"; message: string};
+
+function OrdersToShipIndicator({count}: {count: number}) {
+  return (
+    <a
+      href="/orders"
+      className="inline-flex items-center gap-2 rounded-full border border-stone-950/10 bg-white/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+    >
+      <span>Orders to ship:</span>
+      <span
+        className={`inline-flex min-w-7 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold tracking-[0.12em] ${
+          count > 0
+            ? "bg-amber-200 text-amber-950"
+            : "bg-stone-100 text-stone-600"
+        }`}
+      >
+        {count}
+      </span>
+    </a>
+  );
+}
+
 async function ListingsSection({
   listingsPromise,
+  unshippedOrdersPromise,
 }: {
   listingsPromise: Promise<ListingsLoadResult>;
+  unshippedOrdersPromise: Promise<UnshippedOrdersLoadResult>;
 }) {
-  const listingsResult = await listingsPromise;
+  const [listingsResult, unshippedOrdersResult] = await Promise.all([
+    listingsPromise,
+    unshippedOrdersPromise,
+  ]);
+  const ordersToShipCount =
+    unshippedOrdersResult.status === "success"
+      ? unshippedOrdersResult.count
+      : 0;
 
   if (listingsResult.status === "error") {
     return (
       <>
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
               Listings
@@ -94,9 +131,12 @@ async function ListingsSection({
               Inventory records
             </h2>
           </div>
-          <span className="rounded-full border border-rose-300/70 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-            Request failed
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <OrdersToShipIndicator count={ordersToShipCount} />
+            <span className="rounded-full border border-rose-300/70 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+              Request failed
+            </span>
+          </div>
         </div>
 
         <ListingsErrorState message={listingsResult.message} />
@@ -117,6 +157,7 @@ async function ListingsSection({
         <ListingsRealtime
           initialListings={listings}
           panelErrorMessage={null}
+          ordersToShipCount={ordersToShipCount}
           realtimeAnonKey={getListingsRealtimePublicKey()}
           realtimeUrl={getListingsRealtimePublicUrl()}
         />
@@ -140,6 +181,27 @@ async function loadListings(): Promise<ListingsLoadResult> {
           : error instanceof Error
             ? error.message
             : "An unexpected error occurred while loading listings.",
+    };
+  }
+}
+
+async function loadUnshippedOrders(): Promise<UnshippedOrdersLoadResult> {
+  try {
+    const orders = await listUnshippedOrders();
+
+    return {
+      count: countUnshippedOrders(orders),
+      status: "success",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message:
+        error instanceof SidecarApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not load unshipped orders.",
     };
   }
 }
@@ -256,6 +318,7 @@ function ListingsSectionFallback() {
 
 export default function Home() {
   const listingsPromise = loadListings();
+  const unshippedOrdersPromise = loadUnshippedOrders();
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#efe7d8] text-stone-950">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_12%,_rgba(251,191,36,0.38),_transparent_28%),radial-gradient(circle_at_82%_18%,_rgba(20,184,166,0.22),_transparent_30%),linear-gradient(135deg,_rgba(68,64,60,0.08),_transparent_45%)]" />
@@ -263,7 +326,10 @@ export default function Home() {
       <section className="relative flex min-h-screen w-full flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
         <section className="rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7 min-h-[44rem]">
           <Suspense fallback={<ListingsSectionFallback />}>
-            <ListingsSection listingsPromise={listingsPromise} />
+            <ListingsSection
+              listingsPromise={listingsPromise}
+              unshippedOrdersPromise={unshippedOrdersPromise}
+            />
           </Suspense>
         </section>
 

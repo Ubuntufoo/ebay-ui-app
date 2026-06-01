@@ -9,6 +9,7 @@ import {getSupabaseBrowserClient} from "@/lib/supabase/browser";
 
 type ListingsRealtimeProps = {
   initialListings: Listing[];
+  ordersToShipCount?: number;
   panelErrorMessage?: string | null;
   realtimeAnonKey?: string | null;
   realtimeDebounceMs?: number;
@@ -20,6 +21,7 @@ type ListingsRealtimeProps = {
 
 export function ListingsRealtime({
   initialListings,
+  ordersToShipCount = 0,
   panelErrorMessage = null,
   realtimeAnonKey = null,
   realtimeDebounceMs = 200,
@@ -145,7 +147,11 @@ export function ListingsRealtime({
 
   return (
     <>
-      <QueueErrorsPanel errorMessage={panelErrorMessage} listings={listings} />
+      <QueueErrorsPanel
+        errorMessage={panelErrorMessage}
+        listings={listings}
+        ordersToShipCount={ordersToShipCount}
+      />
       <ListingsTableEditable listings={listings} />
     </>
   );

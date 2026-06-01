@@ -87,6 +87,7 @@ describe("QueueErrorsPanel", () => {
   it("removes publish/generating counters and normal-status bucket cards", () => {
     render(
       <QueueErrorsPanel
+        ordersToShipCount={4}
         listings={[
           buildListing("LIST-READY", "assets_ready", "ready_to_generate"),
           buildListing("LIST-REV", "needs_review", "review_pending"),
@@ -94,6 +95,9 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
+    expect(
+      screen.getByRole("link", {name: "Orders to ship: 4"}),
+    ).not.toBeNull();
     expect(screen.getByTestId("operational-counter-errors")).not.toBeNull();
     expect(screen.getByTestId("operational-counter-ready")).not.toBeNull();
     expect(screen.getByTestId("operational-counter-review")).not.toBeNull();
@@ -144,6 +148,7 @@ describe("QueueErrorsPanel", () => {
   it("shows compact empty state with assets_ready records and no true errors", () => {
     render(
       <QueueErrorsPanel
+        ordersToShipCount={0}
         listings={[
           buildListing("LIST-READY", "assets_ready", "ready_to_generate", {
             last_error_context: {},
@@ -154,6 +159,9 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
+    expect(
+      screen.getByRole("link", {name: "Orders to ship: 0"}),
+    ).not.toBeNull();
     expect(
       screen.getByText("No active queue or persisted errors."),
     ).not.toBeNull();
@@ -174,6 +182,7 @@ describe("QueueErrorsPanel", () => {
   it("excludes completed non-error listings but shows completed listings with persisted errors", () => {
     render(
       <QueueErrorsPanel
+        ordersToShipCount={1}
         listings={[
           buildListing("LIST-EXP", "exported" as Listing["status"], "idle"),
           buildListing("LIST-LISTED", "listed", "active_live"),
@@ -191,6 +200,9 @@ describe("QueueErrorsPanel", () => {
 
     expect(screen.queryByText("LIST-EXP / exported / idle")).toBeNull();
     expect(screen.queryByText("LIST-LISTED / listed / active_live")).toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Orders to ship: 1"}),
+    ).not.toBeNull();
     expect(screen.getByText(/LIST-EXP-ERR \/ exported \/ idle/)).not.toBeNull();
     expect(
       within(screen.getByTestId("operational-counter-active")).getByText("0"),
@@ -200,12 +212,16 @@ describe("QueueErrorsPanel", () => {
   it("updates counters and body when listings props are rerendered", () => {
     const {rerender} = render(
       <QueueErrorsPanel
+        ordersToShipCount={2}
         listings={[
           buildListing("LIST-READY", "assets_ready", "ready_to_generate"),
         ]}
       />,
     );
 
+    expect(
+      screen.getByRole("link", {name: "Orders to ship: 2"}),
+    ).not.toBeNull();
     expect(
       screen.getByText("No active queue or persisted errors."),
     ).not.toBeNull();
@@ -224,6 +240,7 @@ describe("QueueErrorsPanel", () => {
 
     rerender(
       <QueueErrorsPanel
+        ordersToShipCount={5}
         listings={[
           buildListing("LIST-READY", "needs_review", "review_pending", {
             last_error_code: "r2_upload_failed",
@@ -232,6 +249,9 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
+    expect(
+      screen.getByRole("link", {name: "Orders to ship: 5"}),
+    ).not.toBeNull();
     expect(
       screen.queryByText("No active queue or persisted errors."),
     ).toBeNull();
