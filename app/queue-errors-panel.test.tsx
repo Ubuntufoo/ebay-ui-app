@@ -49,6 +49,7 @@ function buildListing(
     shipping_profile: null,
     sku: null,
     sold_at: null,
+    ai_attempt_summary: null,
     status: status as Listing["status"],
     sub_status: subStatus,
     title: null,
@@ -84,6 +85,111 @@ describe("buildOperationalCounters", () => {
 });
 
 describe("QueueErrorsPanel", () => {
+  it("renders compact AI attempt summary counts", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate", {
+            ai_attempt_summary: {
+              attempt_count: 1,
+              latest_failure_code: null,
+              latest_finished_at: "2026-05-25T13:01:02.000Z",
+              latest_model_name: "gemini-3.1-flash-lite",
+              latest_provider: "google",
+              latest_started_at: "2026-05-25T13:01:00.000Z",
+              latest_status: "succeeded",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("AI Attempts: 1")).not.toBeNull();
+  });
+
+  it("shows failed latest AI attempts when present", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-FAILED", "needs_review", "review_pending", {
+            ai_attempt_summary: {
+              attempt_count: 2,
+              latest_failure_code: "generate_ai_failed",
+              latest_finished_at: "2026-05-25T13:02:02.000Z",
+              latest_model_name: "gemini-3.1-flash-lite",
+              latest_provider: "google",
+              latest_started_at: "2026-05-25T13:02:00.000Z",
+              latest_status: "failed",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("AI Attempts: 2 · Failed: 1")).not.toBeNull();
+  });
+
+  it("shows running latest AI attempts when present", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-RUNNING", "generating", "ai_call_in_progress", {
+            ai_attempt_summary: {
+              attempt_count: 3,
+              latest_failure_code: null,
+              latest_finished_at: null,
+              latest_model_name: "gemini-3.1-flash-lite",
+              latest_provider: "google",
+              latest_started_at: "2026-05-25T13:03:00.000Z",
+              latest_status: "started",
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("AI Attempts: 3 · Running: 1")).not.toBeNull();
+  });
+
+  it("renders AI zero when loaded listings have empty summaries", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-EMPTY", "assets_ready", "ready_to_generate", {
+            ai_attempt_summary: {
+              attempt_count: 0,
+              latest_failure_code: null,
+              latest_finished_at: null,
+              latest_model_name: null,
+              latest_provider: null,
+              latest_started_at: null,
+              latest_status: null,
+            },
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("AI Attempts: 0")).not.toBeNull();
+  });
+
+  it("treats null AI summaries as unavailable without crashing", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-NULL", "assets_ready", "ready_to_generate", {
+            ai_attempt_summary: null,
+          }),
+          buildListing("LIST-NULL-2", "listed", "active_live", {
+            ai_attempt_summary: null,
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("AI Attempts: —")).not.toBeNull();
+  });
+
   it("removes publish/generating counters and normal-status bucket cards", () => {
     render(
       <QueueErrorsPanel

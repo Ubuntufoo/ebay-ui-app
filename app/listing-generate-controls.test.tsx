@@ -49,6 +49,7 @@ function buildListing(status: Listing["status"]): Listing {
     shipping_profile: null,
     sku: null,
     sold_at: null,
+    ai_attempt_summary: null,
     status,
     sub_status: "idle",
     title: null,

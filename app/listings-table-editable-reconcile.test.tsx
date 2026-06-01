@@ -46,6 +46,8 @@ function buildListing(
   updatedAt: string,
   overrides: Partial<Listing> = {},
 ): Listing {
+  const {ai_attempt_summary = null, ...restOverrides} = overrides;
+
   return {
     approved_for_export_at: null,
     capture_mode: null,
@@ -81,11 +83,12 @@ function buildListing(
     shipping_profile: null,
     sku: null,
     sold_at: null,
+    ai_attempt_summary,
     status,
     sub_status: "idle",
     title: null,
     updated_at: updatedAt,
-    ...overrides,
+    ...restOverrides,
   };
 }
 
