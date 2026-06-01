@@ -115,14 +115,14 @@ export function QueueErrorsPanel({
   const aiSummary = buildAiOperationalSummary(listings);
   const aiSummaryLabel =
     aiSummary.attemptCount === null
-      ? "AI: —"
+      ? "AI Attempts: —"
       : aiSummary.attemptCount === 0
-        ? "AI: 0"
+        ? "AI Attempts: 0"
         : aiSummary.failedLatestCount > 0
-          ? `AI: ${aiSummary.attemptCount} · Failed: ${aiSummary.failedLatestCount}`
+          ? `AI Attempts: ${aiSummary.attemptCount} · Failed: ${aiSummary.failedLatestCount}`
           : aiSummary.runningLatestCount > 0
-            ? `AI: ${aiSummary.attemptCount} · Running: ${aiSummary.runningLatestCount}`
-            : `AI: ${aiSummary.attemptCount}`;
+            ? `AI Attempts: ${aiSummary.attemptCount} · Running: ${aiSummary.runningLatestCount}`
+            : `AI Attempts: ${aiSummary.attemptCount}`;
 
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">

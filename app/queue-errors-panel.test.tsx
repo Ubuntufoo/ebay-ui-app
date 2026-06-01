@@ -104,7 +104,7 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("AI: 1")).not.toBeNull();
+    expect(screen.getByText("AI Attempts: 1")).not.toBeNull();
   });
 
   it("shows failed latest AI attempts when present", () => {
@@ -126,7 +126,7 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("AI: 2 · Failed: 1")).not.toBeNull();
+    expect(screen.getByText("AI Attempts: 2 · Failed: 1")).not.toBeNull();
   });
 
   it("shows running latest AI attempts when present", () => {
@@ -148,7 +148,7 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("AI: 3 · Running: 1")).not.toBeNull();
+    expect(screen.getByText("AI Attempts: 3 · Running: 1")).not.toBeNull();
   });
 
   it("renders AI zero when loaded listings have empty summaries", () => {
@@ -170,7 +170,7 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("AI: 0")).not.toBeNull();
+    expect(screen.getByText("AI Attempts: 0")).not.toBeNull();
   });
 
   it("treats null AI summaries as unavailable without crashing", () => {
@@ -187,7 +187,7 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("AI: —")).not.toBeNull();
+    expect(screen.getByText("AI Attempts: —")).not.toBeNull();
   });
 
   it("removes publish/generating counters and normal-status bucket cards", () => {
