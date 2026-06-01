@@ -118,7 +118,7 @@ describe("listing pricing links", () => {
 
     expect(links[2]?.label).toBe("eBay Terapeak");
     expect(links[2]?.href).toBe(
-      "https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=Michael+Jordan+1990+NBA+Hoops+%2365+-psa+-signature+-sig+-autograph+-graded+-10+-gem+-lot&dayRange=365&endDate=1789920000000&startDate=1758384000000&categoryId=0&format=BEST_OFFER&format=FIXED_PRICE&offset=0&limit=50&tabName=SOLD&tz=America%2FNew_York",
+      "https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=Michael+Jordan+1990+NBA+Hoops+%2365+-psa+-bgs+-sgc+-cgc+-signature+-sig+-autograph+-autographed+-graded+-lot&dayRange=365&endDate=1789920000000&startDate=1758384000000&categoryId=0&format=BEST_OFFER&format=FIXED_PRICE&offset=0&limit=50&tabName=SOLD&tz=America%2FNew_York",
     );
   });
 
