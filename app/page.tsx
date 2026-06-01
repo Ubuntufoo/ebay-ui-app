@@ -4,8 +4,10 @@ import {QueueErrorsPanelFallback} from "@/app/queue-errors-panel";
 import {
   SidecarApiError,
   getAppSettings,
+  getGeminiUsage,
   listListings,
   type AppSettings,
+  type GeminiDailyUsageSummary,
   type Listing,
 } from "@/lib/sidecar-api";
 import {
@@ -79,6 +81,10 @@ type ListingsLoadResult =
   | {status: "success"; listings: Listing[]}
   | {status: "error"; message: string};
 
+type GeminiUsageLoadResult =
+  | {status: "success"; geminiUsage: GeminiDailyUsageSummary}
+  | {status: "error"};
+
 type UnshippedOrdersLoadResult =
   | {status: "success"; count: number}
   | {status: "error"; message: string};
@@ -104,15 +110,19 @@ function OrdersToShipIndicator({count}: {count: number}) {
 }
 
 async function ListingsSection({
+  geminiUsagePromise,
   listingsPromise,
   unshippedOrdersPromise,
 }: {
+  geminiUsagePromise: Promise<GeminiUsageLoadResult>;
   listingsPromise: Promise<ListingsLoadResult>;
   unshippedOrdersPromise: Promise<UnshippedOrdersLoadResult>;
 }) {
-  const [listingsResult, unshippedOrdersResult] = await Promise.all([
+  const [listingsResult, unshippedOrdersResult, geminiUsageResult] =
+    await Promise.all([
     listingsPromise,
     unshippedOrdersPromise,
+    geminiUsagePromise,
   ]);
   const ordersToShipCount =
     unshippedOrdersResult.status === "success"
@@ -155,6 +165,14 @@ async function ListingsSection({
         </>
       ) : (
         <ListingsRealtime
+          initialGeminiUsage={
+            geminiUsageResult.status === "success"
+              ? geminiUsageResult.geminiUsage
+              : null
+          }
+          initialGeminiUsageStatus={
+            geminiUsageResult.status === "success" ? "ready" : "error"
+          }
           initialListings={listings}
           panelErrorMessage={null}
           ordersToShipCount={ordersToShipCount}
@@ -202,6 +220,19 @@ async function loadUnshippedOrders(): Promise<UnshippedOrdersLoadResult> {
           : error instanceof Error
             ? error.message
             : "Could not load unshipped orders.",
+    };
+  }
+}
+
+async function loadGeminiUsage(): Promise<GeminiUsageLoadResult> {
+  try {
+    return {
+      geminiUsage: await getGeminiUsage(),
+      status: "success",
+    };
+  } catch {
+    return {
+      status: "error",
     };
   }
 }
@@ -319,6 +350,7 @@ function ListingsSectionFallback() {
 export default function Home() {
   const listingsPromise = loadListings();
   const unshippedOrdersPromise = loadUnshippedOrders();
+  const geminiUsagePromise = loadGeminiUsage();
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#efe7d8] text-stone-950">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_12%,_rgba(251,191,36,0.38),_transparent_28%),radial-gradient(circle_at_82%_18%,_rgba(20,184,166,0.22),_transparent_30%),linear-gradient(135deg,_rgba(68,64,60,0.08),_transparent_45%)]" />
@@ -326,10 +358,11 @@ export default function Home() {
       <section className="relative flex min-h-screen w-full flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
         <section className="rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7 min-h-[44rem]">
           <Suspense fallback={<ListingsSectionFallback />}>
-            <ListingsSection
-              listingsPromise={listingsPromise}
-              unshippedOrdersPromise={unshippedOrdersPromise}
-            />
+          <ListingsSection
+            geminiUsagePromise={geminiUsagePromise}
+            listingsPromise={listingsPromise}
+            unshippedOrdersPromise={unshippedOrdersPromise}
+          />
           </Suspense>
         </section>
 

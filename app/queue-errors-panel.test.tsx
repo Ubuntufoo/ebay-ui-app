@@ -1,7 +1,7 @@
 import {cleanup, render, screen, within} from "@testing-library/react";
 import {afterEach, describe, expect, it} from "vitest";
 
-import type {Listing} from "@/lib/sidecar-api";
+import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
 import {
   QueueErrorsPanel,
   buildOperationalCounters,
@@ -49,11 +49,24 @@ function buildListing(
     shipping_profile: null,
     sku: null,
     sold_at: null,
-    ai_attempt_summary: null,
     status: status as Listing["status"],
     sub_status: subStatus,
     title: null,
     updated_at: "2026-05-20T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function buildGeminiUsage(
+  overrides: Partial<GeminiDailyUsageSummary> = {},
+): GeminiDailyUsageSummary {
+  return {
+    effective_limit: 500,
+    remaining: 479,
+    reset_at: "2026-06-02T07:00:00.000Z",
+    reset_time_zone: "America/Los_Angeles",
+    usage_date: "2026-06-01",
+    used: 21,
     ...overrides,
   };
 }
@@ -85,109 +98,66 @@ describe("buildOperationalCounters", () => {
 });
 
 describe("QueueErrorsPanel", () => {
-  it("renders compact AI attempt summary counts", () => {
+  it("renders compact Gemini usage ratio and reset copy", () => {
     render(
       <QueueErrorsPanel
-        listings={[
-          buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate", {
-            ai_attempt_summary: {
-              attempt_count: 1,
-              latest_failure_code: null,
-              latest_finished_at: "2026-05-25T13:01:02.000Z",
-              latest_model_name: "gemini-3.1-flash-lite",
-              latest_provider: "google",
-              latest_started_at: "2026-05-25T13:01:00.000Z",
-              latest_status: "succeeded",
-            },
-          }),
-        ]}
+        geminiUsage={buildGeminiUsage()}
+        listings={[buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate")]}
       />,
     );
 
-    expect(screen.getByText("AI Attempts: 1")).not.toBeNull();
+    expect(screen.getByText("Gemini: 21 / 500 used")).not.toBeNull();
+    expect(screen.getByText(/Resets /)).not.toBeNull();
+    expect(screen.queryByText(/remaining/i)).toBeNull();
   });
 
-  it("shows failed latest AI attempts when present", () => {
+  it("renders compact loading placeholders", () => {
     render(
       <QueueErrorsPanel
-        listings={[
-          buildListing("LIST-FAILED", "needs_review", "review_pending", {
-            ai_attempt_summary: {
-              attempt_count: 2,
-              latest_failure_code: "generate_ai_failed",
-              latest_finished_at: "2026-05-25T13:02:02.000Z",
-              latest_model_name: "gemini-3.1-flash-lite",
-              latest_provider: "google",
-              latest_started_at: "2026-05-25T13:02:00.000Z",
-              latest_status: "failed",
-            },
-          }),
-        ]}
+        geminiUsageStatus="loading"
+        listings={[buildListing("LIST-LOADING", "assets_ready", "ready_to_generate")]}
       />,
     );
 
-    expect(screen.getByText("AI Attempts: 2 · Failed: 1")).not.toBeNull();
+    expect(screen.queryByText(/Gemini:/)).toBeNull();
+    expect(screen.queryByText(/remaining/i)).toBeNull();
   });
 
-  it("shows running latest AI attempts when present", () => {
+  it("renders compact unavailable state", () => {
     render(
       <QueueErrorsPanel
-        listings={[
-          buildListing("LIST-RUNNING", "generating", "ai_call_in_progress", {
-            ai_attempt_summary: {
-              attempt_count: 3,
-              latest_failure_code: null,
-              latest_finished_at: null,
-              latest_model_name: "gemini-3.1-flash-lite",
-              latest_provider: "google",
-              latest_started_at: "2026-05-25T13:03:00.000Z",
-              latest_status: "started",
-            },
-          }),
-        ]}
+        geminiUsage={null}
+        geminiUsageStatus="error"
+        listings={[buildListing("LIST-ERR", "assets_ready", "ready_to_generate")]}
       />,
     );
 
-    expect(screen.getByText("AI Attempts: 3 · Running: 1")).not.toBeNull();
+    expect(screen.getByText("Gemini usage unavailable")).not.toBeNull();
   });
 
-  it("renders AI zero when loaded listings have empty summaries", () => {
+  it("shows near-limit warning without standalone remaining text", () => {
     render(
       <QueueErrorsPanel
-        listings={[
-          buildListing("LIST-EMPTY", "assets_ready", "ready_to_generate", {
-            ai_attempt_summary: {
-              attempt_count: 0,
-              latest_failure_code: null,
-              latest_finished_at: null,
-              latest_model_name: null,
-              latest_provider: null,
-              latest_started_at: null,
-              latest_status: null,
-            },
-          }),
-        ]}
+        geminiUsage={buildGeminiUsage({effective_limit: 500, remaining: 20, used: 480})}
+        listings={[buildListing("LIST-NEAR", "assets_ready", "ready_to_generate")]}
       />,
     );
 
-    expect(screen.getByText("AI Attempts: 0")).not.toBeNull();
+    expect(screen.getByText("Gemini: 480 / 500 used")).not.toBeNull();
+    expect(screen.getByText("Near limit")).not.toBeNull();
+    expect(screen.queryByText(/20 remaining/i)).toBeNull();
   });
 
-  it("treats null AI summaries as unavailable without crashing", () => {
+  it("renders reached state compactly", () => {
     render(
       <QueueErrorsPanel
-        listings={[
-          buildListing("LIST-NULL", "assets_ready", "ready_to_generate", {
-            ai_attempt_summary: null,
-          }),
-          buildListing("LIST-NULL-2", "listed", "active_live", {
-            ai_attempt_summary: null,
-          }),
-        ]}
+        geminiUsage={buildGeminiUsage({remaining: 0, used: 500})}
+        listings={[buildListing("LIST-LIMIT", "listed", "active_live")]}
       />,
     );
 
-    expect(screen.getByText("AI Attempts: —")).not.toBeNull();
+    expect(screen.getByText("Gemini limit reached")).not.toBeNull();
+    expect(screen.getByText(/Resets /)).not.toBeNull();
   });
 
   it("removes publish/generating counters and normal-status bucket cards", () => {

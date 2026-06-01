@@ -4,6 +4,7 @@ import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AppSettings,
   EnqueueGenerateAiResponse,
+  GeminiDailyUsageSummary,
   Listing,
   ListingsResponse,
   RetryPublishListingResponse,
@@ -118,6 +119,10 @@ export async function getListing(listingId: string): Promise<Listing> {
 
 export async function getAppSettings(): Promise<AppSettings> {
   return await sidecarFetch<AppSettings>("/api/app-settings");
+}
+
+export async function getGeminiUsage(): Promise<GeminiDailyUsageSummary> {
+  return await sidecarFetch<GeminiDailyUsageSummary>("/api/gemini-usage");
 }
 
 // `createListing` client wrapper removed: manual/test create listing UI deleted.

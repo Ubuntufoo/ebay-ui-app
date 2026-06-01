@@ -3,7 +3,7 @@ import {fireEvent} from "@testing-library/react";
 import type {ComponentProps} from "react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
-import type {Listing} from "@/lib/sidecar-api";
+import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
 
 const fetchMock = vi.fn();
 const realtimeChannelSubscribeMock = vi.fn();
@@ -56,8 +56,6 @@ vi.mock("@/lib/supabase/browser", () => ({
 import {ListingsRealtime} from "@/app/listings-realtime";
 
 function buildListing(overrides: Partial<Listing> = {}): Listing {
-  const {ai_attempt_summary = null, ...restOverrides} = overrides;
-
   return {
     approved_for_export_at: null,
     capture_mode: null,
@@ -93,17 +91,34 @@ function buildListing(overrides: Partial<Listing> = {}): Listing {
     shipping_profile: null,
     sku: null,
     sold_at: null,
-    ai_attempt_summary,
     status: "assets_ready",
     sub_status: "ready_to_generate",
     title: null,
     updated_at: "2026-05-20T00:00:00.000Z",
-    ...restOverrides,
+    ...overrides,
   };
 }
 
-function jsonResponse(listings: Listing[]) {
-  return new Response(JSON.stringify({listings}), {
+function buildGeminiUsage(
+  overrides: Partial<GeminiDailyUsageSummary> = {},
+): GeminiDailyUsageSummary {
+  return {
+    effective_limit: 500,
+    remaining: 479,
+    reset_at: "2026-06-02T07:00:00.000Z",
+    reset_time_zone: "America/Los_Angeles",
+    usage_date: "2026-06-01",
+    used: 21,
+    ...overrides,
+  };
+}
+
+function jsonResponse(
+  listings: Listing[],
+  geminiUsage: GeminiDailyUsageSummary | null = buildGeminiUsage(),
+  geminiUsageStatus: "error" | "ready" = "ready",
+) {
+  return new Response(JSON.stringify({geminiUsage, geminiUsageStatus, listings}), {
     headers: {"content-type": "application/json"},
     status: 200,
   });
@@ -237,6 +252,7 @@ describe("ListingsRealtime", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
       if (eventType !== "DELETE") {
+        expect(screen.getByText("Gemini: 21 / 500 used")).not.toBeNull();
         expect(screen.getByRole("button", {name: "Review"})).not.toBeNull();
 
         fireEvent.click(screen.getByRole("button", {name: "Review"}));
@@ -389,6 +405,31 @@ describe("ListingsRealtime", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows Gemini usage unavailable after refresh payload reports error", async () => {
+    const realtimePayloadHandlers: Array<(payload: unknown) => void> = [];
+    realtimeChannelOnMock.mockImplementation((_event, _filter, callback) => {
+      realtimePayloadHandlers.push(callback as (payload: unknown) => void);
+      return realtimeChannel;
+    });
+
+    fetchMock.mockResolvedValue(
+      jsonResponse([buildListing()], null, "error"),
+    );
+
+    renderListingsRealtime();
+
+    await triggerDebouncedRealtimeEvent(
+      realtimePayloadHandlers[0]
+        ? (payload) => {
+            realtimePayloadHandlers[0]?.(payload);
+          }
+        : undefined,
+      "UPDATE",
+    );
+
+    expect(screen.getByText("Gemini usage unavailable")).not.toBeNull();
   });
 
   it("queues one follow-up refresh when update lands mid-fetch", async () => {

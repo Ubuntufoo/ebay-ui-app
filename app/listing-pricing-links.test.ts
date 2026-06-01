@@ -8,8 +8,6 @@ import {
 } from "@/app/listing-pricing-links";
 
 function buildListing(overrides: Partial<Listing> = {}): Listing {
-  const {ai_attempt_summary = null, ...restOverrides} = overrides;
-
   return {
     approved_for_export_at: null,
     capture_mode: null,
@@ -44,12 +42,11 @@ function buildListing(overrides: Partial<Listing> = {}): Listing {
     shipping_profile: null,
     sku: null,
     sold_at: null,
-    ai_attempt_summary,
     status: "needs_review",
     sub_status: "idle",
     title: "Base title",
     updated_at: "2026-05-20T00:00:00.000Z",
-    ...restOverrides,
+    ...overrides,
   };
 }
 

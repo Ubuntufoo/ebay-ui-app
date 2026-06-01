@@ -1,4 +1,4 @@
-import type {Listing} from "@/lib/sidecar-api";
+import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
 import Link from "next/link";
 import {
   hasPersistedListingError,
@@ -15,14 +15,16 @@ export type OperationalCounter = {
 
 type QueueErrorsPanelProps = {
   errorMessage?: string | null;
+  geminiUsage?: GeminiDailyUsageSummary | null;
+  geminiUsageStatus?: "error" | "loading" | "ready";
   ordersToShipCount?: number;
   listings: Listing[];
 };
 
-type AiOperationalSummary = {
-  attemptCount: number | null;
-  failedLatestCount: number;
-  runningLatestCount: number;
+type GeminiUsagePresentation = {
+  label: string;
+  resetLabel: string | null;
+  state: "error" | "near_limit" | "normal" | "reached";
 };
 
 function isPublishedListing(status: Listing["status"] | string): boolean {
@@ -72,57 +74,67 @@ export function buildOperationalCounters(
   ];
 }
 
-function buildAiOperationalSummary(listings: Listing[]): AiOperationalSummary {
-  let attemptCount: number | null = null;
-  let failedLatestCount = 0;
-  let runningLatestCount = 0;
+function formatResetTime(resetAt: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(resetAt));
+}
 
-  for (const listing of listings) {
-    const summary = listing.ai_attempt_summary;
+function buildGeminiUsagePresentation(
+  geminiUsage: GeminiDailyUsageSummary | null,
+  geminiUsageStatus: "error" | "loading" | "ready",
+): GeminiUsagePresentation {
+  if (geminiUsageStatus === "error" || !geminiUsage) {
+    return {
+      label: "Gemini usage unavailable",
+      resetLabel: null,
+      state: "error",
+    };
+  }
 
-    if (!summary) {
-      continue;
-    }
+  const resetLabel = `Resets ${formatResetTime(geminiUsage.reset_at)}`;
+  const nearLimitThreshold = Math.max(
+    1,
+    Math.floor(geminiUsage.effective_limit * 0.1),
+  );
 
-    attemptCount = (attemptCount ?? 0) + summary.attempt_count;
+  if (geminiUsage.remaining <= 0) {
+    return {
+      label: "Gemini limit reached",
+      resetLabel,
+      state: "reached",
+    };
+  }
 
-    if (String(summary.latest_status) === "failed") {
-      failedLatestCount += 1;
-    }
-
-    if (
-      String(summary.latest_status) === "started" ||
-      String(summary.latest_status) === "running"
-    ) {
-      runningLatestCount += 1;
-    }
+  if (geminiUsage.remaining <= nearLimitThreshold) {
+    return {
+      label: `Gemini: ${geminiUsage.used} / ${geminiUsage.effective_limit} used`,
+      resetLabel,
+      state: "near_limit",
+    };
   }
 
   return {
-    attemptCount,
-    failedLatestCount,
-    runningLatestCount,
+    label: `Gemini: ${geminiUsage.used} / ${geminiUsage.effective_limit} used`,
+    resetLabel,
+    state: "normal",
   };
 }
 
 export function QueueErrorsPanel({
   errorMessage = null,
+  geminiUsage = null,
+  geminiUsageStatus = "ready",
   ordersToShipCount = 0,
   listings,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
   const counters = buildOperationalCounters(listings);
-  const aiSummary = buildAiOperationalSummary(listings);
-  const aiSummaryLabel =
-    aiSummary.attemptCount === null
-      ? "AI Attempts: —"
-      : aiSummary.attemptCount === 0
-        ? "AI Attempts: 0"
-        : aiSummary.failedLatestCount > 0
-          ? `AI Attempts: ${aiSummary.attemptCount} · Failed: ${aiSummary.failedLatestCount}`
-          : aiSummary.runningLatestCount > 0
-            ? `AI Attempts: ${aiSummary.attemptCount} · Running: ${aiSummary.runningLatestCount}`
-            : `AI Attempts: ${aiSummary.attemptCount}`;
+  const geminiUsagePresentation =
+    geminiUsageStatus === "loading"
+      ? null
+      : buildGeminiUsagePresentation(geminiUsage, geminiUsageStatus);
 
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">
@@ -143,9 +155,36 @@ export function QueueErrorsPanel({
           </Link>
 
           <div className="flex flex-wrap justify-end gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-200">
-              {aiSummaryLabel}
-            </span>
+            {geminiUsageStatus === "loading" ? (
+              <>
+                <div className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70" />
+                <div className="h-6 w-24 animate-pulse rounded-full bg-stone-800/70" />
+              </>
+            ) : (
+              <>
+                <span
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] tracking-[0.02em] ${
+                    geminiUsagePresentation?.state === "reached"
+                      ? "border-rose-400/40 bg-rose-950/30 text-rose-100"
+                      : geminiUsagePresentation?.state === "error"
+                        ? "border-stone-700 bg-stone-900/70 text-stone-400"
+                        : "border-stone-700 bg-stone-900/70 text-stone-200"
+                  }`}
+                >
+                  {geminiUsagePresentation?.label}
+                </span>
+                {geminiUsagePresentation?.resetLabel ? (
+                  <span className="inline-flex items-center rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] tracking-[0.02em] text-stone-400">
+                    {geminiUsagePresentation.resetLabel}
+                  </span>
+                ) : null}
+                {geminiUsagePresentation?.state === "near_limit" ? (
+                  <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-950/30 px-3 py-1 text-[11px] tracking-[0.02em] text-amber-100">
+                    Near limit
+                  </span>
+                ) : null}
+              </>
+            )}
 
             {counters.map((counter) => {
               const isErrorCounter = counter.key === "errors";
