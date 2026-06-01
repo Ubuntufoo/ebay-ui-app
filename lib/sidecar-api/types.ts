@@ -40,6 +40,18 @@ export const listingSubStatuses = [
 
 export type ListingSubStatus = (typeof listingSubStatuses)[number];
 
+export type AiAttemptStatus = "failed" | "skipped" | "started" | "succeeded";
+
+export interface AiAttemptSummary {
+  attempt_count: number;
+  latest_failure_code: string | null;
+  latest_finished_at: string | null;
+  latest_model_name: string | null;
+  latest_provider: string | null;
+  latest_started_at: string | null;
+  latest_status: AiAttemptStatus | null;
+}
+
 export interface Listing {
   approved_for_export_at: string | null;
   capture_mode: string | null;
@@ -76,6 +88,7 @@ export interface Listing {
   shipping_profile: string | null;
   sku: string | null;
   sold_at: string | null;
+  ai_attempt_summary: AiAttemptSummary | null;
   status: ListingStatus;
   sub_status: ListingSubStatus;
   title: string | null;
