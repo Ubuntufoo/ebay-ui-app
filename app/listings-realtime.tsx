@@ -4,10 +4,14 @@ import {useEffect, useState} from "react";
 
 import {ListingsTableEditable} from "@/app/listings-table-editable";
 import {QueueErrorsPanel} from "@/app/queue-errors-panel";
-import type {Listing} from "@/lib/sidecar-api";
+import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
 import {getSupabaseBrowserClient} from "@/lib/supabase/browser";
 
+type GeminiUsageStatus = "error" | "ready";
+
 type ListingsRealtimeProps = {
+  initialGeminiUsage?: GeminiDailyUsageSummary | null;
+  initialGeminiUsageStatus?: GeminiUsageStatus;
   initialListings: Listing[];
   ordersToShipCount?: number;
   panelErrorMessage?: string | null;
@@ -20,6 +24,8 @@ type ListingsRealtimeProps = {
 };
 
 export function ListingsRealtime({
+  initialGeminiUsage = null,
+  initialGeminiUsageStatus = "ready",
   initialListings,
   ordersToShipCount = 0,
   panelErrorMessage = null,
@@ -31,6 +37,10 @@ export function ListingsRealtime({
   realtimeUrl = null,
 }: ListingsRealtimeProps) {
   const [listings, setListings] = useState(() => initialListings);
+  const [geminiUsage, setGeminiUsage] = useState(() => initialGeminiUsage);
+  const [geminiUsageStatus, setGeminiUsageStatus] = useState<GeminiUsageStatus>(
+    () => initialGeminiUsageStatus,
+  );
 
   useEffect(() => {
     if (!realtimeUrl || !realtimeAnonKey) {
@@ -68,10 +78,16 @@ export function ListingsRealtime({
           return;
         }
 
-        const payload = (await response.json()) as {listings?: Listing[]};
+        const payload = (await response.json()) as {
+          geminiUsage?: GeminiDailyUsageSummary | null;
+          geminiUsageStatus?: GeminiUsageStatus;
+          listings?: Listing[];
+        };
 
         if (!cancelled && Array.isArray(payload.listings)) {
           setListings(payload.listings);
+          setGeminiUsage(payload.geminiUsage ?? null);
+          setGeminiUsageStatus(payload.geminiUsageStatus ?? "error");
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -149,6 +165,8 @@ export function ListingsRealtime({
     <>
       <QueueErrorsPanel
         errorMessage={panelErrorMessage}
+        geminiUsage={geminiUsage}
+        geminiUsageStatus={geminiUsageStatus}
         listings={listings}
         ordersToShipCount={ordersToShipCount}
       />

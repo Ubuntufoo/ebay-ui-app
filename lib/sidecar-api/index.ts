@@ -1,6 +1,7 @@
 export {
   enqueueGenerateAi,
   getAppSettings,
+  getGeminiUsage,
   getListing,
   listListings,
   retryPublishListing,
@@ -12,6 +13,7 @@ export {
 export type {
   AppSettings,
   EnqueueGenerateAiResponse,
+  GeminiDailyUsageSummary,
   Listing,
   ListingStatus,
   ListingSubStatus,

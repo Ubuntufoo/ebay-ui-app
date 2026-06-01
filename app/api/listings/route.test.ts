@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
-const {listListingsMock} = vi.hoisted(() => ({
+const {getGeminiUsageMock, listListingsMock} = vi.hoisted(() => ({
+  getGeminiUsageMock: vi.fn(),
   listListingsMock: vi.fn(),
 }));
 const consoleErrorMock = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -16,6 +17,7 @@ vi.mock("@/lib/sidecar-api", async () => {
         this.status = status;
       }
     },
+    getGeminiUsage: getGeminiUsageMock,
     listListings: listListingsMock,
   };
 });
@@ -24,12 +26,58 @@ import {GET} from "@/app/api/listings/route";
 
 describe("GET /api/listings", () => {
   beforeEach(() => {
+    getGeminiUsageMock.mockReset();
     listListingsMock.mockReset();
     consoleErrorMock.mockClear();
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("returns listings and Gemini usage when both upstream calls succeed", async () => {
+    listListingsMock.mockResolvedValue([{listing_id: "LIST-001"}]);
+    getGeminiUsageMock.mockResolvedValue({
+      effective_limit: 500,
+      remaining: 479,
+      reset_at: "2026-06-02T07:00:00.000Z",
+      reset_time_zone: "America/Los_Angeles",
+      usage_date: "2026-06-01",
+      used: 21,
+    });
+
+    const response = await GET();
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      geminiUsage: {
+        effective_limit: 500,
+        remaining: 479,
+        reset_at: "2026-06-02T07:00:00.000Z",
+        reset_time_zone: "America/Los_Angeles",
+        usage_date: "2026-06-01",
+        used: 21,
+      },
+      geminiUsageStatus: "ready",
+      listings: [{listing_id: "LIST-001"}],
+    });
+  });
+
+  it("keeps listings refresh alive when Gemini usage fetch fails", async () => {
+    listListingsMock.mockResolvedValue([{listing_id: "LIST-001"}]);
+    getGeminiUsageMock.mockRejectedValue(new Error("usage failed"));
+
+    const response = await GET();
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      geminiUsage: null,
+      geminiUsageStatus: "error",
+      listings: [{listing_id: "LIST-001"}],
+    });
+    expect(consoleErrorMock).toHaveBeenCalledTimes(1);
   });
 
   it("returns generic error for unexpected failures", async () => {
