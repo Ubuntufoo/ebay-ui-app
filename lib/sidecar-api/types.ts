@@ -147,6 +147,13 @@ export interface AppSettings {
   updated_at: string;
 }
 
+export interface EbayEnvironment {
+  environment: "sandbox" | "production";
+  marketplace_id: string;
+  api_base_url: string;
+  oauth_base_url: string;
+}
+
 export interface SidecarValidationErrorDetail {
   message: string;
   path: string;

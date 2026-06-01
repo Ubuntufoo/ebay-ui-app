@@ -1,6 +1,7 @@
 export {
   enqueueGenerateAi,
   getAppSettings,
+  getEbayEnvironment,
   getGeminiUsage,
   getListing,
   listListings,
@@ -13,6 +14,7 @@ export {
 export type {
   AppSettings,
   EnqueueGenerateAiResponse,
+  EbayEnvironment,
   GeminiDailyUsageSummary,
   Listing,
   ListingStatus,

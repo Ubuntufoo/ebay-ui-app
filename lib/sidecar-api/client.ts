@@ -4,6 +4,7 @@ import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AppSettings,
   EnqueueGenerateAiResponse,
+  EbayEnvironment,
   GeminiDailyUsageSummary,
   Listing,
   ListingsResponse,
@@ -123,6 +124,10 @@ export async function getAppSettings(): Promise<AppSettings> {
 
 export async function getGeminiUsage(): Promise<GeminiDailyUsageSummary> {
   return await sidecarFetch<GeminiDailyUsageSummary>("/api/gemini-usage");
+}
+
+export async function getEbayEnvironment(): Promise<EbayEnvironment> {
+  return await sidecarFetch<EbayEnvironment>("/api/ebay-environment");
 }
 
 // `createListing` client wrapper removed: manual/test create listing UI deleted.
