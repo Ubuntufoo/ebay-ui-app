@@ -3,6 +3,9 @@
 Murphy Family Hobby's eBay Inventory Manager — a local-first desktop/web app for creating and managing eBay listings. 
 This repository contains the UI and tooling for a local-first listing workflow (Watcher, Gemini, Supabase, eBay APIs).
 
+## Framework Files
+Do not edit generated framework files (e.g. `next-env.d.ts`); if they change during local validation, revert unless a stable, documented update is required by the framework itself.
+
 ## Key Commands
 
 - Install dependencies: `pnpm install` (or `npm install` / `pnpm install --frozen-lockfile` depending on your setup)
