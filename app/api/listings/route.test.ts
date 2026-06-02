@@ -39,6 +39,7 @@ describe("GET /api/listings", () => {
     listListingsMock.mockResolvedValue([{listing_id: "LIST-001"}]);
     getGeminiUsageMock.mockResolvedValue({
       effective_limit: 500,
+      last_attempt: null,
       remaining: 479,
       reset_at: "2026-06-02T07:00:00.000Z",
       reset_time_zone: "America/Los_Angeles",
@@ -53,6 +54,7 @@ describe("GET /api/listings", () => {
     expect(payload).toEqual({
       geminiUsage: {
         effective_limit: 500,
+        last_attempt: null,
         remaining: 479,
         reset_at: "2026-06-02T07:00:00.000Z",
         reset_time_zone: "America/Los_Angeles",

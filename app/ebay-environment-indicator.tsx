@@ -52,9 +52,9 @@ export function EbayEnvironmentIndicator() {
     <>
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-50 border-2 border-red-600"
+        className="pointer-events-none fixed inset-0 z-50 border-12 border-red-600"
       />
-      <div className="pointer-events-none fixed right-3 top-3 z-50 rounded-full border border-red-700 bg-red-600 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-white shadow-[0_8px_24px_rgba(185,28,28,0.32)]">
+      <div className="pointer-events-none fixed right-4 top-4 z-50 rounded-full border border-red-700 bg-red-600 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-white shadow-[0_8px_24px_rgba(185,28,28,0.32)]">
         SANDBOX
       </div>
     </>

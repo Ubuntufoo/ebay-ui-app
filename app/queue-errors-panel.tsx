@@ -23,7 +23,6 @@ type QueueErrorsPanelProps = {
 
 type GeminiUsagePresentation = {
   label: string;
-  resetLabel: string | null;
   state: "error" | "near_limit" | "normal" | "reached";
 };
 
@@ -74,11 +73,24 @@ export function buildOperationalCounters(
   ];
 }
 
-function formatResetTime(resetAt: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(resetAt));
+function formatGeminiModelLabel(
+  geminiUsage: GeminiDailyUsageSummary | null,
+): string | null {
+  const lastAttempt = geminiUsage?.last_attempt;
+
+  if (!lastAttempt) {
+    return null;
+  }
+
+  if (isNonEmptyString(lastAttempt.model_name)) {
+    return lastAttempt.model_name.trim();
+  }
+
+  if (isNonEmptyString(lastAttempt.display_name)) {
+    return lastAttempt.display_name.trim();
+  }
+
+  return null;
 }
 
 function buildGeminiUsagePresentation(
@@ -88,36 +100,22 @@ function buildGeminiUsagePresentation(
   if (geminiUsageStatus === "error" || !geminiUsage) {
     return {
       label: "Gemini usage unavailable",
-      resetLabel: null,
       state: "error",
     };
   }
 
-  const resetLabel = `Resets ${formatResetTime(geminiUsage.reset_at)}`;
-  const nearLimitThreshold = Math.max(
-    1,
-    Math.floor(geminiUsage.effective_limit * 0.1),
-  );
-
+  const modelLabel = formatGeminiModelLabel(geminiUsage);
+  const baseLabel = `Gemini: ${geminiUsage.used}/${geminiUsage.effective_limit}`;
+  const label = modelLabel ? `${baseLabel} <> Last: ${modelLabel}` : baseLabel;
   if (geminiUsage.remaining <= 0) {
     return {
-      label: "Gemini limit reached",
-      resetLabel,
+      label,
       state: "reached",
     };
   }
 
-  if (geminiUsage.remaining <= nearLimitThreshold) {
-    return {
-      label: `Gemini: ${geminiUsage.used} / ${geminiUsage.effective_limit} used`,
-      resetLabel,
-      state: "near_limit",
-    };
-  }
-
   return {
-    label: `Gemini: ${geminiUsage.used} / ${geminiUsage.effective_limit} used`,
-    resetLabel,
+    label,
     state: "normal",
   };
 }
@@ -173,16 +171,6 @@ export function QueueErrorsPanel({
                 >
                   {geminiUsagePresentation?.label}
                 </span>
-                {geminiUsagePresentation?.resetLabel ? (
-                  <span className="inline-flex items-center rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] tracking-[0.02em] text-stone-400">
-                    {geminiUsagePresentation.resetLabel}
-                  </span>
-                ) : null}
-                {geminiUsagePresentation?.state === "near_limit" ? (
-                  <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-950/30 px-3 py-1 text-[11px] tracking-[0.02em] text-amber-100">
-                    Near limit
-                  </span>
-                ) : null}
               </>
             )}
 

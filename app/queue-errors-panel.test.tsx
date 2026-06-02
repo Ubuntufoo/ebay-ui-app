@@ -62,6 +62,7 @@ function buildGeminiUsage(
 ): GeminiDailyUsageSummary {
   return {
     effective_limit: 500,
+    last_attempt: null,
     remaining: 479,
     reset_at: "2026-06-02T07:00:00.000Z",
     reset_time_zone: "America/Los_Angeles",
@@ -106,9 +107,28 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Gemini: 21 / 500 used")).not.toBeNull();
-    expect(screen.getByText(/Resets /)).not.toBeNull();
+    expect(screen.getByText("Gemini: 21/500")).not.toBeNull();
     expect(screen.queryByText(/remaining/i)).toBeNull();
+  });
+
+  it("renders latest Gemini model beside the compact usage counter", () => {
+    render(
+      <QueueErrorsPanel
+        geminiUsage={buildGeminiUsage({
+          last_attempt: {
+            display_name: "Gemini 2.5 Pro",
+            finished_at: "2026-06-01T13:00:00.000Z",
+            model_name: "gemini-2.5-pro",
+            provider: "gemini",
+            started_at: "2026-06-01T12:59:00.000Z",
+            status: "success",
+          },
+        })}
+        listings={[buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate")]}
+      />,
+    );
+
+    expect(screen.getByText("Gemini: 21/500 Last: gemini-2.5-pro")).not.toBeNull();
   });
 
   it("renders compact loading placeholders", () => {
@@ -138,13 +158,16 @@ describe("QueueErrorsPanel", () => {
   it("shows near-limit warning without standalone remaining text", () => {
     render(
       <QueueErrorsPanel
-        geminiUsage={buildGeminiUsage({effective_limit: 500, remaining: 20, used: 480})}
+        geminiUsage={buildGeminiUsage({
+          effective_limit: 500,
+          remaining: 20,
+          used: 480,
+        })}
         listings={[buildListing("LIST-NEAR", "assets_ready", "ready_to_generate")]}
       />,
     );
 
-    expect(screen.getByText("Gemini: 480 / 500 used")).not.toBeNull();
-    expect(screen.getByText("Near limit")).not.toBeNull();
+    expect(screen.getByText("Gemini: 480/500")).not.toBeNull();
     expect(screen.queryByText(/20 remaining/i)).toBeNull();
   });
 
@@ -156,8 +179,7 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Gemini limit reached")).not.toBeNull();
-    expect(screen.getByText(/Resets /)).not.toBeNull();
+    expect(screen.getByText("Gemini: 500/500")).not.toBeNull();
   });
 
   it("removes publish/generating counters and normal-status bucket cards", () => {
