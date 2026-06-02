@@ -1,50 +1,59 @@
 ## Repo Overview
 
-Murphy Family Hobby's eBay Inventory Manager — a local-first desktop/web app for creating and managing eBay listings. 
-This repository contains the UI and tooling for a local-first listing workflow (Watcher, Gemini, Supabase, eBay APIs).
+`ebay-ui-app` is the Next.js front end for Murphy Family Hobby's eBay inventory manager. This repo owns the UI, browser-safe Supabase client usage, local API routes, tests, and presentation logic for listings and orders.
+
+Keep backend-only work in the separate `backend-services` repo. In this repo, prefer UI components, server actions, and Next.js route handlers over direct browser calls to external services.
 
 ## Framework Files
-Do not edit generated framework files (e.g. `next-env.d.ts`); if they change during local validation, revert unless a stable, documented update is required by the framework itself.
+Do not edit generated framework files. If `next-env.d.ts` is altered, revert unless a stable, documented update is required by the framework itself.
 
 ## Key Commands
 
-- Install dependencies: `pnpm install` (or `npm install` / `pnpm install --frozen-lockfile` depending on your setup)
-- Dev server (UI): `pnpm dev`
-- Start watcher locally: `pnpm run watcher` (or see `scripts/` for platform-specific commands)
-- Run tests: `pnpm test`
-- Build: `pnpm build`
+- Install dependencies: `pnpm install`
+- Dev server: `pnpm dev`
+- Lint: `pnpm lint`
+- Tests: `pnpm test`
+- Typecheck: `pnpm typecheck`
+- Production build: `pnpm build`
 
-## Important Files & Directories
+## Repo Layout
 
-- `src/` — application source, UI components, and agent integration code
-- `scripts/watcher/` — image watcher and local auto-processing logic
-- `packages/` or `tools/` — helper tooling (if present)
-- `README.md` — repo-level usage and local setup notes
-- `env.example` — environment variables required for the UI only
+- `app/` - App Router pages, route handlers, server actions, and UI state modules
+- `app/api/` - local API routes used by the UI
+- `app/*.test.tsx` / `app/*.test.ts` - Vitest coverage for UI and state logic
+- `README.md` - local setup, architecture notes, and command summary
+- `env.example` - UI environment variable template
 
-## Integrations & Secrets
+## Environment
 
-- R2: stores image assets; credentials stay in env vars.
-- Gemini: image understanding/generation; gate and rate-limit calls.
-- Supabase: primary database/auth; migrations live in `migrations/` when present.
-- eBay APIs: publish/update listings; keep credentials private and use sandbox keys for testing.
+Use browser-safe env values in the client:
 
-## Backend Services Sidecar
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
-`backend-services` provides the sidecar that handles eBay/OAuth work, asset proxying, and background jobs.
+Server-side or local integration values:
 
-- API contract:
-  - `POST /sidecar/publish` — enqueue a listing publish job
-  - `POST /sidecar/sync` — request immediate sync
-  - `GET /sidecar/listings/:id/status` — fetch publish/sync status
-  - `POST /sidecar/assets/proxy` — optional proxy for protected R2 assets
-  - `GET /health` — liveness + readiness
+- `SIDECAR_API_URL`
+- `SIDECAR_API_BEARER_TOKEN`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
-- Integration: the UI writes drafts/assets to Supabase; the sidecar watches events or accepts UI requests and performs backend work over authenticated HTTP/JSON.
+Legacy fallbacks still exist in the template for migration purposes:
 
-- Run locally from the `backend-services` root, for example:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 
-```bash
-cd ../backend-services
-pnpm dev
-```
+Treat secrets as local-only. Do not hardcode credentials, tokens, or private endpoints into tracked source.
+
+## Working Rules
+
+- Prefer `pnpm` scripts already defined in `package.json`.
+- Keep changes aligned with the App Router and existing test patterns.
+- Preserve or extend existing state modules and tests when changing listing/order flows.
+- When touching Supabase code, respect the browser vs server split already used in the repo.
+- Avoid editing generated files unless the framework requires it.
+
+## Validation
+
+- Run `pnpm lint` before finishing UI code changes.
+- Run `pnpm test` for behavior changes.
+- Run `pnpm build` when changes affect routing, server code, or production bundling.
