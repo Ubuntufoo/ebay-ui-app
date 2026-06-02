@@ -104,6 +104,7 @@ function buildGeminiUsage(
 ): GeminiDailyUsageSummary {
   return {
     effective_limit: 500,
+    last_attempt: null,
     remaining: 479,
     reset_at: "2026-06-02T07:00:00.000Z",
     reset_time_zone: "America/Los_Angeles",
@@ -252,7 +253,7 @@ describe("ListingsRealtime", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
 
       if (eventType !== "DELETE") {
-        expect(screen.getByText("Gemini: 21 / 500 used")).not.toBeNull();
+        expect(screen.getByText("Gemini: 21/500")).not.toBeNull();
         expect(screen.getByRole("button", {name: "Review"})).not.toBeNull();
 
         fireEvent.click(screen.getByRole("button", {name: "Review"}));
@@ -430,6 +431,43 @@ describe("ListingsRealtime", () => {
     );
 
     expect(screen.getByText("Gemini usage unavailable")).not.toBeNull();
+  });
+
+  it("shows latest Gemini model beside the usage counter", async () => {
+    const realtimePayloadHandlers: Array<(payload: unknown) => void> = [];
+    realtimeChannelOnMock.mockImplementation((_event, _filter, callback) => {
+      realtimePayloadHandlers.push(callback as (payload: unknown) => void);
+      return realtimeChannel;
+    });
+
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        [buildListing()],
+        buildGeminiUsage({
+          last_attempt: {
+            display_name: "Gemini 2.5 Pro",
+            finished_at: "2026-06-01T13:00:00.000Z",
+            model_name: "gemini-2.5-pro",
+            provider: "gemini",
+            started_at: "2026-06-01T12:59:00.000Z",
+            status: "success",
+          },
+        }),
+      ),
+    );
+
+    renderListingsRealtime();
+
+    await triggerDebouncedRealtimeEvent(
+      realtimePayloadHandlers[0]
+        ? (payload) => {
+            realtimePayloadHandlers[0]?.(payload);
+          }
+        : undefined,
+      "UPDATE",
+    );
+
+    expect(screen.getByText("Gemini: 21/500 Last: gemini-2.5-pro")).not.toBeNull();
   });
 
   it("queues one follow-up refresh when update lands mid-fetch", async () => {

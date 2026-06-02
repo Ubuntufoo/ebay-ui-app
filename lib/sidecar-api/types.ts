@@ -47,6 +47,16 @@ export interface GeminiDailyUsageSummary {
   reset_time_zone: "America/Los_Angeles";
   usage_date: string;
   used: number;
+  last_attempt: GeminiAttemptSummary | null;
+}
+
+export interface GeminiAttemptSummary {
+  provider: string;
+  model_name: string;
+  display_name: string | null;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
 }
 
 export interface Listing {
