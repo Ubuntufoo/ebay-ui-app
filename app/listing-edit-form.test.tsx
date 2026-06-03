@@ -1,4 +1,4 @@
-import {cleanup, render, screen} from "@testing-library/react";
+import {cleanup, fireEvent, render, screen} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
@@ -198,7 +198,23 @@ describe("ListingEditForm", () => {
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
 
-  it("shows saved card condition, helper label, condition notes, and raw item specifics JSON", () => {
+  it("renders exactly four supported card condition options", () => {
+    render(<ListingEditForm listing={buildListing("needs_review")} />);
+
+    expect(
+      screen
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual([
+      "Select card condition",
+      "Near mint or better",
+      "Excellent",
+      "Very good",
+      "Poor",
+    ]);
+  });
+
+  it("shows saved supported card condition, helper label, condition notes, and item specifics JSON", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -206,7 +222,7 @@ describe("ListingEditForm", () => {
           ["https://example.com/card.jpg"],
           {
             item_specifics: {
-              "Card Condition": "VG",
+              "Card Condition": "EXCELLENT",
               "Card Number": "1",
               Player: "Mike Trout",
               Set: "Topps Chrome",
@@ -219,18 +235,92 @@ describe("ListingEditForm", () => {
 
     expect(
       (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
-    ).toBe("VG");
+    ).toBe("EXCELLENT");
     expect(
-      screen.getByRole("option", {name: "VG — Very Good", selected: true}),
+      screen.getByRole("option", {name: "Excellent", selected: true}),
     ).not.toBeNull();
     expect(screen.getByDisplayValue("Visible notes")).not.toBeNull();
     expect(
       (screen.getByLabelText("Item specifics (JSON)") as HTMLTextAreaElement)
         .value,
-    ).toContain('"Card Condition": "VG"');
+    ).toContain('"Card Condition": "EXCELLENT"');
   });
 
-  it("shows an unknown card condition token without crashing", () => {
+  it("normalizes legacy EX - Excellent to EXCELLENT for selection and display", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/legacy-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "EX - Excellent",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("EXCELLENT");
+    expect(
+      screen.getByRole("option", {name: "Excellent", selected: true}),
+    ).not.toBeNull();
+    expect(screen.queryByText(/Current saved Card Condition/i)).toBeNull();
+    expect(
+      (screen.getByLabelText("Item specifics (JSON)") as HTMLTextAreaElement)
+        .value,
+    ).toContain('"Card Condition": "EXCELLENT"');
+  });
+
+  it("normalizes legacy EX to EXCELLENT", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/legacy-ex-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "EX",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("EXCELLENT");
+    expect(
+      screen.getByRole("option", {name: "Excellent", selected: true}),
+    ).not.toBeNull();
+  });
+
+  it("normalizes legacy VG to VERY_GOOD", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/legacy-vg-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "VG",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("VERY_GOOD");
+    expect(
+      screen.getByRole("option", {name: "Very good", selected: true}),
+    ).not.toBeNull();
+  });
+
+  it("shows an unsupported card condition token warning without crashing", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -256,7 +346,7 @@ describe("ListingEditForm", () => {
     ).not.toBeNull();
     expect(
       screen.getByText(
-        /Current saved Card Condition MYSTERY is not supported/i,
+        /Current saved Card Condition "MYSTERY" is not supported/i,
       ),
     ).not.toBeNull();
   });
@@ -303,7 +393,7 @@ describe("ListingEditForm", () => {
           ["https://example.com/save-card.jpg"],
           {
             item_specifics: {
-              "Card Condition": "VG",
+              "Card Condition": "EX - Excellent",
               "Card Number": "1",
               Player: "Mike Trout",
               Set: "Topps Chrome",
@@ -314,7 +404,14 @@ describe("ListingEditForm", () => {
       />,
     );
 
-    await user.selectOptions(screen.getByLabelText("Card Condition"), "EX");
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("EXCELLENT");
+
+    await user.selectOptions(
+      screen.getByLabelText("Card Condition"),
+      "VERY_GOOD",
+    );
     await user.clear(screen.getByLabelText("Condition notes"));
     await user.type(screen.getByLabelText("Condition notes"), "Updated notes");
     await user.click(screen.getByRole("button", {name: "Save edits"}));
@@ -329,10 +426,113 @@ describe("ListingEditForm", () => {
       String(submittedFormData.get("item_specifics")),
     ) as Record<string, unknown>;
 
-    expect(submittedItemSpecifics["Card Condition"]).toBe("EX");
+    expect(submittedItemSpecifics["Card Condition"]).toBe("VERY_GOOD");
     expect(submittedItemSpecifics["Player"]).toBe("Mike Trout");
-    expect(JSON.stringify(submittedItemSpecifics)).not.toContain("Very Good");
+    expect(JSON.stringify(submittedItemSpecifics)).not.toContain(
+      "EX - Excellent",
+    );
     expect(submittedFormData.get("condition_notes")).toBe("Updated notes");
+  });
+
+  it("preserves manual item specifics edits while normalizing legacy Card Condition", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/manual-json-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "VG",
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
+          },
+        )}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Item specifics (JSON)"), {
+      target: {
+        value: JSON.stringify(
+          {
+            "Card Condition": "EX - Excellent",
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome Update",
+            Year: "2024",
+          },
+          null,
+          2,
+        ),
+      },
+    });
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const submittedItemSpecifics = JSON.parse(
+      String(submittedFormData.get("item_specifics")),
+    ) as Record<string, unknown>;
+
+    expect(submittedItemSpecifics["Card Condition"]).toBe("EXCELLENT");
+    expect(submittedItemSpecifics["Set"]).toBe("Topps Chrome Update");
+    expect(submittedItemSpecifics["Year"]).toBe("2024");
+    expect(submittedItemSpecifics["Player"]).toBe("Mike Trout");
+  });
+
+  it("blocks save when item specifics JSON is invalid and does not submit hidden text", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/invalid-json.jpg"])}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Item specifics (JSON)"), {
+      target: {
+        value: '{"Card Condition": "EX - Excellent"',
+      },
+    });
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(screen.getByText("Item specifics must be valid JSON.")).not.toBeNull();
+    expect(saveListingEditsMock).not.toHaveBeenCalled();
+  });
+
+  it("saves normalized backend token when legacy card condition remains selected", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/save-legacy-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "EX - Excellent",
+              "Card Number": "1",
+              Player: "Mike Trout",
+            },
+          },
+        )}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const submittedItemSpecifics = JSON.parse(
+      String(submittedFormData.get("item_specifics")),
+    ) as Record<string, unknown>;
+
+    expect(submittedItemSpecifics["Card Condition"]).toBe("EXCELLENT");
   });
 
   it("keeps normal edit behavior available for needs_review", async () => {
@@ -468,7 +668,7 @@ describe("ListingEditForm", () => {
             category_id: "183050",
             condition_id: "4000",
             item_specifics: {
-              "Card Condition": "VG",
+              "Card Condition": "EXCELLENT",
               "Card Number": "1",
               Player: "Mike Trout",
               Set: "Topps Chrome",
@@ -482,7 +682,50 @@ describe("ListingEditForm", () => {
 
     expect(
       (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
-    ).toBe("VG");
+    ).toBe("EXCELLENT");
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+
+    for (const checklistLabel of [
+      "Title has been reviewed.",
+      "Price has been reviewed.",
+      "Category/aspects have been reviewed.",
+      "Photos have been reviewed.",
+      "Shipping/condition details have been reviewed.",
+    ]) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", false);
+  });
+
+  it("allows approve for raw trading-card listings with a normalized legacy Card Condition", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/raw-legacy-valid-card.jpg"],
+          {
+            category_id: "183050",
+            condition_id: "4000",
+            item_specifics: {
+              "Card Condition": "VG",
+              "Card Number": "1",
+              Player: "Mike Trout",
+            },
+            title: "Valid legacy trading card title",
+          },
+        )}
+      />,
+    );
+
+    expect(
+      (screen.getByLabelText("Card Condition") as HTMLSelectElement).value,
+    ).toBe("VERY_GOOD");
 
     const approveButton = screen.getByRole("button", {
       name: "Approve For Export",

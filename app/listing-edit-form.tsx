@@ -15,7 +15,8 @@ import {
 import {ListingStatusControls} from "@/app/listing-status-controls";
 import {
   getCardConditionTokenFromItemSpecifics,
-  isSupportedTradingCardConditionToken,
+  normalizeItemSpecificsTradingCardCondition,
+  normalizeTradingCardConditionToken,
   tradingCardConditionOptions,
   updateItemSpecificsTradingCardCondition,
 } from "@/app/trading-card-condition-utils";
@@ -81,7 +82,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   );
 
   const [itemSpecificsText, setItemSpecificsText] = useState(() =>
-    formatItemSpecifics(listing.item_specifics),
+    formatItemSpecifics(
+      normalizeItemSpecificsTradingCardCondition(listing.item_specifics),
+    ),
   );
   const [imageUrlsText, setImageUrlsText] = useState(() =>
     formatListingImageUrls(listing.image_urls),
@@ -90,11 +93,18 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   const cardConditionToken = getCardConditionTokenFromItemSpecifics(
     itemSpecificsState.value as Parameters<typeof getCardConditionTokenFromItemSpecifics>[0],
   );
-  const selectedCardConditionValue = isSupportedTradingCardConditionToken(
-    cardConditionToken,
-  )
-    ? cardConditionToken
-    : "";
+  const normalizedCardConditionToken =
+    normalizeTradingCardConditionToken(cardConditionToken);
+  const normalizedItemSpecifics = normalizeItemSpecificsTradingCardCondition(
+    itemSpecificsState.value as Parameters<
+      typeof normalizeItemSpecificsTradingCardCondition
+    >[0],
+  );
+  const normalizedItemSpecificsText =
+    itemSpecificsState.error === null
+      ? formatItemSpecifics(normalizedItemSpecifics as Listing["item_specifics"])
+      : itemSpecificsText;
+  const selectedCardConditionValue = normalizedCardConditionToken ?? "";
   const isGenerating = listing.status === "generating";
   const isAssetsReady = listing.status === "assets_ready";
 
@@ -176,6 +186,11 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                   type="hidden"
                   name="listing_id"
                   value={listing.listing_id}
+                />
+                <input
+                  type="hidden"
+                  name="item_specifics"
+                  value={normalizedItemSpecificsText}
                 />
 
                 <div className="flex items-center justify-between gap-3">
@@ -327,11 +342,11 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                   </label>
 
                   {cardConditionToken !== null &&
-                  !isSupportedTradingCardConditionToken(cardConditionToken) ? (
+                  normalizedCardConditionToken === null ? (
                     <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                      Current saved Card Condition {cardConditionToken} is not
-                      supported. Choose a supported value before approving for
-                      export.
+                      Current saved Card Condition &quot;{cardConditionToken}
+                      &quot; is not supported. Choose a supported value before
+                      approving for export.
                     </p>
                   ) : null}
                 </div>
@@ -341,7 +356,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                     Item specifics (JSON)
                   </span>
                   <textarea
-                    name="item_specifics"
                     value={itemSpecificsText}
                     onChange={(event) =>
                       setItemSpecificsText(event.target.value)
