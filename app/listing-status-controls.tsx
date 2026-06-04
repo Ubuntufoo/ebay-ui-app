@@ -153,11 +153,29 @@ function RetryPublishForm({listing}: {listing: Listing}) {
 
 export function ListingStatusControls({
   listing,
+  inline = false,
 }: {
   listing: Listing;
+  inline?: boolean;
 }) {
   const isGenerating = listing.status === "generating";
   const canRetryPublishListing = canRetryPublish(listing);
+
+  if (inline) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {isGenerating ? (
+          <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-900">
+            Generating
+          </span>
+        ) : null}
+
+        <ListingGenerateControls listing={listing} />
+
+        {canRetryPublishListing ? <RetryPublishForm listing={listing} /> : null}
+      </div>
+    );
+  }
 
   return (
     <section className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-5">

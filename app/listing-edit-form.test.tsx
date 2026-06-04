@@ -478,13 +478,64 @@ describe("ListingEditForm", () => {
       String(submittedFormData.get("item_specifics")),
     ) as Record<string, unknown>;
 
-    expect(submittedItemSpecifics["Card Condition"]).toBe("EXCELLENT");
+    expect(submittedItemSpecifics["Card Condition"]).toBe("EX - Excellent");
     expect(submittedItemSpecifics["Set"]).toBe("Topps Chrome Update");
     expect(submittedItemSpecifics["Year"]).toBe("2024");
     expect(submittedItemSpecifics["Player"]).toBe("Mike Trout");
   });
 
-  it("blocks save when item specifics JSON is invalid and does not submit hidden text", async () => {
+  it("saves edited item specifics JSON when clicking Save edits", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/manual-json-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "EXCELLENT",
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
+          },
+        )}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Item specifics (JSON)"), {
+      target: {
+        value: JSON.stringify(
+          {
+            "Card Condition": "VERY_GOOD",
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome Update",
+            Year: "2024",
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const submittedItemSpecifics = JSON.parse(
+      String(submittedFormData.get("item_specifics")),
+    ) as Record<string, unknown>;
+
+    expect(submittedItemSpecifics["Card Condition"]).toBe("VERY_GOOD");
+    expect(submittedItemSpecifics["Set"]).toBe("Topps Chrome Update");
+    expect(submittedItemSpecifics["Year"]).toBe("2024");
+    expect(submittedItemSpecifics["Player"]).toBe("Mike Trout");
+  });
+
+  it("blocks save when item specifics JSON is invalid and does not submit textarea text", async () => {
     const user = userEvent.setup();
     saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
 

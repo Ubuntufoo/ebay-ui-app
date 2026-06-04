@@ -84,15 +84,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   );
   const normalizedCardConditionToken =
     normalizeTradingCardConditionToken(cardConditionToken);
-  const normalizedItemSpecifics = normalizeItemSpecificsTradingCardCondition(
-    itemSpecificsState.value as Parameters<
-      typeof normalizeItemSpecificsTradingCardCondition
-    >[0],
-  );
-  const normalizedItemSpecificsText =
-    itemSpecificsState.error === null
-      ? formatItemSpecifics(normalizedItemSpecifics as Listing["item_specifics"])
-      : itemSpecificsText;
   const selectedCardConditionValue = normalizedCardConditionToken ?? "";
   const isGenerating = listing.status === "generating";
 
@@ -104,9 +95,12 @@ export function ListingEditForm({listing}: {listing: Listing}) {
         <p className="font-bold uppercase tracking-[0.2em] text-stone-500">
           Edit listing
         </p>
-        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-3 py-1 font-mono text-stone-600">
-          {listing.listing_id}
-        </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <ListingStatusControls listing={listing} inline />
+          <span className="rounded-full border border-stone-950/10 bg-stone-100 px-3 py-1 font-mono text-stone-600">
+            {listing.listing_id}
+          </span>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-5">
@@ -131,11 +125,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
               type="hidden"
               name="listing_id"
               value={listing.listing_id}
-            />
-            <input
-              type="hidden"
-              name="item_specifics"
-              value={normalizedItemSpecificsText}
             />
 
             <label className="block">
@@ -222,6 +211,26 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 />
               </label>
             </div>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Item specifics (JSON)
+              </span>
+              <textarea
+                name="item_specifics"
+                value={itemSpecificsText}
+                onChange={(event) => setItemSpecificsText(event.target.value)}
+                rows={9}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            {itemSpecificsError ? (
+              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                {itemSpecificsError}
+              </p>
+            ) : null}
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
@@ -316,34 +325,12 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           </fieldset>
         </form>
 
-        <ListingStatusControls listing={listing} />
-
         <ListingReviewGate
           key={`${listing.listing_id}:${listing.status}`}
           cardConditionToken={cardConditionToken}
           listing={listing}
         />
 
-        <div className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4">
-          <label className="block">
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-              Item specifics (JSON)
-            </span>
-            <textarea
-              value={itemSpecificsText}
-              onChange={(event) => setItemSpecificsText(event.target.value)}
-              rows={9}
-              disabled={isGenerating}
-              className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
-            />
-          </label>
-
-          {itemSpecificsError ? (
-            <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-              {itemSpecificsError}
-            </p>
-          ) : null}
-        </div>
       </div>
     </div>
   );
