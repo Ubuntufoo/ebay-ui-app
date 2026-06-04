@@ -211,6 +211,16 @@ describe("ListingsRealtime", () => {
     );
   });
 
+  it("renders capture mode toggle with clear single and lot labels", () => {
+    renderListingsRealtime({initialCaptureMode: "lot_3_image"});
+
+    const singleButton = screen.getByRole("radio", {name: "Single"});
+    const lotButton = screen.getByRole("radio", {name: "Lot"});
+
+    expect(singleButton.getAttribute("aria-checked")).toBe("false");
+    expect(lotButton.getAttribute("aria-checked")).toBe("true");
+  });
+
   it.each(["INSERT", "UPDATE", "DELETE"] as const)(
     "refreshes once for debounced %s listing events",
     async (eventType) => {
@@ -467,7 +477,9 @@ describe("ListingsRealtime", () => {
       "UPDATE",
     );
 
-    expect(screen.getByText("Gemini: 21/500 Last: gemini-2.5-pro")).not.toBeNull();
+    expect(
+      screen.getByText(/Gemini: 21\/500/)?.textContent,
+    ).toContain("Last: gemini-2.5-pro");
   });
 
   it("queues one follow-up refresh when update lands mid-fetch", async () => {

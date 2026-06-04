@@ -13,15 +13,10 @@ import {
   initialRetryPublishListingActionState,
   type RetryPublishListingActionState,
 } from "@/app/listing-retry-publish-state";
-import {
-  getListingStatusBadgeClassName,
-  getListingStatusLabel,
-  getListingSubStatusLabel,
-} from "@/app/listing-status-flow";
 import {getListingPricingLinks} from "@/app/listing-pricing-links";
-import {getTradingCardConditionApprovalMessage} from "@/app/trading-card-condition-utils";
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
-import type {Listing, ListingStatus} from "@/lib/sidecar-api";
+import {getTradingCardConditionApprovalMessage} from "@/app/trading-card-condition-utils";
+import type {Listing} from "@/lib/sidecar-api";
 
 const EBAY_TITLE_MAX_LENGTH = 80;
 
@@ -56,11 +51,12 @@ function RetryPublishButton({disabled}: {disabled?: boolean}) {
 }
 
 const FINAL_REVIEW_CHECKLIST_ITEMS = [
-  "Title has been reviewed.",
-  "Price has been reviewed.",
-  "Category/aspects have been reviewed.",
-  "Photos have been reviewed.",
-  "Shipping/condition details have been reviewed.",
+  "Title is accurate and eBay-safe.",
+  "Price is correct.",
+  "Category is correct.",
+  "Condition is correct.",
+  "Images are correct and ordered front/back or lot sequence.",
+  "Item specifics look correct.",
 ] as const;
 type FinalReviewChecklistItem = (typeof FINAL_REVIEW_CHECKLIST_ITEMS)[number];
 
@@ -155,115 +151,33 @@ function RetryPublishForm({listing}: {listing: Listing}) {
   );
 }
 
-function ReadOnlyStatusField({
-  label,
-  value,
-  toneClassName,
-}: {
-  label: string;
-  value: string;
-  toneClassName?: string;
-}) {
-  return (
-    <div>
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-        {label}
-      </p>
-      <div
-        className={`mt-2 inline-flex rounded-full border px-4 py-2 text-sm font-semibold ${toneClassName ?? "border-stone-950/10 bg-stone-50 text-stone-700"}`}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function ApproveForExportForm({
-  approveFormAction,
-  approveState,
-  cardConditionApprovalMessage,
-  listingId,
-  listingTitle,
-  listingStatus,
-}: {
-  approveFormAction: (payload: FormData) => void;
-  approveState: ApproveListingForExportActionState;
-  cardConditionApprovalMessage: string | null;
-  listingId: string;
-  listingTitle: Listing["title"];
-  listingStatus: ListingStatus;
-}) {
-  const [completedChecklistItems, setCompletedChecklistItems] = useState(
-    createInitialChecklistState,
-  );
-  const isReviewChecklistComplete = FINAL_REVIEW_CHECKLIST_ITEMS.every(
-    (item) => completedChecklistItems[item] === true,
-  );
-  const titleLength = getTitleLength(listingTitle);
-  const isTitleLengthValid = !isTitleTooLong(listingTitle);
-  const isApproveDisabled =
-    !isReviewChecklistComplete ||
-    !isTitleLengthValid ||
-    cardConditionApprovalMessage !== null;
-
-  return (
-    <form action={approveFormAction} className="mt-4 grid gap-4">
-      <input type="hidden" name="listing_id" value={listingId} />
-      <input type="hidden" name="current_status" value={listingStatus} />
-      <div className="rounded-2xl border border-emerald-300 bg-white/80 px-4 py-4">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-800">
-          Final review checklist
-        </p>
-        {cardConditionApprovalMessage !== null ? (
-          <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            {cardConditionApprovalMessage}
-          </p>
-        ) : null}
-        {!isTitleLengthValid ? (
-          <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-            eBay titles must be 80 characters or fewer. Current title:{" "}
-            {titleLength} characters.
-          </p>
-        ) : null}
-        <div className="mt-3 grid gap-2">
-          {FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => (
-            <label
-              key={item}
-              className="flex items-start gap-2 text-sm text-stone-700"
-            >
-              <input
-                type="checkbox"
-                checked={completedChecklistItems[item]}
-                onChange={(event) =>
-                  setCompletedChecklistItems((current) => ({
-                    ...current,
-                    [item]: event.target.checked,
-                  }))
-                }
-              />
-              <span>{item}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <ApproveForExportButton disabled={isApproveDisabled} />
-      </div>
-      {approveState.success ? (
-        <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-          {approveState.success}
-        </p>
-      ) : null}
-      {approveState.error ? (
-        <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {approveState.error}
-        </p>
-      ) : null}
-    </form>
-  );
-}
-
 export function ListingStatusControls({
+  listing,
+}: {
+  listing: Listing;
+}) {
+  const isGenerating = listing.status === "generating";
+  const canRetryPublishListing = canRetryPublish(listing);
+
+  return (
+    <section className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-5">
+      {isGenerating ? (
+        <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+          AI generation is in progress. Edits and status actions are locked
+          until the draft returns for review.
+        </div>
+      ) : null}
+
+      <div className="mt-4">
+        <ListingGenerateControls listing={listing} />
+      </div>
+
+      {canRetryPublishListing ? <RetryPublishForm listing={listing} /> : null}
+    </section>
+  );
+}
+
+export function ListingReviewGate({
   cardConditionToken = null,
   listing,
 }: {
@@ -274,78 +188,103 @@ export function ListingStatusControls({
     ApproveListingForExportActionState,
     FormData
   >(approveListingForExport, initialApproveListingForExportActionState);
-  const isGenerating = listing.status === "generating";
-  const isNeedsReview = listing.status === "needs_review";
-  const canRetryPublishListing = canRetryPublish(listing);
-  const pricingLinks = isNeedsReview ? getListingPricingLinks(listing) : [];
+  const [completedChecklistItems, setCompletedChecklistItems] = useState(
+    createInitialChecklistState,
+  );
+  const isReviewChecklistComplete = FINAL_REVIEW_CHECKLIST_ITEMS.every(
+    (item) => completedChecklistItems[item] === true,
+  );
+  const titleLength = getTitleLength(listing.title);
+  const isTitleLengthValid = !isTitleTooLong(listing.title);
+  const pricingLinks =
+    listing.status === "needs_review" ? getListingPricingLinks(listing) : [];
   const cardConditionApprovalMessage = getTradingCardConditionApprovalMessage(
     listing,
     cardConditionToken,
   );
+  const isApproveDisabled =
+    !isReviewChecklistComplete ||
+    !isTitleLengthValid ||
+    cardConditionApprovalMessage !== null;
+
+  if (listing.status !== "needs_review") {
+    return null;
+  }
 
   return (
-    <section className="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-5">
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <ReadOnlyStatusField
-          label="Current status"
-          value={getListingStatusLabel(listing.status)}
-          toneClassName={getListingStatusBadgeClassName(listing.status)}
-        />
-        <ReadOnlyStatusField
-          label="Current sub-status"
-          value={getListingSubStatusLabel(listing.sub_status)}
-        />
+    <section className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4">
+      <div className="rounded-2xl border border-stone-950/10 bg-white/80 px-4 py-4">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+          Pricing research
+        </p>
+        <div className="mt-3 flex flex-wrap gap-3">
+          {pricingLinks.map((link) => (
+            <a
+              key={link.label}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
       </div>
 
-      {isGenerating ? (
-        <div className="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-          AI generation is in progress. Edits and status actions are locked
-          until the draft returns for review.
-        </div>
-      ) : null}
-
-      {pricingLinks.length > 0 ? (
-        <div className="mt-4 rounded-2xl border border-stone-950/10 bg-white/70 px-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-                Pricing research
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-3">
-            {pricingLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+      <form action={approveFormAction} className="grid gap-4">
+        <input type="hidden" name="listing_id" value={listing.listing_id} />
+        <input type="hidden" name="current_status" value={listing.status} />
+        <div className="rounded-2xl border border-emerald-300 bg-white/80 px-4 py-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-800">
+            Final review checklist
+          </p>
+          {cardConditionApprovalMessage !== null ? (
+            <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              {cardConditionApprovalMessage}
+            </p>
+          ) : null}
+          {!isTitleLengthValid ? (
+            <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              eBay titles must be 80 characters or fewer. Current title:{" "}
+              {titleLength} characters.
+            </p>
+          ) : null}
+          <div className="mt-3 grid gap-2 md:grid-cols-2 md:gap-x-6">
+            {FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => (
+              <label
+                key={item}
+                className="flex items-start gap-2 text-sm leading-6 text-stone-700"
               >
-                {link.label}
-              </a>
+                <input
+                  type="checkbox"
+                  checked={completedChecklistItems[item]}
+                  onChange={(event) =>
+                    setCompletedChecklistItems((current) => ({
+                      ...current,
+                      [item]: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{item}</span>
+              </label>
             ))}
           </div>
         </div>
-      ) : null}
-
-      <div className="mt-4">
-        <ListingGenerateControls listing={listing} />
-      </div>
-
-      {canRetryPublishListing ? <RetryPublishForm listing={listing} /> : null}
-
-      {isNeedsReview ? (
-        <ApproveForExportForm
-          key={`${listing.listing_id}:${listing.status}`}
-          approveFormAction={approveFormAction}
-          approveState={approveState}
-          cardConditionApprovalMessage={cardConditionApprovalMessage}
-          listingId={listing.listing_id}
-          listingTitle={listing.title}
-          listingStatus={listing.status}
-        />
-      ) : null}
+        <div className="flex flex-wrap gap-3">
+          <ApproveForExportButton disabled={isApproveDisabled} />
+        </div>
+        {approveState.success ? (
+          <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            {approveState.success}
+          </p>
+        ) : null}
+        {approveState.error ? (
+          <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+            {approveState.error}
+          </p>
+        ) : null}
+      </form>
     </section>
   );
 }

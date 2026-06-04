@@ -216,8 +216,8 @@ describe("ListingsTableEditable", () => {
     expect(
       screen.getByRole("button", {name: "Generate AI Draft"}),
     ).not.toBeNull();
-    expect(screen.getByLabelText("Seller hints")).not.toBeNull();
-    expect(screen.queryByLabelText("Title")).toBeNull();
+    expect(screen.getAllByLabelText("Seller hints").length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Title")).not.toBeNull();
   });
 
   it("moves exported and listed listings into the Published Listings panel", () => {

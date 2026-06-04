@@ -200,7 +200,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
     <div>
       {activeListings.length > 0 ? (
         <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
-          <div className="max-h-[48rem] overflow-auto">
+          <div className="max-h-[calc(100vh-14rem)] overflow-auto xl:max-h-[calc(100vh-12rem)]">
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse">
                 <thead className="sticky top-0 z-10">
@@ -217,7 +217,7 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                     ].map((column) => (
                       <th
                         key={column}
-                        className="px-4 py-3 text-xs font-bold text-center uppercase tracking-[0.18em] text-stone-500"
+                        className="px-4 py-3 text-xs font-bold uppercase tracking-[0.18em] text-stone-500"
                       >
                         {column}
                       </th>
@@ -298,16 +298,16 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                           <td className="px-4 py-3 text-sm text-stone-600">
                             {formatPrice(listing.price)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-stone-600">
+                          <td className="px-4 py-3 text-[11px] text-stone-600">
                             <div className="space-y-2">
                               <div>
-                                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">
+                                <p className="font-bold uppercase tracking-[0.16em] text-stone-400">
                                   Created
                                 </p>
                                 <p>{formatUpdatedAt(listing.created_at)}</p>
                               </div>
                               <div>
-                                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-stone-400">
+                                <p className="font-bold uppercase tracking-[0.16em] text-stone-400">
                                   Updated
                                 </p>
                                 <p>{formatUpdatedAt(listing.updated_at)}</p>
@@ -358,7 +358,9 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
         </div>
       ) : null}
 
-      <PublishedListingsPanel listings={publishedListings} />
+      <div className="mt-12 border-t-2 border-stone-300 pt-8">
+        <PublishedListingsPanel listings={publishedListings} />
+      </div>
     </div>
   );
 }
