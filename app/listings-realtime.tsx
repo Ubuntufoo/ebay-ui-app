@@ -10,6 +10,7 @@ import {getSupabaseBrowserClient} from "@/lib/supabase/browser";
 type GeminiUsageStatus = "error" | "ready";
 
 type ListingsRealtimeProps = {
+  initialCaptureMode?: string | null;
   initialGeminiUsage?: GeminiDailyUsageSummary | null;
   initialGeminiUsageStatus?: GeminiUsageStatus;
   initialListings: Listing[];
@@ -24,6 +25,7 @@ type ListingsRealtimeProps = {
 };
 
 export function ListingsRealtime({
+  initialCaptureMode = null,
   initialGeminiUsage = null,
   initialGeminiUsageStatus = "ready",
   initialListings,
@@ -40,6 +42,9 @@ export function ListingsRealtime({
   const [geminiUsage, setGeminiUsage] = useState(() => initialGeminiUsage);
   const [geminiUsageStatus, setGeminiUsageStatus] = useState<GeminiUsageStatus>(
     () => initialGeminiUsageStatus,
+  );
+  const [captureMode, setCaptureMode] = useState(() =>
+    initialCaptureMode === "lot_3_image" ? "lot_3_image" : "single_2_image",
   );
 
   useEffect(() => {
@@ -163,13 +168,55 @@ export function ListingsRealtime({
 
   return (
     <>
-      <QueueErrorsPanel
-        errorMessage={panelErrorMessage}
-        geminiUsage={geminiUsage}
-        geminiUsageStatus={geminiUsageStatus}
-        listings={listings}
-        ordersToShipCount={ordersToShipCount}
-      />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(18rem,0.82fr)]">
+        <QueueErrorsPanel
+          errorMessage={panelErrorMessage}
+          geminiUsage={geminiUsage}
+          geminiUsageStatus={geminiUsageStatus}
+          listings={listings}
+          ordersToShipCount={ordersToShipCount}
+        />
+        <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-50/85 p-5 shadow-[0_18px_48px_rgba(28,25,23,0.12)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-stone-500">
+                Capture mode
+              </p>
+              
+            </div>
+          </div>
+
+          <div
+            role="radiogroup"
+            aria-label="Capture mode"
+            className="mt-4 grid grid-cols-2 gap-3"
+          >
+            {[
+              {label: "Single", value: "single_2_image"},
+              {label: "Lot", value: "lot_3_image"},
+            ].map((option) => {
+              const selected = captureMode === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setCaptureMode(option.value)}
+                  className={`inline-flex min-h-22 items-center justify-center rounded-[1.5rem] border px-4 py-4 text-2xl font-semibold transition ${
+                    selected
+                      ? "border-stone-950 bg-stone-950 text-stone-50 shadow-[0_12px_28px_rgba(28,25,23,0.2)]"
+                      : "border-stone-950/10 bg-white text-stone-700 hover:border-stone-300 hover:text-stone-950"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
       <ListingsTableEditable listings={listings} />
     </>
   );

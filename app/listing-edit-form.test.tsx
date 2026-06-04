@@ -40,6 +40,15 @@ vi.mock("@/app/listing-retry-publish-actions", () => ({
 
 import {ListingEditForm} from "@/app/listing-edit-form";
 
+const FIRST_LIVE_REVIEW_CHECKLIST_LABELS = [
+  "Title is accurate and eBay-safe.",
+  "Price is correct.",
+  "Category is correct.",
+  "Condition is correct.",
+  "Images are correct and ordered front/back or lot sequence.",
+  "Item specifics look correct.",
+] as const;
+
 function buildListing(
   status: Listing["status"],
   imageUrls: string[] = ["https://example.com/image.jpg"],
@@ -125,7 +134,6 @@ describe("ListingEditForm", () => {
       "Condition notes",
       "Card Condition",
       "Item specifics (JSON)",
-      "Manual image URLs",
     ]) {
       expect(screen.getByLabelText(label)).toHaveProperty("disabled", true);
     }
@@ -134,9 +142,6 @@ describe("ListingEditForm", () => {
       "disabled",
       true,
     );
-    expect(
-      screen.getByRole("button", {name: "Save image URLs"}),
-    ).toHaveProperty("disabled", true);
     expect(screen.queryByRole("button", {name: "Assets ready"})).toBeNull();
     expect(screen.queryByRole("button", {name: "Needs review"})).toBeNull();
     expect(screen.queryByText("Final review checklist")).toBeNull();
@@ -168,26 +173,21 @@ describe("ListingEditForm", () => {
     );
 
     expect(
-      screen.getByText(
-        /Pre-generation review\. Edit seller hints in Generate AI Draft above/i,
-      ),
-    ).not.toBeNull();
-    expect(
       screen.getByRole("button", {name: "Generate AI Draft"}),
     ).not.toBeNull();
-    expect(screen.getByLabelText("Seller hints")).not.toBeNull();
-    expect(screen.getByText("2 images")).not.toBeNull();
+    expect(screen.getAllByLabelText("Seller hints").length).toBeGreaterThan(0);
+    expect(screen.queryByText("2 images")).toBeNull();
     expect(
-      screen.getByRole("link", {name: "Open LIST-001 image 1"}),
-    ).not.toBeNull();
+      screen.queryByRole("link", {name: "Open LIST-001 image 1"}),
+    ).toBeNull();
     expect(
-      screen.getByRole("link", {name: "Open LIST-001 image 2"}),
-    ).not.toBeNull();
+      screen.queryByRole("link", {name: "Open LIST-001 image 2"}),
+    ).toBeNull();
     expect(screen.queryByRole("button", {name: "Generating"})).toBeNull();
-    expect(screen.queryByLabelText("Title")).toBeNull();
-    expect(screen.queryByLabelText("Description")).toBeNull();
-    expect(screen.queryByLabelText("Price")).toBeNull();
-    expect(screen.queryByLabelText("Item specifics (JSON)")).toBeNull();
+    expect(screen.getByLabelText("Title")).not.toBeNull();
+    expect(screen.getByLabelText("Description")).not.toBeNull();
+    expect(screen.getByLabelText("Price")).not.toBeNull();
+    expect(screen.getByLabelText("Item specifics (JSON)")).not.toBeNull();
     expect(screen.queryByText("Final review checklist")).toBeNull();
     expect(
       screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
@@ -478,13 +478,64 @@ describe("ListingEditForm", () => {
       String(submittedFormData.get("item_specifics")),
     ) as Record<string, unknown>;
 
-    expect(submittedItemSpecifics["Card Condition"]).toBe("EXCELLENT");
+    expect(submittedItemSpecifics["Card Condition"]).toBe("EX - Excellent");
     expect(submittedItemSpecifics["Set"]).toBe("Topps Chrome Update");
     expect(submittedItemSpecifics["Year"]).toBe("2024");
     expect(submittedItemSpecifics["Player"]).toBe("Mike Trout");
   });
 
-  it("blocks save when item specifics JSON is invalid and does not submit hidden text", async () => {
+  it("saves edited item specifics JSON when clicking Save edits", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/manual-json-card.jpg"],
+          {
+            item_specifics: {
+              "Card Condition": "EXCELLENT",
+              "Card Number": "1",
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              Year: "2023",
+            },
+          },
+        )}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Item specifics (JSON)"), {
+      target: {
+        value: JSON.stringify(
+          {
+            "Card Condition": "VERY_GOOD",
+            "Card Number": "1",
+            Player: "Mike Trout",
+            Set: "Topps Chrome Update",
+            Year: "2024",
+          },
+          null,
+          2,
+        ),
+      },
+    });
+
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const submittedItemSpecifics = JSON.parse(
+      String(submittedFormData.get("item_specifics")),
+    ) as Record<string, unknown>;
+
+    expect(submittedItemSpecifics["Card Condition"]).toBe("VERY_GOOD");
+    expect(submittedItemSpecifics["Set"]).toBe("Topps Chrome Update");
+    expect(submittedItemSpecifics["Year"]).toBe("2024");
+    expect(submittedItemSpecifics["Player"]).toBe("Mike Trout");
+  });
+
+  it("blocks save when item specifics JSON is invalid and does not submit textarea text", async () => {
     const user = userEvent.setup();
     saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
 
@@ -567,13 +618,13 @@ describe("ListingEditForm", () => {
     );
     expect(screen.queryByRole("button", {name: "Generate"})).toBeNull();
     expect(screen.queryByRole("button", {name: "Assets ready"})).toBeNull();
-    expect(screen.getByText("2 images")).not.toBeNull();
+    expect(screen.queryByText("2 images")).toBeNull();
     expect(
-      screen.getByRole("link", {name: "Open LIST-001 image 1"}),
-    ).not.toBeNull();
+      screen.queryByRole("link", {name: "Open LIST-001 image 1"}),
+    ).toBeNull();
     expect(
-      screen.getByRole("link", {name: "Open LIST-001 image 2"}),
-    ).not.toBeNull();
+      screen.queryByRole("link", {name: "Open LIST-001 image 2"}),
+    ).toBeNull();
     expect(screen.getByText("Final review checklist")).not.toBeNull();
     expect(
       screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
@@ -585,13 +636,7 @@ describe("ListingEditForm", () => {
     });
     expect(approveButton).toHaveProperty("disabled", true);
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
@@ -638,13 +683,7 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
@@ -688,13 +727,7 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
@@ -731,13 +764,7 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
@@ -771,13 +798,7 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
@@ -816,13 +837,7 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
@@ -854,13 +869,7 @@ describe("ListingEditForm", () => {
     });
     expect(approveButton).toHaveProperty("disabled", true);
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
@@ -890,17 +899,45 @@ describe("ListingEditForm", () => {
     });
     expect(approveButton).toHaveProperty("disabled", true);
 
-    for (const checklistLabel of [
-      "Title has been reviewed.",
-      "Price has been reviewed.",
-      "Category/aspects have been reviewed.",
-      "Photos have been reviewed.",
-      "Shipping/condition details have been reviewed.",
-    ]) {
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
       await user.click(screen.getByLabelText(checklistLabel));
     }
 
     expect(approveButton).toHaveProperty("disabled", false);
+  });
+
+  it("resets the checklist when switching listings", async () => {
+    const user = userEvent.setup();
+    const {rerender} = render(
+      <ListingEditForm listing={buildListing("needs_review")} />,
+    );
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+    await user.click(
+      screen.getByLabelText(FIRST_LIVE_REVIEW_CHECKLIST_LABELS[0]),
+    );
+    expect(approveButton).toHaveProperty("disabled", true);
+
+    rerender(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/other.jpg"], {
+          listing_id: "LIST-002",
+          title: "Another listing",
+        })}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Approve For Export"})).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(
+      (screen.getByLabelText(
+        FIRST_LIVE_REVIEW_CHECKLIST_LABELS[0],
+      ) as HTMLInputElement).checked,
+    ).toBe(false);
   });
 
   it("shows retry publish for approved_for_export listings with user-fixable errors and submits listing_id", async () => {

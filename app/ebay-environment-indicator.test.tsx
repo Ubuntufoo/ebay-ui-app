@@ -40,7 +40,7 @@ describe("EbayEnvironmentIndicator", () => {
 
     const border = document.querySelector('[aria-hidden="true"]');
     expect(border).not.toBeNull();
-    expect(border?.className).toContain("border-2");
+    expect(border?.className).toContain("border-12");
     expect(border?.className).toContain("border-red-600");
   });
 

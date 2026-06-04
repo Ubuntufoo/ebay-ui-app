@@ -128,7 +128,9 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Gemini: 21/500 Last: gemini-2.5-pro")).not.toBeNull();
+    expect(
+      screen.getByText(/Gemini: 21\/500/)?.textContent,
+    ).toContain("Last: gemini-2.5-pro");
   });
 
   it("renders compact loading placeholders", () => {

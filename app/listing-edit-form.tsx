@@ -5,14 +5,10 @@ import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
 import {initialSaveListingEditsActionState} from "@/app/listing-edit-state";
-import {ListingImageGallery} from "@/app/listing-image-gallery";
-import {saveListingImageUrls} from "@/app/listing-image-url-actions";
-import {initialSaveListingImageUrlsActionState} from "@/app/listing-image-url-state";
 import {
-  formatListingImageUrls,
-  parseListingImageUrlsInput,
-} from "@/app/listing-image-url-utils";
-import {ListingStatusControls} from "@/app/listing-status-controls";
+  ListingReviewGate,
+  ListingStatusControls,
+} from "@/app/listing-status-controls";
 import {
   getCardConditionTokenFromItemSpecifics,
   normalizeItemSpecificsTradingCardCondition,
@@ -76,18 +72,11 @@ export function ListingEditForm({listing}: {listing: Listing}) {
     saveListingEdits,
     initialSaveListingEditsActionState,
   );
-  const [imageUrlState, imageUrlFormAction] = useActionState(
-    saveListingImageUrls,
-    initialSaveListingImageUrlsActionState,
-  );
 
   const [itemSpecificsText, setItemSpecificsText] = useState(() =>
     formatItemSpecifics(
       normalizeItemSpecificsTradingCardCondition(listing.item_specifics),
     ),
-  );
-  const [imageUrlsText, setImageUrlsText] = useState(() =>
-    formatListingImageUrls(listing.image_urls),
   );
   const itemSpecificsState = parseItemSpecificsText(itemSpecificsText);
   const cardConditionToken = getCardConditionTokenFromItemSpecifics(
@@ -95,412 +84,253 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   );
   const normalizedCardConditionToken =
     normalizeTradingCardConditionToken(cardConditionToken);
-  const normalizedItemSpecifics = normalizeItemSpecificsTradingCardCondition(
-    itemSpecificsState.value as Parameters<
-      typeof normalizeItemSpecificsTradingCardCondition
-    >[0],
-  );
-  const normalizedItemSpecificsText =
-    itemSpecificsState.error === null
-      ? formatItemSpecifics(normalizedItemSpecifics as Listing["item_specifics"])
-      : itemSpecificsText;
   const selectedCardConditionValue = normalizedCardConditionToken ?? "";
   const isGenerating = listing.status === "generating";
-  const isAssetsReady = listing.status === "assets_ready";
 
   const itemSpecificsError = itemSpecificsState.error;
-
-  const imageUrlValidation = parseListingImageUrlsInput(imageUrlsText);
-
-  const imageUrlsError =
-    imageUrlValidation.invalidUrls.length > 0
-      ? `Each image URL must be a valid http or https URL. Invalid entries: ${imageUrlValidation.invalidUrls.join(", ")}`
-      : null;
 
   return (
     <div className="rounded-2xl border border-stone-950/10 bg-white/75 p-5 shadow-[0_10px_28px_rgba(68,64,60,0.08)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
+        <p className="font-bold uppercase tracking-[0.2em] text-stone-500">
           Edit listing
         </p>
-        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-3 py-1 text-xs font-mono text-stone-600">
-          {listing.listing_id}
-        </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <ListingStatusControls listing={listing} inline />
+          <span className="rounded-full border border-stone-950/10 bg-stone-100 px-3 py-1 font-mono text-stone-600">
+            {listing.listing_id}
+          </span>
+        </div>
       </div>
 
-      <div className="mt-4">
-        <ListingStatusControls
+      <div className="mt-4 grid gap-5">
+        <form
+          action={formAction}
+          onSubmit={(event) => {
+            if (itemSpecificsError) {
+              event.preventDefault();
+            }
+          }}
+          className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
+        >
+          {isGenerating ? (
+            <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+              AI generation is in progress. Listing edits are locked until
+              the draft is ready for review.
+            </div>
+          ) : null}
+
+          <fieldset disabled={isGenerating} className="grid gap-4">
+            <input
+              type="hidden"
+              name="listing_id"
+              value={listing.listing_id}
+            />
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Title
+              </span>
+              <input
+                type="text"
+                name="title"
+                defaultValue={listing.title ?? ""}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Seller hints
+                </span>
+                <textarea
+                  name="seller_hints"
+                  defaultValue={listing.seller_hints ?? ""}
+                  rows={3}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Description
+                </span>
+                <textarea
+                  name="description"
+                  defaultValue={listing.description ?? ""}
+                  rows={4}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Price
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  name="price"
+                  defaultValue={
+                    listing.price === null ? "" : String(listing.price)
+                  }
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Category ID
+                </span>
+                <input
+                  type="text"
+                  name="category_id"
+                  defaultValue={listing.category_id ?? ""}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Condition ID
+                </span>
+                <input
+                  type="text"
+                  name="condition_id"
+                  defaultValue={listing.condition_id ?? ""}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Item specifics (JSON)
+              </span>
+              <textarea
+                name="item_specifics"
+                value={itemSpecificsText}
+                onChange={(event) => setItemSpecificsText(event.target.value)}
+                rows={9}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            {itemSpecificsError ? (
+              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                {itemSpecificsError}
+              </p>
+            ) : null}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Condition notes
+                </span>
+                <textarea
+                  name="condition_notes"
+                  defaultValue={listing.condition_notes ?? ""}
+                  rows={3}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+
+              <div className="grid gap-2">
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                    Card Condition
+                  </span>
+                  <select
+                    name="card_condition"
+                    value={selectedCardConditionValue}
+                    onChange={(event) => {
+                      if (itemSpecificsState.error !== null) {
+                        return;
+                      }
+
+                      const nextToken = event.target.value;
+                      const updatedItemSpecifics = updateItemSpecificsTradingCardCondition(
+                        itemSpecificsState.value as Parameters<typeof updateItemSpecificsTradingCardCondition>[0],
+                        nextToken === "" ? null : nextToken,
+                      );
+
+                      if (updatedItemSpecifics === null) {
+                        return;
+                      }
+
+                      setItemSpecificsText(
+                        updatedItemSpecifics === null
+                          ? ""
+                          : JSON.stringify(updatedItemSpecifics, null, 2),
+                      );
+                    }}
+                    disabled={isGenerating || itemSpecificsError !== null}
+                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  >
+                    <option value="">Select card condition</option>
+                    {tradingCardConditionOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {cardConditionToken !== null &&
+                normalizedCardConditionToken === null ? (
+                  <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Current saved Card Condition &quot;{cardConditionToken}
+                    &quot; is not supported. Choose a supported value before
+                    approving for export.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <SaveButton
+                disabled={isGenerating || itemSpecificsError !== null}
+                label="Save edits"
+                pendingLabel="Saving..."
+              />
+              {itemSpecificsError ? (
+                <span className="text-sm text-rose-700">
+                  Fix JSON to save.
+                </span>
+              ) : null}
+            </div>
+
+            {state.success ? (
+              <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                Listing edits saved.
+              </p>
+            ) : null}
+
+            {state.error ? (
+              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                {state.error}
+              </p>
+            ) : null}
+          </fieldset>
+        </form>
+
+        <ListingReviewGate
+          key={`${listing.listing_id}:${listing.status}`}
           cardConditionToken={cardConditionToken}
           listing={listing}
         />
-      </div>
 
-      <div className="mt-4 grid gap-5 border-t border-stone-950/10 pt-4">
-        {isAssetsReady ? (
-          <section className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4">
-            <div className="rounded-2xl border border-blue-300 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-900">
-              Pre-generation review. Edit seller hints in Generate AI Draft
-              above, then queue AI generation. Generated draft fields unlock
-              after the draft returns for review.
-            </div>
-
-            <div className="grid gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Preview
-                </p>
-                <p className="text-xs text-stone-500">
-                  Listing images only. Draft fields stay locked.
-                </p>
-              </div>
-              <ListingImageGallery
-                listingId={listing.listing_id}
-                imageUrls={listing.image_urls}
-                emptyLabel="No listing images available yet."
-                compact
-                showAllImages
-                showUrls={false}
-              />
-            </div>
-          </section>
-        ) : (
-          <>
-            <form
-              action={formAction}
-              onSubmit={(event) => {
-                if (itemSpecificsError) {
-                  event.preventDefault();
-                }
-              }}
-              className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
-            >
-              {isGenerating ? (
-                <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-                  AI generation is in progress. Listing edits are locked until
-                  the draft is ready for review.
-                </div>
-              ) : null}
-
-              <fieldset disabled={isGenerating} className="grid gap-4">
-                <input
-                  type="hidden"
-                  name="listing_id"
-                  value={listing.listing_id}
-                />
-                <input
-                  type="hidden"
-                  name="item_specifics"
-                  value={normalizedItemSpecificsText}
-                />
-
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Listing details
-                    </p>
-                    <p className="mt-1 text-sm text-stone-500">
-                      Seller-editable fields only.
-                    </p>
-                  </div>
-                </div>
-
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Title
-                  </span>
-                  <input
-                    type="text"
-                    name="title"
-                    defaultValue={listing.title ?? ""}
-                    disabled={isGenerating}
-                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Seller hints
-                  </span>
-                  <textarea
-                    name="seller_hints"
-                    defaultValue={listing.seller_hints ?? ""}
-                    rows={3}
-                    disabled={isGenerating}
-                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Description
-                  </span>
-                  <textarea
-                    name="description"
-                    defaultValue={listing.description ?? ""}
-                    rows={5}
-                    disabled={isGenerating}
-                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                  />
-                </label>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Price
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      name="price"
-                      defaultValue={
-                        listing.price === null ? "" : String(listing.price)
-                      }
-                      disabled={isGenerating}
-                      className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Category ID
-                    </span>
-                    <input
-                      type="text"
-                      name="category_id"
-                      defaultValue={listing.category_id ?? ""}
-                      disabled={isGenerating}
-                      className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Condition ID
-                    </span>
-                    <input
-                      type="text"
-                      name="condition_id"
-                      defaultValue={listing.condition_id ?? ""}
-                      disabled={isGenerating}
-                      className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                    />
-                  </label>
-                </div>
-
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Condition notes
-                  </span>
-                  <textarea
-                    name="condition_notes"
-                    defaultValue={listing.condition_notes ?? ""}
-                    rows={3}
-                    disabled={isGenerating}
-                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                  />
-                </label>
-
-                <div className="grid gap-2">
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Card Condition
-                    </span>
-                    <select
-                      name="card_condition"
-                      value={selectedCardConditionValue}
-                      onChange={(event) => {
-                        if (itemSpecificsState.error !== null) {
-                          return;
-                        }
-
-                        const nextToken = event.target.value;
-                        const updatedItemSpecifics = updateItemSpecificsTradingCardCondition(
-                          itemSpecificsState.value as Parameters<typeof updateItemSpecificsTradingCardCondition>[0],
-                          nextToken === "" ? null : nextToken,
-                        );
-
-                        if (updatedItemSpecifics === null) {
-                          return;
-                        }
-
-                        setItemSpecificsText(
-                          updatedItemSpecifics === null
-                            ? ""
-                            : JSON.stringify(updatedItemSpecifics, null, 2),
-                        );
-                      }}
-                      disabled={isGenerating || itemSpecificsError !== null}
-                      className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
-                    >
-                      <option value="">Select card condition</option>
-                      {tradingCardConditionOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  {cardConditionToken !== null &&
-                  normalizedCardConditionToken === null ? (
-                    <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                      Current saved Card Condition &quot;{cardConditionToken}
-                      &quot; is not supported. Choose a supported value before
-                      approving for export.
-                    </p>
-                  ) : null}
-                </div>
-
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Item specifics (JSON)
-                  </span>
-                  <textarea
-                    value={itemSpecificsText}
-                    onChange={(event) =>
-                      setItemSpecificsText(event.target.value)
-                    }
-                    rows={8}
-                    disabled={isGenerating}
-                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                  />
-                </label>
-
-                {itemSpecificsError ? (
-                  <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                    {itemSpecificsError}
-                  </p>
-                ) : null}
-
-                <div className="flex items-center gap-3">
-                  <SaveButton
-                    disabled={isGenerating || itemSpecificsError !== null}
-                    label="Save edits"
-                    pendingLabel="Saving..."
-                  />
-                  {itemSpecificsError ? (
-                    <span className="text-sm text-rose-700">
-                      Fix JSON to save.
-                    </span>
-                  ) : null}
-                </div>
-
-                {state.success ? (
-                  <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                    Listing edits saved.
-                  </p>
-                ) : null}
-
-                {state.error ? (
-                  <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                    {state.error}
-                  </p>
-                ) : null}
-              </fieldset>
-            </form>
-
-            <form
-              action={imageUrlFormAction}
-              onSubmit={(event) => {
-                if (imageUrlsError) {
-                  event.preventDefault();
-                }
-              }}
-              className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
-            >
-              <fieldset disabled={isGenerating} className="grid gap-4">
-                <input
-                  type="hidden"
-                  name="listing_id"
-                  value={listing.listing_id}
-                />
-
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Image URLs
-                    </p>
-                    <p className="mt-1 text-sm text-stone-500">
-                      Paste one public image URL per line. `r2_object_keys` stay
-                      server-owned and hidden here.
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-stone-950/10 bg-white px-3 py-1 text-xs font-medium text-stone-600">
-                    {imageUrlValidation.urls.length} valid URL
-                    {imageUrlValidation.urls.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Manual image URLs
-                  </span>
-                  <textarea
-                    name="image_urls"
-                    value={imageUrlsText}
-                    onChange={(event) => setImageUrlsText(event.target.value)}
-                    rows={6}
-                    spellCheck={false}
-                    disabled={isGenerating}
-                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                  />
-                </label>
-
-                {imageUrlsError ? (
-                  <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                    {imageUrlsError}
-                  </p>
-                ) : null}
-
-                <div className="grid gap-3">
-                  <div className="flex items-center gap-3">
-                    <SaveButton
-                      disabled={isGenerating || imageUrlsError !== null}
-                      label="Save image URLs"
-                      pendingLabel="Saving URLs..."
-                    />
-                    {imageUrlsError ? (
-                      <span className="text-sm text-rose-700">
-                        Fix invalid URLs to save.
-                      </span>
-                    ) : null}
-                  </div>
-
-                  {imageUrlState.success ? (
-                    <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                      Image URLs saved.
-                    </p>
-                  ) : null}
-
-                  {imageUrlState.error ? (
-                    <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                      {imageUrlState.error}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="grid gap-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                      Preview
-                    </p>
-                    <p className="text-xs text-stone-500">
-                      Invalid or unreachable images fall back gracefully.
-                    </p>
-                  </div>
-                  <ListingImageGallery
-                    listingId={listing.listing_id}
-                    imageUrls={imageUrlValidation.urls}
-                    emptyLabel="Add one or more valid public image URLs to preview them here."
-                    compact
-                    showAllImages
-                    showUrls={false}
-                  />
-                </div>
-              </fieldset>
-            </form>
-          </>
-        )}
       </div>
     </div>
   );

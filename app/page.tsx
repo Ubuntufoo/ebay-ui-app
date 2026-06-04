@@ -21,15 +21,6 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const workflowStates = [
-  "record_created",
-  "assets_ready",
-  "generating",
-  "needs_review",
-  "approved_for_export",
-  "listed",
-];
-
 function ListingsEmptyState() {
   return (
     <div className="mt-6 flex min-h-[22rem] items-center justify-center rounded-[1.75rem] border border-dashed border-stone-950/15 bg-stone-50/70 px-6 text-center">
@@ -111,19 +102,25 @@ function OrdersToShipIndicator({count}: {count: number}) {
 
 async function ListingsSection({
   geminiUsagePromise,
+  appSettingsPromise,
   listingsPromise,
   unshippedOrdersPromise,
 }: {
+  appSettingsPromise: Promise<
+    | {status: "success"; settings: AppSettings}
+    | {status: "error"; message: string}
+  >;
   geminiUsagePromise: Promise<GeminiUsageLoadResult>;
   listingsPromise: Promise<ListingsLoadResult>;
   unshippedOrdersPromise: Promise<UnshippedOrdersLoadResult>;
 }) {
   const [listingsResult, unshippedOrdersResult, geminiUsageResult] =
     await Promise.all([
-    listingsPromise,
-    unshippedOrdersPromise,
-    geminiUsagePromise,
-  ]);
+      listingsPromise,
+      unshippedOrdersPromise,
+      geminiUsagePromise,
+    ]);
+  const appSettingsResult = await appSettingsPromise;
   const ordersToShipCount =
     unshippedOrdersResult.status === "success"
       ? unshippedOrdersResult.count
@@ -172,6 +169,11 @@ async function ListingsSection({
           }
           initialGeminiUsageStatus={
             geminiUsageResult.status === "success" ? "ready" : "error"
+          }
+          initialCaptureMode={
+            appSettingsResult.status === "success"
+              ? appSettingsResult.settings.capture_mode
+              : null
           }
           initialListings={listings}
           panelErrorMessage={null}
@@ -267,50 +269,61 @@ function formatSettingValue(value: string | number | null): string {
   return String(value);
 }
 
-async function AppSettingsSection() {
-  const settingsResult = await loadAppSettings();
+async function AppSettingsSection({
+  settingsPromise,
+}: {
+  settingsPromise: Promise<
+    | {status: "success"; settings: AppSettings}
+    | {status: "error"; message: string}
+  >;
+}) {
+  const settingsResult = await settingsPromise;
 
   return (
     <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
-      <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-        App settings
+      <p className="text-xs font-bold tracking-[0.28em] text-stone-500">
+        APP SETTINGS
       </p>
       {settingsResult.status === "success" ? (
-        <dl className="mt-5 space-y-4">
-          {[
-            ["Capture mode", settingsResult.settings.capture_mode],
-            ["Handling days", settingsResult.settings.handling_days],
-            [
-              "Merchant location key",
-              settingsResult.settings.merchant_location_key,
-            ],
-            [
-              "Shipping profile",
-              settingsResult.settings.default_shipping_profile,
-            ],
-            ["Package type", settingsResult.settings.default_package_type],
-            ["Marketplace", settingsResult.settings.ebay_marketplace_id],
-            [
-              "Order syncs/day",
-              settingsResult.settings.max_order_syncs_per_day,
-            ],
-            ["Gemini daily limit", settingsResult.settings.gemini_daily_limit],
-            [
-              "R2 retention days after sold",
-              settingsResult.settings.r2_retention_days_after_sold,
-            ],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between gap-4"
-            >
-              <dt className="text-sm text-stone-500">{label}</dt>
-              <dd className="text-right font-semibold">
-                {formatSettingValue(value)}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <dl className="space-y-2">
+            {[
+              ["Capture mode: ", settingsResult.settings.capture_mode],
+              ["Handling days: ", settingsResult.settings.handling_days],
+              [
+                "Shipping profile: ",
+                settingsResult.settings.default_shipping_profile,
+              ],
+              ["Package type: ", settingsResult.settings.default_package_type],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="flex items-center gap-2"
+              >
+                <dt className="text-sm text-stone-500">{label}</dt>
+                <dd className="font-semibold">
+                  {formatSettingValue(value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <dl className="space-y-2">
+            {[
+              ["Placeholder 1: ", "—"],
+              ["Placeholder 2: ", "—"],
+              ["Placeholder 3: ", "—"],
+              ["Placeholder 4: ", "—"],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="flex items-center gap-2"
+              >
+                <dt className="text-sm text-stone-500">{label}</dt>
+                <dd className="font-semibold">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       ) : (
         <p className="mt-5 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
           {settingsResult.message}
@@ -351,14 +364,16 @@ export default function Home() {
   const listingsPromise = loadListings();
   const unshippedOrdersPromise = loadUnshippedOrders();
   const geminiUsagePromise = loadGeminiUsage();
+  const appSettingsPromise = loadAppSettings();
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#efe7d8] text-stone-950">
+    <main className="app-scrollbar min-h-screen overflow-x-hidden bg-[#efe7d8] text-stone-950">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_18%_12%,_rgba(251,191,36,0.38),_transparent_28%),radial-gradient(circle_at_82%_18%,_rgba(20,184,166,0.22),_transparent_30%),linear-gradient(135deg,_rgba(68,64,60,0.08),_transparent_45%)]" />
 
       <section className="relative flex min-h-screen w-full flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6">
         <section className="rounded-[2rem] border border-stone-950/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur sm:p-7 min-h-[44rem]">
           <Suspense fallback={<ListingsSectionFallback />}>
           <ListingsSection
+            appSettingsPromise={appSettingsPromise}
             geminiUsagePromise={geminiUsagePromise}
             listingsPromise={listingsPromise}
             unshippedOrdersPromise={unshippedOrdersPromise}
@@ -366,42 +381,10 @@ export default function Home() {
           </Suspense>
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <section className="grid gap-5">
           <Suspense fallback={<AppSettingsSectionFallback />}>
-            <AppSettingsSection />
+            <AppSettingsSection settingsPromise={appSettingsPromise} />
           </Suspense>
-
-          <section className="rounded-[2rem] border border-stone-950/10 bg-stone-50/80 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-                  Workflow State
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
-                  Status rail for backend phases
-                </h2>
-              </div>
-              <span className="rounded-full bg-stone-950 px-4 py-2 text-sm text-stone-50">
-                Read-only shell
-              </span>
-            </div>
-
-            <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-              {workflowStates.map((state, index) => (
-                <div
-                  key={state}
-                  className="rounded-2xl border border-stone-950/10 bg-white p-4"
-                >
-                  <p className="font-mono text-xs text-stone-400">
-                    0{index + 1}
-                  </p>
-                  <p className="mt-3 break-words text-sm font-semibold">
-                    {state}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
         </section>
       </section>
     </main>
