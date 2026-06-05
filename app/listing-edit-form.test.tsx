@@ -200,11 +200,12 @@ describe("ListingEditForm", () => {
 
   it("renders exactly four supported card condition options", () => {
     render(<ListingEditForm listing={buildListing("needs_review")} />);
+    const cardConditionSelect = screen.getByLabelText(
+      "Card Condition",
+    ) as HTMLSelectElement;
 
     expect(
-      screen
-        .getAllByRole("option")
-        .map((option) => option.textContent),
+      Array.from(cardConditionSelect.options).map((option) => option.textContent),
     ).toEqual([
       "Select card condition",
       "Near mint or better",
@@ -654,6 +655,198 @@ describe("ListingEditForm", () => {
     expect(
       screen.getByRole("link", {name: "SportsCardsPro"}).getAttribute("href"),
     ).toContain("type=prices");
+  });
+
+  it("shows Inventory / SKU review section with Gemini BSKBL suggestion", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          listing_id: "Single-000001",
+          item_specifics: {
+            Player: "Mike Trout",
+            skuCategoryCode: "BSKBL",
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Inventory / SKU")).not.toBeNull();
+    expect(screen.getByText("Backend finalizes this SKU on approval.")).not.toBeNull();
+    expect((screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value).toBe(
+      "BSKBL",
+    );
+    expect(screen.getByText("BSKBL-Single-000001")).not.toBeNull();
+  });
+
+  it("shows BSBL lot preview for valid lot listing IDs", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          listing_id: "Lot-000002",
+          item_specifics: {
+            Player: "Mike Trout",
+            skuCategoryCode: "BSBL",
+          },
+        })}
+      />,
+    );
+
+    expect((screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value).toBe(
+      "BSBL",
+    );
+    expect(screen.getByText("BSBL-Lot-000002")).not.toBeNull();
+  });
+
+  it("defaults missing skuCategoryCode to OTHER preview", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          listing_id: "Single-000003",
+          item_specifics: {
+            Player: "Mike Trout",
+          },
+        })}
+      />,
+    );
+
+    expect((screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value).toBe(
+      "OTHER",
+    );
+    expect(screen.getByText("OTHER-Single-000003")).not.toBeNull();
+  });
+
+  it("defaults invalid skuCategoryCode to OTHER and hides invalid option", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          listing_id: "Single-000004",
+          item_specifics: {
+            Player: "Mike Trout",
+            skuCategoryCode: "FOOTBALL",
+          },
+        })}
+      />,
+    );
+
+    const prefixSelect = screen.getByLabelText(
+      "SKU category prefix",
+    ) as HTMLSelectElement;
+
+    expect(prefixSelect.value).toBe("OTHER");
+    expect(
+      screen.queryByRole("option", {name: /FOOTBALL/i}),
+    ).toBeNull();
+    expect(screen.getByText("OTHER-Single-000004")).not.toBeNull();
+  });
+
+  it("updates only skuCategoryCode within item specifics and never sends full sku in save payload", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          listing_id: "Single-000005",
+          sku: "Single-000005",
+          item_specifics: {
+            Player: "Mike Trout",
+            Set: "Topps Chrome",
+            skuCategoryCode: "OTHER",
+          },
+        })}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("SKU category prefix"), "BSKBL");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const submittedItemSpecifics = JSON.parse(
+      String(submittedFormData.get("item_specifics")),
+    ) as Record<string, unknown>;
+
+    expect(submittedItemSpecifics).toMatchObject({
+      Player: "Mike Trout",
+      Set: "Topps Chrome",
+      skuCategoryCode: "BSKBL",
+    });
+    expect(submittedFormData.get("sku")).toBeNull();
+    expect(JSON.stringify(submittedItemSpecifics)).not.toContain(
+      "BSKBL-Single-000005",
+    );
+  });
+
+  it("approve action does not send full sku text", async () => {
+    const user = userEvent.setup();
+    approveListingForExportMock.mockResolvedValueOnce({
+      error: null,
+      success: "Approved Single-000006 for export.",
+    });
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          listing_id: "Single-000006",
+          sku: "Single-000006",
+          item_specifics: {
+            Player: "Mike Trout",
+            skuCategoryCode: "BSKBL",
+          },
+        })}
+      />,
+    );
+
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    await user.click(screen.getByRole("button", {name: "Approve For Export"}));
+
+    const submittedFormData = approveListingForExportMock.mock.calls[0][1] as FormData;
+    expect(submittedFormData.get("listing_id")).toBe("Single-000006");
+    expect(submittedFormData.get("current_status")).toBe("needs_review");
+    expect(submittedFormData.get("sku")).toBeNull();
+    expect(submittedFormData.get("item_specifics")).toBeNull();
+    expect(Array.from(submittedFormData.keys())).toEqual([
+      "listing_id",
+      "current_status",
+    ]);
+  });
+
+  it("does not show editable SKU prefix selector outside needs_review", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("approved_for_export", ["https://example.com/review.jpg"], {
+          listing_id: "Single-000007",
+          item_specifics: {
+            Player: "Mike Trout",
+            skuCategoryCode: "BSKBL",
+          },
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("Inventory / SKU")).toBeNull();
+    expect(screen.queryByLabelText("SKU category prefix")).toBeNull();
+  });
+
+  it("shows safe warning and no invented preview for malformed listing IDs", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          listing_id: "LIST-001",
+          item_specifics: {
+            Player: "Mike Trout",
+            skuCategoryCode: "BSKBL",
+          },
+        })}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Listing ID is not in base Single\/Lot format\./i),
+    ).not.toBeNull();
+    expect(screen.queryByText("BSKBL-LIST-001")).toBeNull();
   });
 
   it("blocks approve for raw trading-card listings without a supported Card Condition", async () => {
