@@ -13,7 +13,7 @@ export const structuredSkuPrefixLabels: Record<StructuredSkuPrefix, string> = {
   OTHER: "Other / uncertain",
 };
 
-const BASE_LISTING_ID_PATTERN = /^(Single|Lot)-\d+$/;
+const BASE_LISTING_ID_PATTERN = /^(Single|Lot)-(?!000000)\d{6}$/;
 
 function isRecord(
   value: Json | undefined,
