@@ -153,6 +153,7 @@ export interface AppSettings {
   merchant_location_key: string | null;
   office_location_name: string | null;
   processed_folder_path: string | null;
+  pricing_service_enabled: boolean;
   r2_retention_days_after_sold: number | null;
   updated_at: string;
 }

@@ -2,6 +2,7 @@ import {cleanup, render, screen, within} from "@testing-library/react";
 import {afterEach, describe, expect, it} from "vitest";
 
 import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
+
 import {
   QueueErrorsPanel,
   buildOperationalCounters,

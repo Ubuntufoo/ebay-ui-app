@@ -4,6 +4,7 @@ import {useEffect, useState} from "react";
 
 import {ListingsTableEditable} from "@/app/listings-table-editable";
 import {QueueErrorsPanel} from "@/app/queue-errors-panel";
+import {PricingServiceToggle} from "@/app/pricing-service-toggle";
 import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
 import {getSupabaseBrowserClient} from "@/lib/supabase/browser";
 
@@ -13,6 +14,7 @@ type ListingsRealtimeProps = {
   initialCaptureMode?: string | null;
   initialGeminiUsage?: GeminiDailyUsageSummary | null;
   initialGeminiUsageStatus?: GeminiUsageStatus;
+  initialPricingServiceEnabled?: boolean | null;
   initialListings: Listing[];
   ordersToShipCount?: number;
   panelErrorMessage?: string | null;
@@ -28,6 +30,7 @@ export function ListingsRealtime({
   initialCaptureMode = null,
   initialGeminiUsage = null,
   initialGeminiUsageStatus = "ready",
+  initialPricingServiceEnabled = null,
   initialListings,
   ordersToShipCount = 0,
   panelErrorMessage = null,
@@ -182,7 +185,6 @@ export function ListingsRealtime({
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-stone-500">
                 Capture mode
               </p>
-              
             </div>
           </div>
 
@@ -214,6 +216,10 @@ export function ListingsRealtime({
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-4">
+            <PricingServiceToggle enabled={initialPricingServiceEnabled} />
           </div>
         </section>
       </div>

@@ -21,12 +21,14 @@ const {
   retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
+  togglePricingServiceActionMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
+  togglePricingServiceActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -39,6 +41,10 @@ vi.mock("@/app/listing-actions", () => ({
 
 vi.mock("@/app/listing-image-url-actions", () => ({
   saveListingImageUrls: saveListingImageUrlsMock,
+}));
+
+vi.mock("@/app/pricing-service-toggle-actions", () => ({
+  togglePricingServiceAction: togglePricingServiceActionMock,
 }));
 
 vi.mock("@/app/listing-approve-export-actions", () => ({
@@ -164,6 +170,7 @@ describe("ListingsRealtime", () => {
     enqueueGenerateListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
+    togglePricingServiceActionMock.mockReset();
     realtimeChannelOnMock.mockReturnValue(realtimeChannel);
     realtimeSubscribeStatusCallbacks.length = 0;
     realtimeChannelSubscribeMock.mockImplementation(
@@ -219,6 +226,15 @@ describe("ListingsRealtime", () => {
 
     expect(singleButton.getAttribute("aria-checked")).toBe("false");
     expect(lotButton.getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("passes pricing service state into controls card", () => {
+    renderListingsRealtime({initialPricingServiceEnabled: true});
+
+    expect(
+      screen.getByRole("button", {name: "Disable automatic pricing"}),
+    ).not.toBeNull();
+    expect(screen.getByText("Automatic pricing on")).not.toBeNull();
   });
 
   it.each(["INSERT", "UPDATE", "DELETE"] as const)(
