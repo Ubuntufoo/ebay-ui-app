@@ -77,4 +77,18 @@ describe("togglePricingServiceAction", () => {
       success: null,
     });
   });
+
+  it("rejects missing or invalid form values", async () => {
+    const previousState: PricingServiceToggleActionState =
+      createPricingServiceToggleActionState(true);
+
+    const result = await togglePricingServiceAction(previousState, new FormData());
+
+    expect(updatePricingServiceEnabledMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      enabled: true,
+      error: "Pricing service value is required.",
+      success: null,
+    });
+  });
 });

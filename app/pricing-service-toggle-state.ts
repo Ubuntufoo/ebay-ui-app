@@ -1,11 +1,11 @@
 export interface PricingServiceToggleActionState {
-  enabled: boolean;
+  enabled: boolean | null;
   error: string | null;
   success: string | null;
 }
 
 export function createPricingServiceToggleActionState(
-  enabled: boolean,
+  enabled: boolean | null,
 ): PricingServiceToggleActionState {
   return {
     enabled,

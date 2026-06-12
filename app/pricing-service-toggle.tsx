@@ -47,9 +47,10 @@ export function PricingServiceToggle({enabled}: {enabled: boolean | null}) {
     FormData
   >(
     togglePricingServiceAction,
-    createPricingServiceToggleActionState(enabled ?? false),
+    createPricingServiceToggleActionState(enabled),
   );
-  const currentEnabled = enabled === null ? null : state.enabled;
+  const currentEnabled = state.enabled;
+  const isUnavailable = currentEnabled === null;
 
   return (
     <section className="rounded-2xl border border-stone-700 bg-stone-950/80 px-4 py-4 text-stone-50">
@@ -64,8 +65,8 @@ export function PricingServiceToggle({enabled}: {enabled: boolean | null}) {
           </p>
         </div>
 
-        <form action={enabled === null ? undefined : formAction}>
-          {enabled !== null ? (
+        <form action={isUnavailable ? undefined : formAction}>
+          {!isUnavailable ? (
             <input
               type="hidden"
               name="pricingServiceEnabled"
@@ -73,7 +74,7 @@ export function PricingServiceToggle({enabled}: {enabled: boolean | null}) {
             />
           ) : null}
           <PricingServiceToggleButton
-            disabled={enabled === null}
+            disabled={isUnavailable}
             enabled={currentEnabled}
           />
         </form>
@@ -82,14 +83,14 @@ export function PricingServiceToggle({enabled}: {enabled: boolean | null}) {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <span
           className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${
-            currentEnabled === null
+            isUnavailable
               ? "border-stone-700 bg-stone-900/70 text-stone-400"
               : currentEnabled
               ? "border-emerald-400/40 bg-emerald-950/30 text-emerald-100"
               : "border-stone-700 bg-stone-900/70 text-stone-200"
           }`}
         >
-          {currentEnabled === null
+          {isUnavailable
             ? "Automatic pricing unavailable"
             : `Automatic pricing ${currentEnabled ? "on" : "off"}`}
         </span>
@@ -100,7 +101,7 @@ export function PricingServiceToggle({enabled}: {enabled: boolean | null}) {
           </span>
         ) : null}
 
-        {enabled !== null && state.error ? (
+        {state.error ? (
           <span className="rounded-full border border-rose-400/40 bg-rose-950/30 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-rose-100">
             {state.error}
           </span>

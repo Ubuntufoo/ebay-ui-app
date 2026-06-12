@@ -11,7 +11,7 @@ vi.mock("@/app/pricing-service-toggle-actions", () => ({
 
 import {PricingServiceToggle} from "@/app/pricing-service-toggle";
 
-function renderToggle(enabled: boolean) {
+function renderToggle(enabled: boolean | null) {
   return render(<PricingServiceToggle enabled={enabled} />);
 }
 
@@ -46,7 +46,9 @@ describe("PricingServiceToggle", () => {
     render(<PricingServiceToggle enabled={null} />);
 
     expect(screen.getByText("Automatic pricing unavailable")).not.toBeNull();
-    expect(screen.getByRole("button", {name: "Pricing unavailable"})).not.toBeNull();
+    expect(
+      screen.getByRole("button", {name: "Pricing unavailable"}),
+    ).not.toBeNull();
   });
 
   it("submits the next enabled value and shows pending state", async () => {
