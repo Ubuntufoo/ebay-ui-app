@@ -6,6 +6,7 @@ export {
   getListing,
   listListings,
   retryPublishListing,
+  updatePricingServiceEnabled,
   updateListing,
   updateListingImageUrls,
   updateListingWorkflowState,

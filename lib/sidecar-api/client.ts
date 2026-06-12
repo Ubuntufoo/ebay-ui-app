@@ -122,6 +122,21 @@ export async function getAppSettings(): Promise<AppSettings> {
   return await sidecarFetch<AppSettings>("/api/app-settings");
 }
 
+export async function updatePricingServiceEnabled(
+  pricingServiceEnabled: boolean,
+): Promise<AppSettings> {
+  return await sidecarFetch<AppSettings>("/api/app-settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      pricingServiceEnabled,
+    }),
+    headers: {
+      ...buildHeaders(),
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 export async function getGeminiUsage(): Promise<GeminiDailyUsageSummary> {
   return await sidecarFetch<GeminiDailyUsageSummary>("/api/gemini-usage");
 }

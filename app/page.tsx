@@ -175,6 +175,11 @@ async function ListingsSection({
               ? appSettingsResult.settings.capture_mode
               : null
           }
+          initialPricingServiceEnabled={
+            appSettingsResult.status === "success"
+              ? appSettingsResult.settings.pricing_service_enabled
+              : null
+          }
           initialListings={listings}
           panelErrorMessage={null}
           ordersToShipCount={ordersToShipCount}
