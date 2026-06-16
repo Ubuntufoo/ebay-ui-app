@@ -181,6 +181,11 @@ async function ListingsSection({
               : null
           }
           initialListings={listings}
+          initialSoldCompsUsage={
+            appSettingsResult.status === "success"
+              ? appSettingsResult.settings.soldcomps_usage
+              : null
+          }
           panelErrorMessage={null}
           ordersToShipCount={ordersToShipCount}
           realtimeAnonKey={getListingsRealtimePublicKey()}

@@ -1,4 +1,8 @@
-import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
+import type {
+  GeminiDailyUsageSummary,
+  Listing,
+  SoldCompsUsageSummary,
+} from "@/lib/sidecar-api";
 import Link from "next/link";
 import {
   hasPersistedListingError,
@@ -19,11 +23,17 @@ type QueueErrorsPanelProps = {
   geminiUsageStatus?: "error" | "loading" | "ready";
   ordersToShipCount?: number;
   listings: Listing[];
+  soldCompsUsage?: SoldCompsUsageSummary | null;
 };
 
 type GeminiUsagePresentation = {
   label: string;
   state: "error" | "near_limit" | "normal" | "reached";
+};
+
+type SoldCompsUsagePresentation = {
+  label: string;
+  state: "error" | "normal";
 };
 
 function isPublishedListing(status: Listing["status"] | string): boolean {
@@ -120,12 +130,33 @@ function buildGeminiUsagePresentation(
   };
 }
 
+function buildSoldCompsUsagePresentation(
+  soldCompsUsage: SoldCompsUsageSummary | null,
+): SoldCompsUsagePresentation {
+  if (
+    !soldCompsUsage ||
+    typeof soldCompsUsage.used !== "number" ||
+    typeof soldCompsUsage.limit !== "number"
+  ) {
+    return {
+      label: "SoldComps usage unavailable",
+      state: "error",
+    };
+  }
+
+  return {
+    label: `SoldComps: ${soldCompsUsage.used}/${soldCompsUsage.limit}`,
+    state: "normal",
+  };
+}
+
 export function QueueErrorsPanel({
   errorMessage = null,
   geminiUsage = null,
   geminiUsageStatus = "ready",
   ordersToShipCount = 0,
   listings,
+  soldCompsUsage = null,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
   const counters = buildOperationalCounters(listings);
@@ -133,6 +164,10 @@ export function QueueErrorsPanel({
     geminiUsageStatus === "loading"
       ? null
       : buildGeminiUsagePresentation(geminiUsage, geminiUsageStatus);
+  const soldCompsUsagePresentation =
+    geminiUsageStatus === "loading"
+      ? null
+      : buildSoldCompsUsagePresentation(soldCompsUsage);
 
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">
@@ -156,6 +191,7 @@ export function QueueErrorsPanel({
             {geminiUsageStatus === "loading" ? (
               <>
                 <div className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70" />
+                <div className="h-6 w-40 animate-pulse rounded-full bg-stone-800/70" />
                 <div className="h-6 w-24 animate-pulse rounded-full bg-stone-800/70" />
               </>
             ) : (
@@ -170,6 +206,15 @@ export function QueueErrorsPanel({
                   }`}
                 >
                   {geminiUsagePresentation?.label}
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] tracking-[0.02em] ${
+                    soldCompsUsagePresentation?.state === "error"
+                      ? "border-stone-700 bg-stone-900/70 text-stone-400"
+                      : "border-stone-700 bg-stone-900/70 text-stone-200"
+                  }`}
+                >
+                  {soldCompsUsagePresentation?.label}
                 </span>
               </>
             )}

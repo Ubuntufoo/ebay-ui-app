@@ -5,7 +5,11 @@ import {useEffect, useState} from "react";
 import {ListingsTableEditable} from "@/app/listings-table-editable";
 import {QueueErrorsPanel} from "@/app/queue-errors-panel";
 import {PricingServiceToggle} from "@/app/pricing-service-toggle";
-import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
+import type {
+  GeminiDailyUsageSummary,
+  Listing,
+  SoldCompsUsageSummary,
+} from "@/lib/sidecar-api";
 import {getSupabaseBrowserClient} from "@/lib/supabase/browser";
 
 type GeminiUsageStatus = "error" | "ready";
@@ -16,6 +20,7 @@ type ListingsRealtimeProps = {
   initialGeminiUsageStatus?: GeminiUsageStatus;
   initialPricingServiceEnabled?: boolean | null;
   initialListings: Listing[];
+  initialSoldCompsUsage?: SoldCompsUsageSummary | null;
   ordersToShipCount?: number;
   panelErrorMessage?: string | null;
   realtimeAnonKey?: string | null;
@@ -32,6 +37,7 @@ export function ListingsRealtime({
   initialGeminiUsageStatus = "ready",
   initialPricingServiceEnabled = null,
   initialListings,
+  initialSoldCompsUsage = null,
   ordersToShipCount = 0,
   panelErrorMessage = null,
   realtimeAnonKey = null,
@@ -45,6 +51,9 @@ export function ListingsRealtime({
   const [geminiUsage, setGeminiUsage] = useState(() => initialGeminiUsage);
   const [geminiUsageStatus, setGeminiUsageStatus] = useState<GeminiUsageStatus>(
     () => initialGeminiUsageStatus,
+  );
+  const [soldCompsUsage, setSoldCompsUsage] = useState(
+    () => initialSoldCompsUsage,
   );
   const [captureMode, setCaptureMode] = useState(() =>
     initialCaptureMode === "lot_3_image" ? "lot_3_image" : "single_2_image",
@@ -90,12 +99,14 @@ export function ListingsRealtime({
           geminiUsage?: GeminiDailyUsageSummary | null;
           geminiUsageStatus?: GeminiUsageStatus;
           listings?: Listing[];
+          soldCompsUsage?: SoldCompsUsageSummary | null;
         };
 
         if (!cancelled && Array.isArray(payload.listings)) {
           setListings(payload.listings);
           setGeminiUsage(payload.geminiUsage ?? null);
           setGeminiUsageStatus(payload.geminiUsageStatus ?? "error");
+          setSoldCompsUsage(payload.soldCompsUsage ?? null);
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -178,6 +189,7 @@ export function ListingsRealtime({
           geminiUsageStatus={geminiUsageStatus}
           listings={listings}
           ordersToShipCount={ordersToShipCount}
+          soldCompsUsage={soldCompsUsage}
         />
         <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-50/85 p-5 shadow-[0_18px_48px_rgba(28,25,23,0.12)]">
           <div className="flex items-start justify-between gap-4">

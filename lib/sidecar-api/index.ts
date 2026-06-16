@@ -22,6 +22,7 @@ export type {
   ListingSubStatus,
   ListingsResponse,
   RetryPublishListingResponse,
+  SoldCompsUsageSummary,
   UpdateListingInput,
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,

@@ -1,8 +1,11 @@
 import {cleanup, render, screen, within} from "@testing-library/react";
 import {afterEach, describe, expect, it} from "vitest";
 
-import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
-
+import type {
+  GeminiDailyUsageSummary,
+  Listing,
+  SoldCompsUsageSummary,
+} from "@/lib/sidecar-api";
 import {
   QueueErrorsPanel,
   buildOperationalCounters,
@@ -73,6 +76,17 @@ function buildGeminiUsage(
   };
 }
 
+function buildSoldCompsUsage(
+  overrides: Partial<SoldCompsUsageSummary> = {},
+): SoldCompsUsageSummary {
+  return {
+    limit: 50,
+    updatedAt: "2026-06-16T16:30:00.000Z",
+    used: 43,
+    ...overrides,
+  };
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -105,10 +119,12 @@ describe("QueueErrorsPanel", () => {
       <QueueErrorsPanel
         geminiUsage={buildGeminiUsage()}
         listings={[buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate")]}
+        soldCompsUsage={buildSoldCompsUsage()}
       />,
     );
 
     expect(screen.getByText("Gemini: 21/500")).not.toBeNull();
+    expect(screen.getByText("SoldComps: 43/50")).not.toBeNull();
     expect(screen.queryByText(/remaining/i)).toBeNull();
   });
 
@@ -156,6 +172,19 @@ describe("QueueErrorsPanel", () => {
     );
 
     expect(screen.getByText("Gemini usage unavailable")).not.toBeNull();
+    expect(screen.getByText("SoldComps usage unavailable")).not.toBeNull();
+  });
+
+  it("renders SoldComps unavailable state when used or limit missing", () => {
+    render(
+      <QueueErrorsPanel
+        geminiUsage={buildGeminiUsage()}
+        listings={[buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate")]}
+        soldCompsUsage={buildSoldCompsUsage({used: null})}
+      />,
+    );
+
+    expect(screen.getByText("SoldComps usage unavailable")).not.toBeNull();
   });
 
   it("shows near-limit warning without standalone remaining text", () => {

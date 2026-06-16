@@ -59,6 +59,12 @@ export interface GeminiAttemptSummary {
   finished_at: string | null;
 }
 
+export interface SoldCompsUsageSummary {
+  limit: number | null;
+  updatedAt: string | null;
+  used: number | null;
+}
+
 export interface Listing {
   approved_for_export_at: string | null;
   capture_mode: string | null;
@@ -152,9 +158,11 @@ export interface AppSettings {
   max_order_syncs_per_day: number | null;
   merchant_location_key: string | null;
   office_location_name: string | null;
+  pricing_provider_mode: "off" | "soldcomps" | "apify";
   processed_folder_path: string | null;
   pricing_service_enabled: boolean;
   r2_retention_days_after_sold: number | null;
+  soldcomps_usage: SoldCompsUsageSummary | null;
   updated_at: string;
 }
 

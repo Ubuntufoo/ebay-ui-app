@@ -1,6 +1,6 @@
 import {NextResponse} from "next/server";
 
-import {SidecarApiError, getGeminiUsage, listListings} from "@/lib/sidecar-api";
+import {SidecarApiError, getAppSettings, getGeminiUsage, listListings} from "@/lib/sidecar-api";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,7 @@ export async function GET() {
     const listings = await listListings();
     let geminiUsage = null;
     let geminiUsageStatus: "error" | "ready" = "ready";
+    let soldCompsUsage = null;
 
     try {
       geminiUsage = await getGeminiUsage();
@@ -20,7 +21,21 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({geminiUsage, geminiUsageStatus, listings});
+    try {
+      const appSettings = await getAppSettings();
+      soldCompsUsage = appSettings.soldcomps_usage;
+    } catch (error) {
+      if (!(error instanceof SidecarApiError)) {
+        console.error("Failed to load SoldComps usage for realtime refresh.", error);
+      }
+    }
+
+    return NextResponse.json({
+      geminiUsage,
+      geminiUsageStatus,
+      listings,
+      soldCompsUsage,
+    });
   } catch (error) {
     if (!(error instanceof SidecarApiError)) {
       console.error("Failed to load listings for realtime refresh.", error);
