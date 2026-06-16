@@ -171,93 +171,81 @@ export function QueueErrorsPanel({
 
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold tracking-[-0.03em] text-stone-50">
-          Operational summary
-        </h2>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href="/orders"
+          className="inline-flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-200 transition hover:border-stone-500 hover:text-stone-50"
+        >
+          <span>Orders to ship:</span>
+          <span className="rounded-full bg-amber-200 px-2 py-0.5 text-amber-950">
+            {ordersToShipCount}
+          </span>
+        </Link>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/orders"
-            className="inline-flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-200 transition hover:border-stone-500 hover:text-stone-50"
-          >
-            <span>Orders to ship:</span>
-            <span className="rounded-full bg-amber-200 px-2 py-0.5 text-amber-950">
-              {ordersToShipCount}
+        {geminiUsageStatus === "loading" ? (
+          <>
+            <div className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70" />
+            <div className="h-6 w-40 animate-pulse rounded-full bg-stone-800/70" />
+            <div className="h-6 w-24 animate-pulse rounded-full bg-stone-800/70" />
+          </>
+        ) : (
+          <>
+            <span
+              className={`inline-flex max-w-full min-w-0 items-center rounded-full border px-3 py-1 text-[11px] tracking-[0.02em] sm:max-w-[24rem] ${
+                geminiUsagePresentation?.state === "reached"
+                  ? "border-rose-400/40 bg-rose-950/30 text-rose-100"
+                  : geminiUsagePresentation?.state === "error"
+                    ? "border-stone-700 bg-stone-900/70 text-stone-400"
+                    : "border-stone-700 bg-stone-900/70 text-stone-200"
+              }`}
+            >
+              <span className="truncate">{geminiUsagePresentation?.label}</span>
             </span>
-          </Link>
+            <span
+              className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] tracking-[0.02em] ${
+                soldCompsUsagePresentation?.state === "error"
+                  ? "border-stone-700 bg-stone-900/70 text-stone-400"
+                  : "border-stone-700 bg-stone-900/70 text-stone-200"
+              }`}
+            >
+              {soldCompsUsagePresentation?.label}
+            </span>
+          </>
+        )}
 
-          <div className="flex flex-wrap justify-end gap-2">
-            {geminiUsageStatus === "loading" ? (
-              <>
-                <div className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70" />
-                <div className="h-6 w-40 animate-pulse rounded-full bg-stone-800/70" />
-                <div className="h-6 w-24 animate-pulse rounded-full bg-stone-800/70" />
-              </>
-            ) : (
-              <>
-                <span
-                  className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] tracking-[0.02em] ${
-                    geminiUsagePresentation?.state === "reached"
-                      ? "border-rose-400/40 bg-rose-950/30 text-rose-100"
-                      : geminiUsagePresentation?.state === "error"
-                        ? "border-stone-700 bg-stone-900/70 text-stone-400"
-                        : "border-stone-700 bg-stone-900/70 text-stone-200"
-                  }`}
-                >
-                  {geminiUsagePresentation?.label}
-                </span>
-                <span
-                  className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] tracking-[0.02em] ${
-                    soldCompsUsagePresentation?.state === "error"
-                      ? "border-stone-700 bg-stone-900/70 text-stone-400"
-                      : "border-stone-700 bg-stone-900/70 text-stone-200"
-                  }`}
-                >
-                  {soldCompsUsagePresentation?.label}
-                </span>
-              </>
-            )}
+        {counters.map((counter) => {
+          const isErrorCounter = counter.key === "errors";
 
-            {counters.map((counter) => {
-              const isErrorCounter = counter.key === "errors";
-
-              return (
-                <span
-                  key={counter.key}
-                  data-testid={`operational-counter-${counter.key}`}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${
-                    isErrorCounter
-                      ? "border-rose-400/40 bg-rose-950/30 text-rose-100"
-                      : "border-stone-700 bg-stone-900/70 text-stone-200"
-                  }`}
-                >
-                  {counter.label}
-                  <span
-                    className={`rounded-full px-2 py-0.5 ${
-                      isErrorCounter
-                        ? "bg-rose-200 text-rose-950"
-                        : "bg-stone-100 text-stone-900"
-                    }`}
-                  >
-                    {counter.count}
-                  </span>
-                </span>
-              );
-            })}
-          </div>
-        </div>
+          return (
+            <span
+              key={counter.key}
+              data-testid={`operational-counter-${counter.key}`}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${
+                isErrorCounter
+                  ? "border-rose-400/40 bg-rose-950/30 text-rose-100"
+                  : "border-stone-700 bg-stone-900/70 text-stone-200"
+              }`}
+            >
+              {counter.label}
+              <span
+                className={`rounded-full px-2 py-0.5 ${
+                  isErrorCounter
+                    ? "bg-rose-200 text-rose-950"
+                    : "bg-stone-100 text-stone-900"
+                }`}
+              >
+                {counter.count}
+              </span>
+            </span>
+          );
+        })}
       </div>
 
       {errorMessage ? (
         <p className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
           {errorMessage}
         </p>
-      ) : errorListings.length === 0 ? (
-        <p className="mt-4 rounded-2xl border border-stone-700 bg-stone-900/80 px-4 py-3 text-sm text-stone-300">
-          No active queue or persisted errors.
-        </p>
-      ) : (
+      ) : errorListings.length > 0 ? (
         <section className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-rose-100">
@@ -295,7 +283,7 @@ export function QueueErrorsPanel({
             })}
           </ol>
         </section>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -303,22 +291,16 @@ export function QueueErrorsPanel({
 export function QueueErrorsPanelFallback() {
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-semibold tracking-[-0.03em] text-stone-50">
-          Operational summary
-        </h2>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70" />
-          <div className="flex flex-wrap justify-end gap-2">
-            <div className="h-6 w-28 animate-pulse rounded-full bg-stone-800/70" />
-            {Array.from({length: 4}).map((_, index) => (
-              <div
-                key={index}
-                className="h-6 w-20 animate-pulse rounded-full bg-stone-800/70"
-              />
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70" />
+        <div className="h-6 w-40 animate-pulse rounded-full bg-stone-800/70" />
+        <div className="h-6 w-28 animate-pulse rounded-full bg-stone-800/70" />
+        {Array.from({length: 4}).map((_, index) => (
+          <div
+            key={index}
+            className="h-6 w-36 animate-pulse rounded-full bg-stone-800/70"
+          />
+        ))}
       </div>
       <div className="mt-4 h-16 animate-pulse rounded-2xl bg-stone-800/70" />
     </section>

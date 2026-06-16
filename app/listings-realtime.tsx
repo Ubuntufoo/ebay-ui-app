@@ -191,19 +191,11 @@ export function ListingsRealtime({
           ordersToShipCount={ordersToShipCount}
           soldCompsUsage={soldCompsUsage}
         />
-        <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-50/85 p-5 shadow-[0_18px_48px_rgba(28,25,23,0.12)]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-stone-500">
-                Capture mode
-              </p>
-            </div>
-          </div>
-
+        <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-50/85 p-4 shadow-[0_18px_48px_rgba(28,25,23,0.12)]">
           <div
             role="radiogroup"
             aria-label="Capture mode"
-            className="mt-4 grid grid-cols-2 gap-3"
+            className="grid grid-cols-2 gap-3"
           >
             {[
               {label: "Single", value: "single_2_image"},
@@ -218,7 +210,7 @@ export function ListingsRealtime({
                   role="radio"
                   aria-checked={selected}
                   onClick={() => setCaptureMode(option.value)}
-                  className={`inline-flex min-h-22 items-center justify-center rounded-[1.5rem] border px-4 py-4 text-2xl font-semibold transition ${
+                  className={`inline-flex min-h-20 items-center justify-center rounded-[1.5rem] border px-3 py-3 text-2xl font-semibold transition ${
                     selected
                       ? "border-stone-950 bg-stone-950 text-stone-50 shadow-[0_12px_28px_rgba(28,25,23,0.2)]"
                       : "border-stone-950/10 bg-white text-stone-700 hover:border-stone-300 hover:text-stone-950"

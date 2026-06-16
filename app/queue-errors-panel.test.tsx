@@ -238,8 +238,8 @@ describe("QueueErrorsPanel", () => {
     expect(screen.queryByRole("heading", {name: "Ready for AI"})).toBeNull();
     expect(screen.queryByRole("heading", {name: "Needs Review"})).toBeNull();
     expect(
-      screen.getByText("No active queue or persisted errors."),
-    ).not.toBeNull();
+      screen.queryByText("No active queue or persisted errors."),
+    ).toBeNull();
   });
 
   it("renders only concise error rows for true persisted errors", () => {
@@ -293,8 +293,8 @@ describe("QueueErrorsPanel", () => {
       screen.getByRole("link", {name: "Orders to ship: 0"}),
     ).not.toBeNull();
     expect(
-      screen.getByText("No active queue or persisted errors."),
-    ).not.toBeNull();
+      screen.queryByText("No active queue or persisted errors."),
+    ).toBeNull();
     expect(
       within(screen.getByTestId("operational-counter-errors")).getByText("0"),
     ).not.toBeNull();
@@ -353,8 +353,8 @@ describe("QueueErrorsPanel", () => {
       screen.getByRole("link", {name: "Orders to ship: 2"}),
     ).not.toBeNull();
     expect(
-      screen.getByText("No active queue or persisted errors."),
-    ).not.toBeNull();
+      screen.queryByText("No active queue or persisted errors."),
+    ).toBeNull();
     expect(
       within(screen.getByTestId("operational-counter-errors")).getByText("0"),
     ).not.toBeNull();
