@@ -65,6 +65,15 @@ export interface SoldCompsUsageSummary {
   used: number | null;
 }
 
+export interface PricingAnalysisWarning {
+  listing_id: string;
+  summary: string;
+  code: string;
+  severity: "warning";
+  retryable: boolean;
+  model_name: string | null;
+}
+
 export interface Listing {
   approved_for_export_at: string | null;
   capture_mode: string | null;
@@ -93,6 +102,7 @@ export interface Listing {
   merchant_location_key: string | null;
   package_type: string | null;
   price: number | null;
+  pricing_analysis_warnings?: PricingAnalysisWarning[];
   r2_delete_after: string | null;
   r2_deleted_at: string | null;
   r2_object_keys: Json;

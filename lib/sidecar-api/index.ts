@@ -23,6 +23,7 @@ export type {
   ListingStatus,
   ListingSubStatus,
   ListingsResponse,
+  PricingAnalysisWarning,
   PricingModifierOptions,
   PricingProviderMode,
   RetryPublishListingResponse,

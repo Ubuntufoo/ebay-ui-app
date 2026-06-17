@@ -21,6 +21,7 @@ config.toml
 # --- AI Tooling Engines & Local Hooks ---
 .codex-plugins/
 .agents/skills/
+.chatgpt/
 
 # Ignore repo-local spec/agent/roadmap docs (case-insensitive)
 **/AGENTS.md

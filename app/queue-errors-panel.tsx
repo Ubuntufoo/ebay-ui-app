@@ -46,6 +46,12 @@ function getPersistedErrorListings(listings: Listing[]): Listing[] {
   return listings.filter((listing) => hasPersistedListingError(listing));
 }
 
+function getPricingWarningListings(listings: Listing[]): Listing[] {
+  return listings.filter(
+    (listing) => (listing.pricing_analysis_warnings?.length ?? 0) > 0,
+  );
+}
+
 export function buildOperationalCounters(
   listings: Listing[],
 ): OperationalCounter[] {
@@ -159,6 +165,7 @@ export function QueueErrorsPanel({
   soldCompsUsage = null,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
+  const warningListings = getPricingWarningListings(listings);
   const counters = buildOperationalCounters(listings);
   const geminiUsagePresentation =
     geminiUsageStatus === "loading"
@@ -240,6 +247,44 @@ export function QueueErrorsPanel({
           );
         })}
       </div>
+
+      {warningListings.length > 0 && !errorMessage ? (
+        <section className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-950/20 px-4 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-amber-100">
+              Pricing analysis warnings
+            </h3>
+            <span className="rounded-full bg-amber-200 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-950">
+              {warningListings.length}
+            </span>
+          </div>
+
+          <ol className="mt-3 list-decimal pl-5 text-sm leading-6 text-amber-100 marker:font-semibold marker:text-amber-200">
+            {warningListings.map((listing, index) => {
+              const warningParts = (listing.pricing_analysis_warnings ?? []).map(
+                (warning) => {
+                  const modelSuffix = warning.model_name
+                    ? ` [${warning.model_name}]`
+                    : "";
+
+                  return `${warning.summary}${modelSuffix}`;
+                },
+              );
+
+              return (
+                <li key={listing.id} className="pl-1 pb-3 last:pb-0">
+                  <span className="font-mono font-semibold uppercase tracking-[0.12em]">
+                    {listing.listing_id} · {warningParts.join(" · ")}
+                  </span>
+                  {index < warningListings.length - 1 ? (
+                    <hr className="mt-3 border-amber-300/50" />
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ) : null}
 
       {errorMessage ? (
         <p className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">

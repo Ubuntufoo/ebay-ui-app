@@ -4,6 +4,7 @@ import {afterEach, describe, expect, it} from "vitest";
 import type {
   GeminiDailyUsageSummary,
   Listing,
+  PricingAnalysisWarning,
   SoldCompsUsageSummary,
 } from "@/lib/sidecar-api";
 import {
@@ -45,6 +46,7 @@ function buildListing(
     merchant_location_key: null,
     package_type: null,
     price: null,
+    pricing_analysis_warnings: [],
     r2_delete_after: null,
     r2_deleted_at: null,
     r2_object_keys: [],
@@ -87,6 +89,20 @@ function buildSoldCompsUsage(
   };
 }
 
+function buildPricingWarning(
+  overrides: Partial<PricingAnalysisWarning> = {},
+): PricingAnalysisWarning {
+  return {
+    code: "pricing_fallback_used",
+    listing_id: "LIST-WARN",
+    model_name: "gemini-2.5-pro",
+    retryable: true,
+    severity: "warning",
+    summary: "Sold comps returned no results; used AI fallback estimate.",
+    ...overrides,
+  };
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -106,6 +122,23 @@ describe("buildOperationalCounters", () => {
 
     expect(counters).toEqual([
       {key: "errors", label: "Errors", count: 1},
+      {key: "ready", label: "Ready", count: 1},
+      {key: "review", label: "Review", count: 0},
+      {key: "active", label: "Active", count: 1},
+    ]);
+  });
+
+  it("does not count pricing warnings as errors", () => {
+    const counters = buildOperationalCounters([
+      buildListing("LIST-WARN", "assets_ready", "ready_to_generate", {
+        pricing_analysis_warnings: [
+          buildPricingWarning({listing_id: "LIST-WARN"}),
+        ],
+      }),
+    ]);
+
+    expect(counters).toEqual([
+      {key: "errors", label: "Errors", count: 0},
       {key: "ready", label: "Ready", count: 1},
       {key: "review", label: "Review", count: 0},
       {key: "active", label: "Active", count: 1},
@@ -400,5 +433,102 @@ describe("QueueErrorsPanel", () => {
     expect(
       within(screen.getByTestId("operational-counter-active")).getByText("0"),
     ).not.toBeNull();
+  });
+
+  it("renders pricing analysis warnings section with summary and listing id", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-WARN-1", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-WARN-1",
+                summary:
+                  "Sold comps returned no results; used AI fallback estimate.",
+                model_name: "gemini-2.5-pro",
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText("Pricing analysis warnings"),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(/LIST-WARN-1/),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(/Sold comps returned no results; used AI fallback estimate\./),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(/\[gemini-2.5-pro\]/),
+    ).not.toBeNull();
+  });
+
+  it("does not increment Errors counter for listings with warnings only", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-WARN", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({listing_id: "LIST-WARN"}),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      within(screen.getByTestId("operational-counter-errors")).getByText("0"),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Pricing analysis warnings"),
+    ).not.toBeNull();
+  });
+
+  it("shows both warning and error sections when listing has both", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-BOTH", "needs_review", "review_pending", {
+            last_error_code: "publish_offer_failed",
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-BOTH",
+                summary: "AI fallback estimate confidence is low.",
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByText("Pricing analysis warnings"),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("heading", {name: "Errors"}),
+    ).not.toBeNull();
+    expect(
+      within(screen.getByTestId("operational-counter-errors")).getByText("1"),
+    ).not.toBeNull();
+  });
+
+  it("renders no warning section when pricing_analysis_warnings is empty", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-NONE", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [],
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.queryByText("Pricing analysis warnings"),
+    ).toBeNull();
   });
 });
