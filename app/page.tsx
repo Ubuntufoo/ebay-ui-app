@@ -181,6 +181,11 @@ async function ListingsSection({
               : null
           }
           initialListings={listings}
+          initialPricingProviderMode={
+            appSettingsResult.status === "success"
+              ? appSettingsResult.settings.pricing_provider_mode
+              : "off"
+          }
           initialSoldCompsUsage={
             appSettingsResult.status === "success"
               ? appSettingsResult.settings.soldcomps_usage

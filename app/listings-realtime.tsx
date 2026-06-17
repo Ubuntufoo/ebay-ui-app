@@ -2,17 +2,33 @@
 
 import {useEffect, useState} from "react";
 
+import {savePricingProviderMode} from "@/app/pricing-provider-actions";
 import {ListingsTableEditable} from "@/app/listings-table-editable";
 import {QueueErrorsPanel} from "@/app/queue-errors-panel";
 import {PricingServiceToggle} from "@/app/pricing-service-toggle";
 import type {
   GeminiDailyUsageSummary,
   Listing,
+  PricingProviderMode,
   SoldCompsUsageSummary,
 } from "@/lib/sidecar-api";
 import {getSupabaseBrowserClient} from "@/lib/supabase/browser";
 
 type GeminiUsageStatus = "error" | "ready";
+
+const captureModeOptions = [
+  {label: "Single", value: "single_2_image"},
+  {label: "Lot", value: "lot_3_image"},
+] as const;
+
+const pricingProviderOptions: Array<{
+  label: string;
+  value: PricingProviderMode;
+}> = [
+  {label: "Off", value: "off"},
+  {label: "SoldComps", value: "soldcomps"},
+  {label: "Apify", value: "apify"},
+];
 
 type ListingsRealtimeProps = {
   initialCaptureMode?: string | null;
@@ -20,6 +36,7 @@ type ListingsRealtimeProps = {
   initialGeminiUsageStatus?: GeminiUsageStatus;
   initialPricingServiceEnabled?: boolean | null;
   initialListings: Listing[];
+  initialPricingProviderMode?: PricingProviderMode;
   initialSoldCompsUsage?: SoldCompsUsageSummary | null;
   ordersToShipCount?: number;
   panelErrorMessage?: string | null;
@@ -37,6 +54,7 @@ export function ListingsRealtime({
   initialGeminiUsageStatus = "ready",
   initialPricingServiceEnabled = null,
   initialListings,
+  initialPricingProviderMode = "off",
   initialSoldCompsUsage = null,
   ordersToShipCount = 0,
   panelErrorMessage = null,
@@ -58,6 +76,12 @@ export function ListingsRealtime({
   const [captureMode, setCaptureMode] = useState(() =>
     initialCaptureMode === "lot_3_image" ? "lot_3_image" : "single_2_image",
   );
+  const [pricingProviderMode, setPricingProviderMode] =
+    useState<PricingProviderMode>(() => initialPricingProviderMode);
+  const [pricingProviderError, setPricingProviderError] = useState<
+    string | null
+  >(null);
+  const [pricingProviderSaving, setPricingProviderSaving] = useState(false);
 
   useEffect(() => {
     if (!realtimeUrl || !realtimeAnonKey) {
@@ -180,9 +204,29 @@ export function ListingsRealtime({
     refreshPath,
   ]);
 
+  async function handlePricingProviderChange(nextMode: PricingProviderMode) {
+    if (pricingProviderSaving || nextMode === pricingProviderMode) {
+      return;
+    }
+
+    const previousMode = pricingProviderMode;
+    setPricingProviderMode(nextMode);
+    setPricingProviderError(null);
+    setPricingProviderSaving(true);
+
+    const result = await savePricingProviderMode(nextMode);
+
+    if (!result.success) {
+      setPricingProviderMode(previousMode);
+      setPricingProviderError(result.error);
+    }
+
+    setPricingProviderSaving(false);
+  }
+
   return (
     <>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.18fr)_minmax(18rem,0.82fr)]">
+      <div className="space-y-2">
         <QueueErrorsPanel
           errorMessage={panelErrorMessage}
           geminiUsage={geminiUsage}
@@ -191,41 +235,84 @@ export function ListingsRealtime({
           ordersToShipCount={ordersToShipCount}
           soldCompsUsage={soldCompsUsage}
         />
-        <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-50/85 p-4 shadow-[0_18px_48px_rgba(28,25,23,0.12)]">
-          <div
-            role="radiogroup"
-            aria-label="Capture mode"
-            className="grid grid-cols-2 gap-3"
-          >
-            {[
-              {label: "Single", value: "single_2_image"},
-              {label: "Lot", value: "lot_3_image"},
-            ].map((option) => {
-              const selected = captureMode === option.value;
+        <div className="grid gap-4 lg:grid-cols-[minmax(12rem,0.85fr)_minmax(18rem,1.15fr)]">
+          <section className="flex items-center rounded-2xl border border-stone-950/10 bg-stone-50/85 px-3 py-2 shadow-[0_10px_24px_rgba(28,25,23,0.08)]">
+            <div
+              role="radiogroup"
+              aria-label="Capture mode"
+              className="grid w-full grid-cols-2 gap-2 sm:flex sm:items-center"
+            >
+              {captureModeOptions.map((option) => {
+                const selected = captureMode === option.value;
 
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setCaptureMode(option.value)}
-                  className={`inline-flex min-h-20 items-center justify-center rounded-[1.5rem] border px-3 py-3 text-2xl font-semibold transition ${
-                    selected
-                      ? "border-stone-950 bg-stone-950 text-stone-50 shadow-[0_12px_28px_rgba(28,25,23,0.2)]"
-                      : "border-stone-950/10 bg-white text-stone-700 hover:border-stone-300 hover:text-stone-950"
-                  }`}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setCaptureMode(option.value)}
+                    className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
+                      selected
+                        ? "border-stone-950 bg-stone-950 text-stone-50 shadow-[0_8px_18px_rgba(28,25,23,0.14)]"
+                        : "border-stone-950/10 bg-white text-stone-700 hover:border-stone-300 hover:text-stone-950"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-          <div className="mt-4">
-            <PricingServiceToggle enabled={initialPricingServiceEnabled} />
-          </div>
-        </section>
+          <section className="rounded-2xl border border-stone-950/10 bg-stone-50/85 px-3 py-2 shadow-[0_10px_24px_rgba(28,25,23,0.08)]">
+            <div className="flex items-center gap-2">
+              <div
+                role="radiogroup"
+                aria-label="Pricing provider"
+                className="grid min-w-0 flex-1 grid-cols-3 gap-2 sm:flex sm:items-center"
+              >
+                {pricingProviderOptions.map((option) => {
+                  const selected = pricingProviderMode === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      aria-disabled={pricingProviderSaving}
+                      disabled={pricingProviderSaving}
+                      onClick={() =>
+                        void handlePricingProviderChange(option.value)
+                      }
+                      className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
+                        selected
+                          ? "border-stone-950 bg-stone-950 text-stone-50 shadow-[0_8px_18px_rgba(28,25,23,0.14)]"
+                          : "border-stone-950/10 bg-white text-stone-700 hover:border-stone-300 hover:text-stone-950"
+                      } ${pricingProviderSaving ? "cursor-wait opacity-70" : ""}`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {pricingProviderSaving ? (
+                <span className="shrink-0 rounded-full bg-stone-200 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-stone-600">
+                  Saving
+                </span>
+              ) : null}
+            </div>
+            {pricingProviderError ? (
+              <p className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700">
+                {pricingProviderError}
+              </p>
+            ) : null}
+            <div className="mt-3 border-t border-stone-950/10 pt-3">
+              <PricingServiceToggle enabled={initialPricingServiceEnabled} />
+            </div>
+          </section>
+        </div>
       </div>
       <ListingsTableEditable listings={listings} />
     </>

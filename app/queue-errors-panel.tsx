@@ -171,7 +171,7 @@ export function QueueErrorsPanel({
 
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap justify-center items-center gap-4">
         <Link
           href="/orders"
           className="inline-flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-200 transition hover:border-stone-500 hover:text-stone-50"

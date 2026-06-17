@@ -3,7 +3,10 @@ import {fireEvent} from "@testing-library/react";
 import type {ComponentProps} from "react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
-import type {GeminiDailyUsageSummary, Listing} from "@/lib/sidecar-api";
+import type {
+  GeminiDailyUsageSummary,
+  Listing,
+} from "@/lib/sidecar-api";
 
 const fetchMock = vi.fn();
 const realtimeChannelSubscribeMock = vi.fn();
@@ -19,6 +22,7 @@ const {
   approveListingForExportMock,
   enqueueGenerateListingMock,
   retryPublishListingMock,
+  savePricingProviderModeMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
   togglePricingServiceActionMock,
@@ -26,6 +30,7 @@ const {
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
+  savePricingProviderModeMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
   togglePricingServiceActionMock: vi.fn(),
@@ -53,6 +58,10 @@ vi.mock("@/app/listing-approve-export-actions", () => ({
 
 vi.mock("@/app/listing-retry-publish-actions", () => ({
   retryPublishListingAction: retryPublishListingMock,
+}));
+
+vi.mock("@/app/pricing-provider-actions", () => ({
+  savePricingProviderMode: savePricingProviderModeMock,
 }));
 
 vi.mock("@/lib/supabase/browser", () => ({
@@ -168,9 +177,11 @@ describe("ListingsRealtime", () => {
     getSupabaseBrowserClientMock.mockReset();
     approveListingForExportMock.mockReset();
     enqueueGenerateListingMock.mockReset();
+    savePricingProviderModeMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
     togglePricingServiceActionMock.mockReset();
+    savePricingProviderModeMock.mockResolvedValue({error: null, success: true});
     realtimeChannelOnMock.mockReturnValue(realtimeChannel);
     realtimeSubscribeStatusCallbacks.length = 0;
     realtimeChannelSubscribeMock.mockImplementation(
@@ -226,6 +237,87 @@ describe("ListingsRealtime", () => {
 
     expect(singleButton.getAttribute("aria-checked")).toBe("false");
     expect(lotButton.getAttribute("aria-checked")).toBe("true");
+    expect(singleButton.className).toContain("min-h-14");
+    expect(singleButton.className).toContain("text-lg");
+  });
+
+  it("renders initial pricing provider mode from app settings", () => {
+    renderListingsRealtime({initialPricingProviderMode: "soldcomps"});
+
+    expect(
+      screen.getByRole("radio", {name: "SoldComps"}).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.getByRole("radio", {name: "Off"}).getAttribute("aria-checked")).toBe(
+      "false",
+    );
+  });
+
+  it("saves pricing provider mode changes", async () => {
+    renderListingsRealtime({initialPricingProviderMode: "off"});
+
+    fireEvent.click(screen.getByRole("radio", {name: "Apify"}));
+
+    expect(savePricingProviderModeMock).toHaveBeenCalledWith("apify");
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+  });
+
+  it("disables pricing provider controls while save is in flight", async () => {
+    let resolveSave: ((value: {error: string | null; success: boolean}) => void) | null =
+      null;
+    savePricingProviderModeMock.mockImplementation(
+      () =>
+        new Promise<{error: string | null; success: boolean}>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    renderListingsRealtime({initialPricingProviderMode: "off"});
+
+    fireEvent.click(screen.getByRole("radio", {name: "SoldComps"}));
+
+    expect(screen.getByRole("radio", {name: "Off"}).getAttribute("disabled")).not.toBeNull();
+    expect(
+      screen.getByRole("radio", {name: "SoldComps"}).getAttribute("disabled"),
+    ).not.toBeNull();
+    expect(screen.getByRole("radio", {name: "Apify"}).getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByText("Saving")).not.toBeNull();
+
+    await act(async () => {
+      resolveSave?.({error: null, success: true});
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText("Saving")).toBeNull();
+  });
+
+  it("restores previous pricing provider mode and shows error when save fails", async () => {
+    savePricingProviderModeMock.mockResolvedValue({
+      error: "Provider save failed.",
+      success: false,
+    });
+
+    renderListingsRealtime({initialPricingProviderMode: "soldcomps"});
+
+    fireEvent.click(screen.getByRole("radio", {name: "Apify"}));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Provider save failed.")).not.toBeNull();
+    expect(
+      screen.getByRole("radio", {name: "SoldComps"}).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked")).toBe(
+      "false",
+    );
   });
 
   it("passes pricing service state into controls card", () => {

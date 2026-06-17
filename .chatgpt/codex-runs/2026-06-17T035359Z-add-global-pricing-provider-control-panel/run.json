@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "repo_id": "ebay-ui-app",
+  "run_id": "2026-06-17T035359Z-add-global-pricing-provider-control-panel",
+  "title": "Add global pricing provider control panel",
+  "objective": "Add a compact global Pricing Provider control panel below the Single/Lot capture-mode panel on the dashboard, backed by app_settings.pricing_provider_mode.",
+  "prompt_path": ".chatgpt/codex-runs/2026-06-17T035359Z-add-global-pricing-provider-control-panel/PROMPT.md",
+  "result_path": ".chatgpt/codex-runs/2026-06-17T035359Z-add-global-pricing-provider-control-panel/RESULT.md",
+  "inspect_first": [
+    "app/listings-realtime.tsx",
+    "app/listings-realtime.test.tsx",
+    "app/page.tsx",
+    "lib/sidecar-api/client.ts",
+    "lib/sidecar-api/types.ts",
+    "lib/sidecar-api/index.ts"
+  ],
+  "allowed_paths": [
+    "app/listings-realtime.tsx",
+    "app/listings-realtime.test.tsx",
+    "app/page.tsx",
+    "app/*pricing*provider*.tsx",
+    "app/*pricing*provider*.ts",
+    "lib/sidecar-api/client.ts",
+    "lib/sidecar-api/types.ts",
+    "lib/sidecar-api/index.ts"
+  ],
+  "forbidden_paths": [
+    "backend-services/**",
+    "supabase/**",
+    "node_modules/**",
+    ".next/**"
+  ],
+  "verification_commands": [
+    "pnpm typecheck",
+    "pnpm test -- listings-realtime",
+    "pnpm test -- sidecar-api"
+  ],
+  "created_at": "2026-06-17T035359Z"
+}

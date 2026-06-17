@@ -129,6 +129,9 @@ export interface RetryPublishListingResponse {
   listing: Listing;
   workflow: "generate_ai" | "publish";
 }
+
+export type PricingProviderMode = "off" | "soldcomps" | "apify";
+
 export interface UpdateListingInput {
   categoryId?: string | null;
   conditionId?: string | null;
@@ -150,6 +153,11 @@ export interface UpdateListingWorkflowStateInput {
   subStatus: ListingSubStatus;
 }
 
+export interface UpdateAppSettingsInput {
+  pricingProviderMode?: PricingProviderMode;
+  pricingServiceEnabled?: boolean;
+}
+
 export interface AppSettings {
   capture_mode: string | null;
   default_fulfillment_policy_id: string | null;
@@ -165,7 +173,7 @@ export interface AppSettings {
   max_order_syncs_per_day: number | null;
   merchant_location_key: string | null;
   office_location_name: string | null;
-  pricing_provider_mode: "off" | "soldcomps" | "apify";
+  pricing_provider_mode: PricingProviderMode;
   processed_folder_path: string | null;
   pricing_service_enabled: boolean;
   r2_retention_days_after_sold: number | null;

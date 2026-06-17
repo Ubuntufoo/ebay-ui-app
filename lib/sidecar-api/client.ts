@@ -12,6 +12,7 @@ import type {
   UpdateListingInput,
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
+  UpdateAppSettingsInput,
   SidecarErrorResponse,
 } from "@/lib/sidecar-api/types";
 
@@ -125,11 +126,15 @@ export async function getAppSettings(): Promise<AppSettings> {
 export async function updatePricingServiceEnabled(
   pricingServiceEnabled: boolean,
 ): Promise<AppSettings> {
+  return await updateAppSettings({pricingServiceEnabled});
+}
+
+export async function updateAppSettings(
+  patch: UpdateAppSettingsInput,
+): Promise<AppSettings> {
   return await sidecarFetch<AppSettings>("/api/app-settings", {
     method: "PATCH",
-    body: JSON.stringify({
-      pricingServiceEnabled,
-    }),
+    body: JSON.stringify(patch),
     headers: {
       ...buildHeaders(),
       "Content-Type": "application/json",
