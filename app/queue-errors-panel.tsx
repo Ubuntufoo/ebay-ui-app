@@ -31,9 +31,7 @@ type QueueErrorsPanelProps = {
   onRetryComplete?: (listingId: string) => void;
   ordersToShipCount?: number;
   listings: Listing[];
-  retryAction?: (
-    listingId: string,
-  ) => Promise<RetryPricingAnalysisResult>;
+  retryAction?: (listingId: string) => Promise<RetryPricingAnalysisResult>;
   soldCompsUsage?: SoldCompsUsageSummary | null;
 };
 
@@ -331,9 +329,7 @@ export function QueueErrorsPanel({
                 return `${warning.summary}${modelSuffix}`;
               });
 
-              const isRetrying = retryingListingIds.has(
-                listing.listing_id,
-              );
+              const isRetrying = retryingListingIds.has(listing.listing_id);
               const retryError = retryErrors.get(listing.listing_id);
               const showRetry = hasRetryableWarnings(listing);
 
@@ -354,9 +350,7 @@ export function QueueErrorsPanel({
                             : "border-amber-300/50 bg-amber-300/10 text-amber-100 hover:border-amber-200 hover:bg-amber-200/20 hover:text-amber-50"
                         }`}
                       >
-                        {isRetrying
-                          ? "Retrying…"
-                          : "Retry pricing analysis"}
+                        {isRetrying ? "Retrying…" : "Retry pricing analysis"}
                       </button>
                     ) : null}
                   </div>

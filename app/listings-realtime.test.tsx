@@ -141,10 +141,13 @@ function jsonResponse(
   geminiUsage: GeminiDailyUsageSummary | null = buildGeminiUsage(),
   geminiUsageStatus: "error" | "ready" = "ready",
 ) {
-  return new Response(JSON.stringify({geminiUsage, geminiUsageStatus, listings}), {
-    headers: {"content-type": "application/json"},
-    status: 200,
-  });
+  return new Response(
+    JSON.stringify({geminiUsage, geminiUsageStatus, listings}),
+    {
+      headers: {"content-type": "application/json"},
+      status: 200,
+    },
+  );
 }
 
 function renderListingsRealtime(
@@ -253,11 +256,13 @@ describe("ListingsRealtime", () => {
     renderListingsRealtime({initialPricingProviderMode: "soldcomps"});
 
     expect(
-      screen.getByRole("radio", {name: "SoldComps"}).getAttribute("aria-checked"),
+      screen
+        .getByRole("radio", {name: "SoldComps"})
+        .getAttribute("aria-checked"),
     ).toBe("true");
-    expect(screen.getByRole("radio", {name: "Off"}).getAttribute("aria-checked")).toBe(
-      "false",
-    );
+    expect(
+      screen.getByRole("radio", {name: "Off"}).getAttribute("aria-checked"),
+    ).toBe("false");
   });
 
   it("saves pricing provider mode changes", async () => {
@@ -271,14 +276,15 @@ describe("ListingsRealtime", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked")).toBe(
-      "true",
-    );
+    expect(
+      screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked"),
+    ).toBe("true");
   });
 
   it("disables pricing provider controls while save is in flight", async () => {
-    let resolveSave: ((value: {error: string | null; success: boolean}) => void) | null =
-      null;
+    let resolveSave:
+      | ((value: {error: string | null; success: boolean}) => void)
+      | null = null;
     savePricingProviderModeMock.mockImplementation(
       () =>
         new Promise<{error: string | null; success: boolean}>((resolve) => {
@@ -290,11 +296,15 @@ describe("ListingsRealtime", () => {
 
     fireEvent.click(screen.getByRole("radio", {name: "SoldComps"}));
 
-    expect(screen.getByRole("radio", {name: "Off"}).getAttribute("disabled")).not.toBeNull();
+    expect(
+      screen.getByRole("radio", {name: "Off"}).getAttribute("disabled"),
+    ).not.toBeNull();
     expect(
       screen.getByRole("radio", {name: "SoldComps"}).getAttribute("disabled"),
     ).not.toBeNull();
-    expect(screen.getByRole("radio", {name: "Apify"}).getAttribute("disabled")).not.toBeNull();
+    expect(
+      screen.getByRole("radio", {name: "Apify"}).getAttribute("disabled"),
+    ).not.toBeNull();
     expect(screen.getByText("Saving")).not.toBeNull();
 
     await act(async () => {
@@ -321,11 +331,13 @@ describe("ListingsRealtime", () => {
 
     expect(screen.getByText("Provider save failed.")).not.toBeNull();
     expect(
-      screen.getByRole("radio", {name: "SoldComps"}).getAttribute("aria-checked"),
+      screen
+        .getByRole("radio", {name: "SoldComps"})
+        .getAttribute("aria-checked"),
     ).toBe("true");
-    expect(screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked")).toBe(
-      "false",
-    );
+    expect(
+      screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked"),
+    ).toBe("false");
   });
 
   it("passes pricing service state into controls card", () => {
@@ -541,9 +553,7 @@ describe("ListingsRealtime", () => {
       return realtimeChannel;
     });
 
-    fetchMock.mockResolvedValue(
-      jsonResponse([buildListing()], null, "error"),
-    );
+    fetchMock.mockResolvedValue(jsonResponse([buildListing()], null, "error"));
 
     renderListingsRealtime();
 
@@ -593,9 +603,9 @@ describe("ListingsRealtime", () => {
       "UPDATE",
     );
 
-    expect(
-      screen.getByText(/Gemini: 21\/500/)?.textContent,
-    ).toContain("Last: gemini-2.5-pro");
+    expect(screen.getByText(/Gemini: 21\/500/)?.textContent).toContain(
+      "Last: gemini-2.5-pro",
+    );
   });
 
   it("queues one follow-up refresh when update lands mid-fetch", async () => {
@@ -663,7 +673,8 @@ describe("ListingsRealtime", () => {
           pricing_analysis_warnings: [
             {
               listing_id: "LIST-RETRY",
-              summary: "Sold comps returned no results; used AI fallback estimate.",
+              summary:
+                "Sold comps returned no results; used AI fallback estimate.",
               code: "pricing_fallback_used",
               severity: "warning" as const,
               retryable: true,

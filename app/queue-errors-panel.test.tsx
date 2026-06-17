@@ -1,4 +1,10 @@
-import {cleanup, fireEvent, render, screen, within} from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import {afterEach, describe, expect, it, vi} from "vitest";
 
 import type {
@@ -582,9 +588,7 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(
-      screen.queryByText("Retry pricing analysis"),
-    ).toBeNull();
+    expect(screen.queryByText("Retry pricing analysis")).toBeNull();
   });
 
   it("shows loading state while retry is in progress", async () => {
