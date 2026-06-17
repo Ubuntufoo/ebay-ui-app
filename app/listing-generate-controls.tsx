@@ -1,17 +1,97 @@
 "use client";
 
-import {useActionState} from "react";
+import {startTransition, useActionState, useEffect, useState} from "react";
 import {useFormStatus} from "react-dom";
 
-import {enqueueGenerateListing} from "@/app/listing-generate-actions";
+import {
+  getPricingModifierUiState,
+  type ListingPricingModifierUiState,
+} from "@/app/listing-pricing-modifier-options";
+import {
+  enqueueGenerateListing,
+  saveListingPricingModifierOptions,
+} from "@/app/listing-generate-actions";
 import {
   initialGenerateListingActionState,
   type GenerateListingActionState,
 } from "@/app/listing-generate-state";
 import type {Listing} from "@/lib/sidecar-api";
 
-function GenerateControlsFields({listing}: {listing: Listing}) {
+function PricingModifierCheckbox({
+  checked,
+  disabled,
+  label,
+  name,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  label: string;
+  name: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 rounded-full border border-stone-950/10 bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-[0.14em] text-stone-600 transition hover:border-stone-950/25">
+      <input
+        type="checkbox"
+        name={name}
+        checked={checked}
+        value="true"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-3.5 w-3.5 rounded border-stone-400 text-stone-950 focus:ring-stone-400"
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function GenerateControlsFields({
+  listing,
+  onModifierError,
+}: {
+  listing: Listing;
+  onModifierError: (message: string | null) => void;
+}) {
   const {pending} = useFormStatus();
+  const [modifierState, setModifierState] = useState<ListingPricingModifierUiState>(
+    () => getPricingModifierUiState(listing.item_specifics),
+  );
+  const [isSavingModifiers, setIsSavingModifiers] = useState(false);
+
+  useEffect(() => {
+    setModifierState(getPricingModifierUiState(listing.item_specifics));
+    onModifierError(null);
+  }, [listing.item_specifics, onModifierError]);
+
+  function updateModifier(
+    key: keyof ListingPricingModifierUiState,
+    checked: boolean,
+  ) {
+    const previousState = modifierState;
+    const nextState = {
+      ...previousState,
+      [key]: checked,
+    };
+
+    setModifierState(nextState);
+    onModifierError(null);
+    setIsSavingModifiers(true);
+
+    startTransition(async () => {
+      const result = await saveListingPricingModifierOptions(
+        listing.listing_id,
+        nextState,
+      );
+
+      if (result.error) {
+        setModifierState(previousState);
+        onModifierError(result.error);
+      }
+
+      setIsSavingModifiers(false);
+    });
+  }
 
   return (
     <>
@@ -28,14 +108,52 @@ function GenerateControlsFields({listing}: {listing: Listing}) {
           className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
         />
       </label>
-      <div className="flex flex-wrap items-center gap-3">
+      <input
+        type="hidden"
+        name="exclude_graded"
+        value={String(modifierState.graded)}
+      />
+      <input
+        type="hidden"
+        name="exclude_autographs"
+        value={String(modifierState.auto)}
+      />
+      <input
+        type="hidden"
+        name="exclude_variants"
+        value={String(modifierState.variant)}
+      />
+      <div className="flex flex-wrap items-center gap-3 lg:gap-2">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || isSavingModifiers}
           className="inline-flex min-w-44 items-center justify-center rounded-full border border-stone-950/15 bg-stone-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
         >
           {pending ? "Generating..." : "Generate AI Draft"}
         </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <PricingModifierCheckbox
+            checked={modifierState.graded}
+            disabled={pending || isSavingModifiers}
+            label="-Graded"
+            name="exclude_graded_control"
+            onChange={(checked) => updateModifier("graded", checked)}
+          />
+          <PricingModifierCheckbox
+            checked={modifierState.auto}
+            disabled={pending || isSavingModifiers}
+            label="-Auto"
+            name="exclude_autographs_control"
+            onChange={(checked) => updateModifier("auto", checked)}
+          />
+          <PricingModifierCheckbox
+            checked={modifierState.variant}
+            disabled={pending || isSavingModifiers}
+            label="+Variant"
+            name="exclude_variants_control"
+            onChange={(checked) => updateModifier("variant", checked)}
+          />
+        </div>
       </div>
     </>
   );
@@ -46,6 +164,7 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
     GenerateListingActionState,
     FormData
   >(enqueueGenerateListing, initialGenerateListingActionState);
+  const [modifierError, setModifierError] = useState<string | null>(null);
 
   if (listing.status !== "assets_ready") {
     return null;
@@ -66,8 +185,16 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
       </div>
       <form action={formAction} className="mt-4 grid gap-4">
         <input type="hidden" name="listing_id" value={listing.listing_id} />
-        <GenerateControlsFields listing={listing} />
+        <GenerateControlsFields
+          listing={listing}
+          onModifierError={setModifierError}
+        />
       </form>
+      {modifierError ? (
+        <p className="mt-4 max-w-xl rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          {modifierError}
+        </p>
+      ) : null}
       {state.error ? (
         <p className="mt-4 max-w-xl rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
           {state.error}

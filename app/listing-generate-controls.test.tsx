@@ -4,12 +4,15 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {Listing} from "@/lib/sidecar-api";
 
-const {enqueueGenerateListingMock} = vi.hoisted(() => ({
+const {enqueueGenerateListingMock, saveListingPricingModifierOptionsMock} =
+  vi.hoisted(() => ({
   enqueueGenerateListingMock: vi.fn(),
-}));
+  saveListingPricingModifierOptionsMock: vi.fn(),
+  }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
   enqueueGenerateListing: enqueueGenerateListingMock,
+  saveListingPricingModifierOptions: saveListingPricingModifierOptionsMock,
 }));
 
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
@@ -72,6 +75,8 @@ describe("ListingGenerateControls", () => {
 
   beforeEach(() => {
     enqueueGenerateListingMock.mockReset();
+    saveListingPricingModifierOptionsMock.mockReset();
+    saveListingPricingModifierOptionsMock.mockResolvedValue({error: null});
   });
 
   it("shows Generate only for assets_ready", () => {
@@ -115,6 +120,9 @@ describe("ListingGenerateControls", () => {
     const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1] as FormData;
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
     expect(submittedFormData.get("seller_hints")).toBe("Use padded envelope");
+    expect(submittedFormData.get("exclude_graded")).toBe("true");
+    expect(submittedFormData.get("exclude_autographs")).toBe("true");
+    expect(submittedFormData.get("exclude_variants")).toBe("false");
 
     await waitFor(() => {
       const button = screen.getByRole("button", {name: "Generating..."});
@@ -153,6 +161,69 @@ describe("ListingGenerateControls", () => {
 
     const error = await screen.findByText("queue failed");
     expect(error).not.toBeNull();
+  });
+
+  it("renders backend-equivalent modifier defaults when missing", () => {
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    expect(screen.getByRole("checkbox", {name: "-Graded"})).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(screen.getByRole("checkbox", {name: "-Auto"})).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(screen.getByRole("checkbox", {name: "+Variant"})).toHaveProperty(
+      "checked",
+      false,
+    );
+  });
+
+  it("hydrates partial persisted modifier values", () => {
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            pricingModifierOptions: {
+              excludeGraded: false,
+              excludeVariants: true,
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("checkbox", {name: "-Graded"})).toHaveProperty(
+      "checked",
+      false,
+    );
+    expect(screen.getByRole("checkbox", {name: "-Auto"})).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(screen.getByRole("checkbox", {name: "+Variant"})).toHaveProperty(
+      "checked",
+      true,
+    );
+  });
+
+  it("persists toggled modifier choices per listing", async () => {
+    const user = userEvent.setup();
+
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    await user.click(screen.getByRole("checkbox", {name: "+Variant"}));
+
+    expect(saveListingPricingModifierOptionsMock).toHaveBeenCalledWith(
+      "LIST-001",
+      {
+        auto: true,
+        graded: true,
+        variant: true,
+      },
+    );
   });
 
   it("shows info for already queued listings", async () => {

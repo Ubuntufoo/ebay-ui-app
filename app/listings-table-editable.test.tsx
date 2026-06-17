@@ -10,16 +10,19 @@ const {
   retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
+  saveListingPricingModifierOptionsMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
+  saveListingPricingModifierOptionsMock: vi.fn(),
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
   enqueueGenerateListing: enqueueGenerateListingMock,
+  saveListingPricingModifierOptions: saveListingPricingModifierOptionsMock,
 }));
 
 vi.mock("@/app/listing-actions", () => ({
@@ -99,6 +102,8 @@ describe("ListingsTableEditable", () => {
     enqueueGenerateListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
+    saveListingPricingModifierOptionsMock.mockReset();
+    saveListingPricingModifierOptionsMock.mockResolvedValue({error: null});
   });
 
   it("allows viewing generating listings but keeps controls locked", async () => {
@@ -216,6 +221,18 @@ describe("ListingsTableEditable", () => {
     expect(
       screen.getByRole("button", {name: "Generate AI Draft"}),
     ).not.toBeNull();
+    expect(screen.getByRole("checkbox", {name: "-Graded"})).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(screen.getByRole("checkbox", {name: "-Auto"})).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(screen.getByRole("checkbox", {name: "+Variant"})).toHaveProperty(
+      "checked",
+      false,
+    );
     expect(screen.getAllByLabelText("Seller hints").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Title")).not.toBeNull();
   });

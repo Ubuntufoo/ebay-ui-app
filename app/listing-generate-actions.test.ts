@@ -2,10 +2,12 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import {enqueueGenerateListing} from "@/app/listing-generate-actions";
 
-const {enqueueGenerateAiMock, revalidatePathMock} = vi.hoisted(() => ({
+const {enqueueGenerateAiMock, revalidatePathMock, updateListingMock} =
+  vi.hoisted(() => ({
   enqueueGenerateAiMock: vi.fn(),
   revalidatePathMock: vi.fn(),
-}));
+  updateListingMock: vi.fn(),
+  }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
@@ -22,12 +24,14 @@ vi.mock("@/lib/sidecar-api", () => ({
     }
   },
   enqueueGenerateAi: enqueueGenerateAiMock,
+  updateListing: updateListingMock,
 }));
 
 describe("enqueueGenerateListing", () => {
   beforeEach(() => {
     enqueueGenerateAiMock.mockReset();
     revalidatePathMock.mockReset();
+    updateListingMock.mockReset();
   });
 
   it("queues generate_ai for a listing", async () => {
@@ -50,6 +54,7 @@ describe("enqueueGenerateListing", () => {
     expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
       sellerHints: "Use padded envelope",
     });
+    expect(updateListingMock).not.toHaveBeenCalled();
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
     expect(result).toEqual({
       error: null,
@@ -75,6 +80,38 @@ describe("enqueueGenerateListing", () => {
       formData,
     );
 
+    expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
+      sellerHints: null,
+    });
+  });
+
+  it("persists modifier options before queueing generate", async () => {
+    updateListingMock.mockResolvedValueOnce({});
+    enqueueGenerateAiMock.mockResolvedValueOnce({
+      alreadyQueued: false,
+      job: {id: "job-1"},
+      listing: {
+        status: "generating",
+      },
+    });
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+    formData.set("exclude_graded", "false");
+    formData.set("exclude_autographs", "true");
+    formData.set("exclude_variants", "true");
+
+    await enqueueGenerateListing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(updateListingMock).toHaveBeenCalledWith("LIST-001", {
+      pricingModifierOptions: {
+        excludeAutographs: true,
+        excludeGraded: false,
+        excludeVariants: true,
+      },
+    });
     expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
       sellerHints: null,
     });

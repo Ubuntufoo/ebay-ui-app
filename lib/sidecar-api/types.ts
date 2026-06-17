@@ -117,6 +117,12 @@ export interface EnqueueGenerateAiResponse {
   listing: Listing;
 }
 
+export interface PricingModifierOptions {
+  excludeAutographs?: boolean;
+  excludeGraded?: boolean;
+  excludeVariants?: boolean;
+}
+
 export interface RetryPublishListingResponse {
   alreadyQueued: boolean;
   job: Json;
@@ -130,6 +136,7 @@ export interface UpdateListingInput {
   description?: string | null;
   itemSpecifics?: Json;
   price?: number | null;
+  pricingModifierOptions?: PricingModifierOptions;
   sellerHints?: string | null;
   title?: string | null;
 }
