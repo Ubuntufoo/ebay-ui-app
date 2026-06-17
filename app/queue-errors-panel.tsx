@@ -261,15 +261,15 @@ export function QueueErrorsPanel({
 
           <ol className="mt-3 list-decimal pl-5 text-sm leading-6 text-amber-100 marker:font-semibold marker:text-amber-200">
             {warningListings.map((listing, index) => {
-              const warningParts = (listing.pricing_analysis_warnings ?? []).map(
-                (warning) => {
-                  const modelSuffix = warning.model_name
-                    ? ` [${warning.model_name}]`
-                    : "";
+              const warningParts = (
+                listing.pricing_analysis_warnings ?? []
+              ).map((warning) => {
+                const modelSuffix = warning.model_name
+                  ? ` [${warning.model_name}]`
+                  : "";
 
-                  return `${warning.summary}${modelSuffix}`;
-                },
-              );
+                return `${warning.summary}${modelSuffix}`;
+              });
 
               return (
                 <li key={listing.id} className="pl-1 pb-3 last:pb-0">

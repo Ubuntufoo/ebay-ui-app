@@ -151,7 +151,9 @@ describe("QueueErrorsPanel", () => {
     render(
       <QueueErrorsPanel
         geminiUsage={buildGeminiUsage()}
-        listings={[buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate")]}
+        listings={[
+          buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate"),
+        ]}
         soldCompsUsage={buildSoldCompsUsage()}
       />,
     );
@@ -174,20 +176,24 @@ describe("QueueErrorsPanel", () => {
             status: "success",
           },
         })}
-        listings={[buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate")]}
+        listings={[
+          buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate"),
+        ]}
       />,
     );
 
-    expect(
-      screen.getByText(/Gemini: 21\/500/)?.textContent,
-    ).toContain("Last: gemini-2.5-pro");
+    expect(screen.getByText(/Gemini: 21\/500/)?.textContent).toContain(
+      "Last: gemini-2.5-pro",
+    );
   });
 
   it("renders compact loading placeholders", () => {
     render(
       <QueueErrorsPanel
         geminiUsageStatus="loading"
-        listings={[buildListing("LIST-LOADING", "assets_ready", "ready_to_generate")]}
+        listings={[
+          buildListing("LIST-LOADING", "assets_ready", "ready_to_generate"),
+        ]}
       />,
     );
 
@@ -200,7 +206,9 @@ describe("QueueErrorsPanel", () => {
       <QueueErrorsPanel
         geminiUsage={null}
         geminiUsageStatus="error"
-        listings={[buildListing("LIST-ERR", "assets_ready", "ready_to_generate")]}
+        listings={[
+          buildListing("LIST-ERR", "assets_ready", "ready_to_generate"),
+        ]}
       />,
     );
 
@@ -212,7 +220,9 @@ describe("QueueErrorsPanel", () => {
     render(
       <QueueErrorsPanel
         geminiUsage={buildGeminiUsage()}
-        listings={[buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate")]}
+        listings={[
+          buildListing("LIST-SUCCEEDED", "assets_ready", "ready_to_generate"),
+        ]}
         soldCompsUsage={buildSoldCompsUsage({used: null})}
       />,
     );
@@ -228,7 +238,9 @@ describe("QueueErrorsPanel", () => {
           remaining: 20,
           used: 480,
         })}
-        listings={[buildListing("LIST-NEAR", "assets_ready", "ready_to_generate")]}
+        listings={[
+          buildListing("LIST-NEAR", "assets_ready", "ready_to_generate"),
+        ]}
       />,
     );
 
@@ -453,18 +465,14 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
+    expect(screen.getByText("Pricing analysis warnings")).not.toBeNull();
+    expect(screen.getByText(/LIST-WARN-1/)).not.toBeNull();
     expect(
-      screen.getByText("Pricing analysis warnings"),
+      screen.getByText(
+        /Sold comps returned no results; used AI fallback estimate\./,
+      ),
     ).not.toBeNull();
-    expect(
-      screen.getByText(/LIST-WARN-1/),
-    ).not.toBeNull();
-    expect(
-      screen.getByText(/Sold comps returned no results; used AI fallback estimate\./),
-    ).not.toBeNull();
-    expect(
-      screen.getByText(/\[gemini-2.5-pro\]/),
-    ).not.toBeNull();
+    expect(screen.getByText(/\[gemini-2.5-pro\]/)).not.toBeNull();
   });
 
   it("does not increment Errors counter for listings with warnings only", () => {
@@ -483,9 +491,7 @@ describe("QueueErrorsPanel", () => {
     expect(
       within(screen.getByTestId("operational-counter-errors")).getByText("0"),
     ).not.toBeNull();
-    expect(
-      screen.getByText("Pricing analysis warnings"),
-    ).not.toBeNull();
+    expect(screen.getByText("Pricing analysis warnings")).not.toBeNull();
   });
 
   it("shows both warning and error sections when listing has both", () => {
@@ -505,12 +511,8 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(
-      screen.getByText("Pricing analysis warnings"),
-    ).not.toBeNull();
-    expect(
-      screen.getByRole("heading", {name: "Errors"}),
-    ).not.toBeNull();
+    expect(screen.getByText("Pricing analysis warnings")).not.toBeNull();
+    expect(screen.getByRole("heading", {name: "Errors"})).not.toBeNull();
     expect(
       within(screen.getByTestId("operational-counter-errors")).getByText("1"),
     ).not.toBeNull();
@@ -527,8 +529,6 @@ describe("QueueErrorsPanel", () => {
       />,
     );
 
-    expect(
-      screen.queryByText("Pricing analysis warnings"),
-    ).toBeNull();
+    expect(screen.queryByText("Pricing analysis warnings")).toBeNull();
   });
 });
