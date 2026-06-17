@@ -1,5 +1,5 @@
-import {cleanup, render, screen, within} from "@testing-library/react";
-import {afterEach, describe, expect, it} from "vitest";
+import {cleanup, fireEvent, render, screen, within} from "@testing-library/react";
+import {afterEach, describe, expect, it, vi} from "vitest";
 
 import type {
   GeminiDailyUsageSummary,
@@ -101,6 +101,19 @@ function buildPricingWarning(
     summary: "Sold comps returned no results; used AI fallback estimate.",
     ...overrides,
   };
+}
+
+function createRetryAction(
+  behaviour: "resolve" | "reject" = "resolve",
+  errorMessage?: string,
+) {
+  return vi.fn().mockImplementation(async () => {
+    if (behaviour === "reject") {
+      return {error: errorMessage ?? "Retry failed.", success: false};
+    }
+
+    return {error: null, success: true};
+  });
 }
 
 afterEach(() => {
@@ -530,5 +543,183 @@ describe("QueueErrorsPanel", () => {
     );
 
     expect(screen.queryByText("Pricing analysis warnings")).toBeNull();
+  });
+
+  it("renders retry button for retryable pricing warnings", () => {
+    const retryAction = createRetryAction();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-RETRY", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-RETRY",
+                retryable: true,
+              }),
+            ],
+          }),
+        ]}
+        retryAction={retryAction}
+      />,
+    );
+
+    expect(screen.getByText("Retry pricing analysis")).not.toBeNull();
+  });
+
+  it("does not render retry button for non-retryable warnings", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-NONRETRY", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-NONRETRY",
+                retryable: false,
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    expect(
+      screen.queryByText("Retry pricing analysis"),
+    ).toBeNull();
+  });
+
+  it("shows loading state while retry is in progress", async () => {
+    const retryAction = createRetryAction();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-LOAD", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-LOAD",
+                retryable: true,
+              }),
+            ],
+          }),
+        ]}
+        retryAction={retryAction}
+      />,
+    );
+
+    const button = screen.getByText("Retry pricing analysis");
+    fireEvent.click(button);
+
+    expect(screen.getByText("Retrying…")).not.toBeNull();
+    expect(button).toHaveProperty("disabled", true);
+
+    await vi.waitFor(() => {
+      expect(retryAction).toHaveBeenCalledWith("LIST-LOAD");
+    });
+  });
+
+  it("shows error message on retry failure", async () => {
+    const retryAction = createRetryAction(
+      "reject",
+      "Rate limit exceeded for pricing provider.",
+    );
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-FAIL", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-FAIL",
+                retryable: true,
+              }),
+            ],
+          }),
+        ]}
+        retryAction={retryAction}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Retry pricing analysis"));
+
+    await vi.waitFor(() => {
+      expect(
+        screen.getByText("Rate limit exceeded for pricing provider."),
+      ).not.toBeNull();
+    });
+  });
+
+  it("prevents concurrent retries for the same listing", async () => {
+    const retryAction = createRetryAction();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-DEDUP", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-DEDUP",
+                retryable: true,
+              }),
+            ],
+          }),
+        ]}
+        retryAction={retryAction}
+      />,
+    );
+
+    const button = screen.getByText("Retry pricing analysis");
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(retryAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("calls onRetryComplete after successful retry", async () => {
+    const retryAction = createRetryAction();
+    const onRetryComplete = vi.fn();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-CB", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-CB",
+                retryable: true,
+              }),
+            ],
+          }),
+        ]}
+        onRetryComplete={onRetryComplete}
+        retryAction={retryAction}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Retry pricing analysis"));
+
+    await vi.waitFor(() => {
+      expect(onRetryComplete).toHaveBeenCalledWith("LIST-CB");
+    });
+  });
+
+  it("shows default unavailable message when no retryAction is provided", async () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-UNAVAIL", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                listing_id: "LIST-UNAVAIL",
+                retryable: true,
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Retry pricing analysis"));
+
+    await vi.waitFor(() => {
+      expect(
+        screen.getByText("Pricing analysis retry is not available yet."),
+      ).not.toBeNull();
+    });
   });
 });

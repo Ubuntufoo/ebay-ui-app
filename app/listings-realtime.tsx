@@ -1,6 +1,6 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 
 import {savePricingProviderMode} from "@/app/pricing-provider-actions";
 import {ListingsTableEditable} from "@/app/listings-table-editable";
@@ -83,6 +83,34 @@ export function ListingsRealtime({
   >(null);
   const [pricingProviderSaving, setPricingProviderSaving] = useState(false);
 
+  const fetchAndSetListings = useCallback(async () => {
+    try {
+      const response = await fetch(refreshPath, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const payload = (await response.json()) as {
+        geminiUsage?: GeminiDailyUsageSummary | null;
+        geminiUsageStatus?: GeminiUsageStatus;
+        listings?: Listing[];
+        soldCompsUsage?: SoldCompsUsageSummary | null;
+      };
+
+      if (Array.isArray(payload.listings)) {
+        setListings(payload.listings);
+        setGeminiUsage(payload.geminiUsage ?? null);
+        setGeminiUsageStatus(payload.geminiUsageStatus ?? "error");
+        setSoldCompsUsage(payload.soldCompsUsage ?? null);
+      }
+    } catch {
+      // Swallow fetch errors — retry on next realtime event or manual action.
+    }
+  }, [refreshPath]);
+
   useEffect(() => {
     if (!realtimeUrl || !realtimeAnonKey) {
       return;
@@ -93,7 +121,6 @@ export function ListingsRealtime({
     let inFlight = false;
     let queuedRefresh = false;
     let timeoutId: number | null = null;
-    let abortController: AbortController | null = null;
     let hasRetriedAfterSubscribeFailure = false;
 
     async function refreshListings() {
@@ -107,38 +134,11 @@ export function ListingsRealtime({
       }
 
       inFlight = true;
-      abortController = new AbortController();
 
       try {
-        const response = await fetch(refreshPath, {
-          cache: "no-store",
-          signal: abortController.signal,
-        });
-
-        if (!response.ok) {
-          return;
-        }
-
-        const payload = (await response.json()) as {
-          geminiUsage?: GeminiDailyUsageSummary | null;
-          geminiUsageStatus?: GeminiUsageStatus;
-          listings?: Listing[];
-          soldCompsUsage?: SoldCompsUsageSummary | null;
-        };
-
-        if (!cancelled && Array.isArray(payload.listings)) {
-          setListings(payload.listings);
-          setGeminiUsage(payload.geminiUsage ?? null);
-          setGeminiUsageStatus(payload.geminiUsageStatus ?? "error");
-          setSoldCompsUsage(payload.soldCompsUsage ?? null);
-        }
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
+        await fetchAndSetListings();
       } finally {
         inFlight = false;
-        abortController = null;
 
         if (queuedRefresh) {
           queuedRefresh = false;
@@ -187,7 +187,6 @@ export function ListingsRealtime({
 
     return () => {
       cancelled = true;
-      abortController?.abort();
 
       if (timeoutId !== null) {
         window.clearTimeout(timeoutId);
@@ -224,6 +223,10 @@ export function ListingsRealtime({
     setPricingProviderSaving(false);
   }
 
+  const handleRetryComplete = useCallback(() => {
+    void fetchAndSetListings();
+  }, [fetchAndSetListings]);
+
   return (
     <>
       <div className="space-y-2">
@@ -232,6 +235,7 @@ export function ListingsRealtime({
           geminiUsage={geminiUsage}
           geminiUsageStatus={geminiUsageStatus}
           listings={listings}
+          onRetryComplete={handleRetryComplete}
           ordersToShipCount={ordersToShipCount}
           soldCompsUsage={soldCompsUsage}
         />

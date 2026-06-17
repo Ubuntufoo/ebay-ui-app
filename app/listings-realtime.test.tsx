@@ -6,6 +6,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {
   GeminiDailyUsageSummary,
   Listing,
+  PricingAnalysisWarning,
 } from "@/lib/sidecar-api";
 
 const fetchMock = vi.fn();
@@ -22,6 +23,7 @@ const {
   approveListingForExportMock,
   enqueueGenerateListingMock,
   retryPublishListingMock,
+  retryPricingAnalysisMock,
   savePricingProviderModeMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
@@ -30,6 +32,7 @@ const {
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
+  retryPricingAnalysisMock: vi.fn(),
   savePricingProviderModeMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
@@ -62,6 +65,10 @@ vi.mock("@/app/listing-retry-publish-actions", () => ({
 
 vi.mock("@/app/pricing-provider-actions", () => ({
   savePricingProviderMode: savePricingProviderModeMock,
+}));
+
+vi.mock("@/app/pricing-analysis-retry-actions", () => ({
+  retryPricingAnalysis: retryPricingAnalysisMock,
 }));
 
 vi.mock("@/lib/supabase/browser", () => ({
@@ -181,6 +188,7 @@ describe("ListingsRealtime", () => {
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
     togglePricingServiceActionMock.mockReset();
+    retryPricingAnalysisMock.mockReset();
     savePricingProviderModeMock.mockResolvedValue({error: null, success: true});
     realtimeChannelOnMock.mockReturnValue(realtimeChannel);
     realtimeSubscribeStatusCallbacks.length = 0;
@@ -638,5 +646,44 @@ describe("ListingsRealtime", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes listings after successful pricing-analysis retry", async () => {
+    retryPricingAnalysisMock.mockResolvedValue({
+      error: null,
+      success: true,
+    });
+    fetchMock.mockResolvedValue(jsonResponse([buildListing()]));
+
+    renderListingsRealtime({
+      initialListings: [
+        buildListing({
+          listing_id: "LIST-RETRY",
+          id: "LIST-RETRY-row-id",
+          pricing_analysis_warnings: [
+            {
+              listing_id: "LIST-RETRY",
+              summary: "Sold comps returned no results; used AI fallback estimate.",
+              code: "pricing_fallback_used",
+              severity: "warning" as const,
+              retryable: true,
+              model_name: "gemini-2.5-pro",
+            },
+          ],
+        }),
+      ],
+    });
+
+    fireEvent.click(screen.getByText("Retry pricing analysis"));
+
+    await vi.waitFor(() => {
+      expect(retryPricingAnalysisMock).toHaveBeenCalledWith("LIST-RETRY");
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

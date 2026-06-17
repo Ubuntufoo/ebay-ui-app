@@ -1,3 +1,6 @@
+"use client";
+
+import {useCallback, useState} from "react";
 import type {
   GeminiDailyUsageSummary,
   Listing,
@@ -8,6 +11,10 @@ import {
   hasPersistedListingError,
   isNonEmptyString,
 } from "@/app/listing-error-utils";
+import {
+  retryPricingAnalysis,
+  type RetryPricingAnalysisResult,
+} from "@/app/pricing-analysis-retry-actions";
 
 export type OperationalCounterKey = "errors" | "ready" | "review" | "active";
 
@@ -21,8 +28,12 @@ type QueueErrorsPanelProps = {
   errorMessage?: string | null;
   geminiUsage?: GeminiDailyUsageSummary | null;
   geminiUsageStatus?: "error" | "loading" | "ready";
+  onRetryComplete?: (listingId: string) => void;
   ordersToShipCount?: number;
   listings: Listing[];
+  retryAction?: (
+    listingId: string,
+  ) => Promise<RetryPricingAnalysisResult>;
   soldCompsUsage?: SoldCompsUsageSummary | null;
 };
 
@@ -49,6 +60,12 @@ function getPersistedErrorListings(listings: Listing[]): Listing[] {
 function getPricingWarningListings(listings: Listing[]): Listing[] {
   return listings.filter(
     (listing) => (listing.pricing_analysis_warnings?.length ?? 0) > 0,
+  );
+}
+
+function hasRetryableWarnings(listing: Listing): boolean {
+  return (listing.pricing_analysis_warnings ?? []).some(
+    (warning) => warning.retryable,
   );
 }
 
@@ -160,8 +177,10 @@ export function QueueErrorsPanel({
   errorMessage = null,
   geminiUsage = null,
   geminiUsageStatus = "ready",
+  onRetryComplete,
   ordersToShipCount = 0,
   listings,
+  retryAction = retryPricingAnalysis,
   soldCompsUsage = null,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
@@ -175,6 +194,47 @@ export function QueueErrorsPanel({
     geminiUsageStatus === "loading"
       ? null
       : buildSoldCompsUsagePresentation(soldCompsUsage);
+
+  const [retryingListingIds, setRetryingListingIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [retryErrors, setRetryErrors] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+
+  const handleRetry = useCallback(
+    async (listingId: string) => {
+      if (retryingListingIds.has(listingId)) {
+        return;
+      }
+
+      setRetryingListingIds((previous) => new Set(previous).add(listingId));
+      setRetryErrors((previous) => {
+        const next = new Map(previous);
+        next.delete(listingId);
+        return next;
+      });
+
+      const result = await retryAction(listingId);
+
+      setRetryingListingIds((previous) => {
+        const next = new Set(previous);
+        next.delete(listingId);
+        return next;
+      });
+
+      if (result.success) {
+        onRetryComplete?.(listingId);
+      } else if (result.error) {
+        setRetryErrors((previous) => {
+          const next = new Map(previous);
+          next.set(listingId, result.error as string);
+          return next;
+        });
+      }
+    },
+    [retryingListingIds, retryAction, onRetryComplete],
+  );
 
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">
@@ -271,11 +331,40 @@ export function QueueErrorsPanel({
                 return `${warning.summary}${modelSuffix}`;
               });
 
+              const isRetrying = retryingListingIds.has(
+                listing.listing_id,
+              );
+              const retryError = retryErrors.get(listing.listing_id);
+              const showRetry = hasRetryableWarnings(listing);
+
               return (
                 <li key={listing.id} className="pl-1 pb-3 last:pb-0">
-                  <span className="font-mono font-semibold uppercase tracking-[0.12em]">
-                    {listing.listing_id} · {warningParts.join(" · ")}
-                  </span>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="font-mono font-semibold uppercase tracking-[0.12em]">
+                      {listing.listing_id} · {warningParts.join(" · ")}
+                    </span>
+                    {showRetry ? (
+                      <button
+                        type="button"
+                        disabled={isRetrying}
+                        onClick={() => void handleRetry(listing.listing_id)}
+                        className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
+                          isRetrying
+                            ? "border-amber-400/30 bg-amber-400/10 text-amber-300/60 cursor-wait"
+                            : "border-amber-300/50 bg-amber-300/10 text-amber-100 hover:border-amber-200 hover:bg-amber-200/20 hover:text-amber-50"
+                        }`}
+                      >
+                        {isRetrying
+                          ? "Retrying…"
+                          : "Retry pricing analysis"}
+                      </button>
+                    ) : null}
+                  </div>
+                  {retryError ? (
+                    <p className="mt-1.5 text-xs text-amber-300/80">
+                      {retryError}
+                    </p>
+                  ) : null}
                   {index < warningListings.length - 1 ? (
                     <hr className="mt-3 border-amber-300/50" />
                   ) : null}
