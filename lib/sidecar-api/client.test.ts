@@ -8,6 +8,7 @@ vi.mock("@/lib/config/sidecar", () => ({
 }));
 
 import {
+  retryPricingAnalysis,
   updateAppSettings,
   updatePricingServiceEnabled,
 } from "@/lib/sidecar-api/client";
@@ -125,5 +126,45 @@ describe("sidecar app settings updates", () => {
       }),
     );
     expect(result.pricing_provider_mode).toBe("apify");
+  });
+});
+
+describe("retryPricingAnalysis", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts to retry-pricing-analysis path with encoded listing id", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({message: "Retry queued."}), {
+        headers: {"content-type": "application/json"},
+        status: 200,
+      }),
+    );
+
+    await retryPricingAnalysis("Single/000005");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/Single%2F000005/retry-pricing-analysis",
+      expect.objectContaining({
+        cache: "no-store",
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
   });
 });

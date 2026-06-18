@@ -140,6 +140,12 @@ export interface RetryPublishListingResponse {
   workflow: "generate_ai" | "publish";
 }
 
+export interface RetryPricingAnalysisResponse {
+  job?: Json;
+  listing?: Listing;
+  message?: string;
+}
+
 export type PricingProviderMode = "off" | "soldcomps" | "apify";
 
 export interface UpdateListingInput {

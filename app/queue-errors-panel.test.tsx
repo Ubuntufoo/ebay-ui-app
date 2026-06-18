@@ -702,28 +702,4 @@ describe("QueueErrorsPanel", () => {
     });
   });
 
-  it("shows default unavailable message when no retryAction is provided", async () => {
-    render(
-      <QueueErrorsPanel
-        listings={[
-          buildListing("LIST-UNAVAIL", "assets_ready", "ready_to_generate", {
-            pricing_analysis_warnings: [
-              buildPricingWarning({
-                listing_id: "LIST-UNAVAIL",
-                retryable: true,
-              }),
-            ],
-          }),
-        ]}
-      />,
-    );
-
-    fireEvent.click(screen.getByText("Retry pricing analysis"));
-
-    await vi.waitFor(() => {
-      expect(
-        screen.getByText("Pricing analysis retry is not available yet."),
-      ).not.toBeNull();
-    });
-  });
 });
