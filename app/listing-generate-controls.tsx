@@ -54,9 +54,10 @@ function GenerateControlsFields({
   onModifierError: (message: string | null) => void;
 }) {
   const {pending} = useFormStatus();
-  const [modifierState, setModifierState] = useState<ListingPricingModifierUiState>(
-    () => getPricingModifierUiState(listing.item_specifics),
-  );
+  const [modifierState, setModifierState] =
+    useState<ListingPricingModifierUiState>(() =>
+      getPricingModifierUiState(listing.item_specifics),
+    );
   const [isSavingModifiers, setIsSavingModifiers] = useState(false);
 
   useEffect(() => {
@@ -135,25 +136,22 @@ function GenerateControlsFields({
           <PricingModifierCheckbox
             checked={modifierState.graded}
             disabled={pending || isSavingModifiers}
-            label="-Graded"
+            label="Pre-filter graded comps"
             name="exclude_graded_control"
             onChange={(checked) => updateModifier("graded", checked)}
           />
           <PricingModifierCheckbox
             checked={modifierState.auto}
             disabled={pending || isSavingModifiers}
-            label="-Auto"
+            label="Avoid autographs"
             name="exclude_autographs_control"
             onChange={(checked) => updateModifier("auto", checked)}
           />
-          <PricingModifierCheckbox
-            checked={modifierState.variant}
-            disabled={pending || isSavingModifiers}
-            label="+Variant"
-            name="exclude_variants_control"
-            onChange={(checked) => updateModifier("variant", checked)}
-          />
         </div>
+        <p className="text-[11px] leading-relaxed text-stone-500">
+          Uses core provider negatives. Graded/slabbed responses are always
+          removed after results return, even when this toggle is off.
+        </p>
       </div>
     </>
   );

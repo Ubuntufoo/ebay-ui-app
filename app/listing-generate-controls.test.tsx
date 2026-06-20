@@ -6,8 +6,8 @@ import type {Listing} from "@/lib/sidecar-api";
 
 const {enqueueGenerateListingMock, saveListingPricingModifierOptionsMock} =
   vi.hoisted(() => ({
-  enqueueGenerateListingMock: vi.fn(),
-  saveListingPricingModifierOptionsMock: vi.fn(),
+    enqueueGenerateListingMock: vi.fn(),
+    saveListingPricingModifierOptionsMock: vi.fn(),
   }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -82,7 +82,9 @@ describe("ListingGenerateControls", () => {
   it("shows Generate only for assets_ready", () => {
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    expect(screen.getByRole("button", {name: "Generate AI Draft"})).not.toBeNull();
+    expect(
+      screen.getByRole("button", {name: "Generate AI Draft"}),
+    ).not.toBeNull();
     expect(screen.getByLabelText("Seller hints")).not.toBeNull();
   });
 
@@ -98,7 +100,9 @@ describe("ListingGenerateControls", () => {
   ] as const)("hides Generate for %s", (status) => {
     render(<ListingGenerateControls listing={buildListing(status)} />);
 
-    expect(screen.queryByRole("button", {name: "Generate AI Draft"})).toBeNull();
+    expect(
+      screen.queryByRole("button", {name: "Generate AI Draft"}),
+    ).toBeNull();
   });
 
   it("submits listing id and shows pending state", async () => {
@@ -117,7 +121,8 @@ describe("ListingGenerateControls", () => {
     await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
 
     expect(enqueueGenerateListingMock).toHaveBeenCalled();
-    const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1] as FormData;
+    const submittedFormData = enqueueGenerateListingMock.mock
+      .calls[0]?.[1] as FormData;
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
     expect(submittedFormData.get("seller_hints")).toBe("Use padded envelope");
     expect(submittedFormData.get("exclude_graded")).toBe("true");
@@ -130,7 +135,10 @@ describe("ListingGenerateControls", () => {
       expect(button).toHaveProperty("disabled", true);
     });
 
-    expect(screen.getByLabelText("Seller hints")).toHaveProperty("disabled", true);
+    expect(screen.getByLabelText("Seller hints")).toHaveProperty(
+      "disabled",
+      true,
+    );
 
     deferred.resolve({
       error: null,
@@ -166,18 +174,12 @@ describe("ListingGenerateControls", () => {
   it("renders backend-equivalent modifier defaults when missing", () => {
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    expect(screen.getByRole("checkbox", {name: "-Graded"})).toHaveProperty(
-      "checked",
-      true,
-    );
-    expect(screen.getByRole("checkbox", {name: "-Auto"})).toHaveProperty(
-      "checked",
-      true,
-    );
-    expect(screen.getByRole("checkbox", {name: "+Variant"})).toHaveProperty(
-      "checked",
-      false,
-    );
+    expect(
+      screen.getByRole("checkbox", {name: "Pre-filter graded comps"}),
+    ).toHaveProperty("checked", true);
+    expect(
+      screen.getByRole("checkbox", {name: "Avoid autographs"}),
+    ).toHaveProperty("checked", true);
   });
 
   it("hydrates partial persisted modifier values", () => {
@@ -195,18 +197,12 @@ describe("ListingGenerateControls", () => {
       />,
     );
 
-    expect(screen.getByRole("checkbox", {name: "-Graded"})).toHaveProperty(
-      "checked",
-      false,
-    );
-    expect(screen.getByRole("checkbox", {name: "-Auto"})).toHaveProperty(
-      "checked",
-      true,
-    );
-    expect(screen.getByRole("checkbox", {name: "+Variant"})).toHaveProperty(
-      "checked",
-      true,
-    );
+    expect(
+      screen.getByRole("checkbox", {name: "Pre-filter graded comps"}),
+    ).toHaveProperty("checked", false);
+    expect(
+      screen.getByRole("checkbox", {name: "Avoid autographs"}),
+    ).toHaveProperty("checked", true);
   });
 
   it("persists toggled modifier choices per listing", async () => {
@@ -214,16 +210,57 @@ describe("ListingGenerateControls", () => {
 
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    await user.click(screen.getByRole("checkbox", {name: "+Variant"}));
+    await user.click(
+      screen.getByRole("checkbox", {name: "Pre-filter graded comps"}),
+    );
 
     expect(saveListingPricingModifierOptionsMock).toHaveBeenCalledWith(
       "LIST-001",
       {
         auto: true,
-        graded: true,
-        variant: true,
+        graded: false,
+        variant: false,
       },
     );
+  });
+
+  it("hides variant toggle from visible UI", () => {
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    expect(screen.queryByRole("checkbox", {name: "+Variant"})).toBeNull();
+  });
+
+  it("renders help text for graded/slabbed exclusions", () => {
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    expect(screen.getByText(/core provider negatives/)).not.toBeNull();
+    expect(
+      screen.getByText(
+        /always removed after results return, even when this toggle is off/,
+      ),
+    ).not.toBeNull();
+  });
+
+  it("preserves variant hidden input value from stored item specifics", () => {
+    const {container} = render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            pricingModifierOptions: {
+              excludeVariants: true,
+            },
+          },
+        }}
+      />,
+    );
+
+    const hiddenInput = container.querySelector(
+      'input[name="exclude_variants"]',
+    ) as HTMLInputElement | null;
+
+    expect(hiddenInput).not.toBeNull();
+    expect(hiddenInput?.value).toBe("true");
   });
 
   it("shows info for already queued listings", async () => {
