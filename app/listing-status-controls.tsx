@@ -14,6 +14,7 @@ import {
   type RetryPublishListingActionState,
 } from "@/app/listing-retry-publish-state";
 import {getListingPricingLinks} from "@/app/listing-pricing-links";
+import {ListingPricingResearchSummary} from "@/app/listing-pricing-research-summary";
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
 import {getTradingCardConditionApprovalMessage} from "@/app/trading-card-condition-utils";
 import type {Listing} from "@/lib/sidecar-api";
@@ -248,6 +249,15 @@ export function ListingReviewGate({
             </a>
           ))}
         </div>
+        {listing.latest_pricing_research ? (
+          <ListingPricingResearchSummary
+            research={listing.latest_pricing_research}
+          />
+        ) : (
+          <p className="mt-3 text-sm text-stone-400">
+            No saved pricing research yet.
+          </p>
+        )}
       </div>
 
       <form action={approveFormAction} className="grid gap-4">

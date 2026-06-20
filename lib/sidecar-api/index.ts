@@ -21,6 +21,8 @@ export type {
   GeminiDailyUsageSummary,
   Json,
   Listing,
+  ListingLatestPricingResearchCompSummary,
+  ListingLatestPricingResearchSummary,
   ListingStatus,
   ListingSubStatus,
   ListingsResponse,

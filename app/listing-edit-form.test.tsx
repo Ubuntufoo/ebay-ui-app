@@ -1210,4 +1210,147 @@ describe("ListingEditForm", () => {
 
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
+
+  it("renders succeeded pricing research summary with all fields and external links", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          latest_pricing_research: {
+            comp_summary: {
+              rejected_comp_count: 3,
+              rejected_comp_ids: ["comp-4", "comp-5", "comp-6"],
+              selected_comp_count: 4,
+              selected_comp_ids: ["comp-1", "comp-2", "comp-3", "comp-7"],
+              total_comp_count: 7,
+            },
+            confidence: "high",
+            created_at: "2026-06-19T00:00:00.000Z",
+            error_code: null,
+            error_message: null,
+            listing_id: "LIST-001",
+            llm_price_explanation: "Strong comps support this price.",
+            median_sold_price: 45.0,
+            pricing_model_name: "gemini-2.5-flash",
+            provider: "soldcomps",
+            query: "2023 Topps Chrome Mike Trout",
+            research_id: "research-1",
+            sold_count: 12,
+            status: "succeeded",
+            suggested_price: 42.0,
+            updated_at: "2026-06-19T00:00:00.000Z",
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Pricing research")).not.toBeNull();
+    expect(screen.getByText("$42.00")).not.toBeNull();
+    expect(screen.getByText("high confidence")).not.toBeNull();
+    expect(screen.getByText("$45.00")).not.toBeNull();
+    expect(screen.getByText("12")).not.toBeNull();
+    expect(screen.getByText("Strong comps support this price.")).not.toBeNull();
+    // counts rendered inside nested spans; verify via section textContent
+    const pricingSection = screen.getByText("Strong comps support this price.")
+      .closest("div")!;
+    expect(pricingSection.textContent).toContain("Selected: 4");
+    expect(pricingSection.textContent).toContain("Rejected: 3");
+    expect(pricingSection.textContent).toContain("Total comps: 7");
+    expect(screen.getByText("Provider: soldcomps", {exact: false})).not.toBeNull();
+    expect(screen.getByText("Model: gemini-2.5-flash", {exact: false})).not.toBeNull();
+    expect(
+      screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
+    ).not.toBeNull();
+    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
+    expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
+    expect(
+      screen.getByRole("button", {name: "Approve For Export"}),
+    ).not.toBeNull();
+  });
+
+  it("renders failed pricing research as warning-style summary without blocking approval", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          latest_pricing_research: {
+            comp_summary: {
+              rejected_comp_count: 0,
+              rejected_comp_ids: [],
+              selected_comp_count: 0,
+              selected_comp_ids: [],
+              total_comp_count: 0,
+            },
+            confidence: null,
+            created_at: "2026-06-19T00:00:00.000Z",
+            error_code: "provider_rate_limited",
+            error_message: "SoldComps API rate limit exceeded.",
+            listing_id: "LIST-001",
+            llm_price_explanation: null,
+            median_sold_price: null,
+            pricing_model_name: null,
+            provider: "soldcomps",
+            query: "2023 Topps Chrome Mike Trout",
+            research_id: "research-2",
+            sold_count: null,
+            status: "failed",
+            suggested_price: null,
+            updated_at: "2026-06-19T00:00:00.000Z",
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Pricing research")).not.toBeNull();
+    expect(screen.getByText("failed")).not.toBeNull();
+    expect(screen.getByText("provider_rate_limited", {exact: false})).not.toBeNull();
+    expect(
+      screen.getByText("SoldComps API rate limit exceeded."),
+    ).not.toBeNull();
+    expect(screen.getByText("Provider: soldcomps")).not.toBeNull();
+    expect(
+      screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
+    ).not.toBeNull();
+    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
+    expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+    expect(approveButton).toHaveProperty("disabled", true);
+
+    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
+      await user.click(screen.getByLabelText(checklistLabel));
+    }
+
+    expect(approveButton).toHaveProperty("disabled", false);
+  });
+
+  it("shows neutral message when latest_pricing_research is null or absent", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
+          latest_pricing_research: null,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("Pricing research")).not.toBeNull();
+    expect(screen.getByText("No saved pricing research yet.")).not.toBeNull();
+    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
+    expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
+
+    cleanup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing("needs_review", ["https://example.com/review.jpg"])}
+      />,
+    );
+
+    expect(screen.getByText("Pricing research")).not.toBeNull();
+    expect(screen.getByText("No saved pricing research yet.")).not.toBeNull();
+    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
+    expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
+  });
 });
