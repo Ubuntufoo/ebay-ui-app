@@ -269,3 +269,22 @@ export async function retryPricingAnalysis(
     },
   );
 }
+
+export async function dismissPricingAnalysisWarnings(
+  listingId: string,
+  codes: string[],
+): Promise<Listing> {
+  const response = await sidecarFetch<{listing: Listing}>(
+    `/api/listings/${encodeURIComponent(listingId)}/pricing-analysis-warnings/dismiss`,
+    {
+      method: "POST",
+      body: JSON.stringify({codes}),
+      headers: {
+        ...buildHeaders(),
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  return response.listing;
+}

@@ -174,6 +174,10 @@ export interface RetryPricingAnalysisResponse {
   message?: string;
 }
 
+export interface DismissPricingAnalysisWarningsResponse {
+  listing: Listing;
+}
+
 export type PricingProviderMode = "off" | "soldcomps" | "apify";
 
 export interface UpdateListingInput {

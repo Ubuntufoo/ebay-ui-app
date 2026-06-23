@@ -8,6 +8,7 @@ vi.mock("@/lib/config/sidecar", () => ({
 }));
 
 import {
+  dismissPricingAnalysisWarnings,
   retryPricingAnalysis,
   updateAppSettings,
   updatePricingServiceEnabled,
@@ -166,5 +167,49 @@ describe("retryPricingAnalysis", () => {
         }),
       }),
     );
+  });
+});
+
+describe("dismissPricingAnalysisWarnings", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts to dismiss endpoint with codes in body", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({listing: {listing_id: "LIST-001"}}), {
+        headers: {"content-type": "application/json"},
+        status: 200,
+      }),
+    );
+
+    const result = await dismissPricingAnalysisWarnings("LIST-001", [
+      "llm_analysis_failed",
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/LIST-001/pricing-analysis-warnings/dismiss",
+      expect.objectContaining({
+        body: JSON.stringify({codes: ["llm_analysis_failed"]}),
+        cache: "no-store",
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
+    expect(result).toEqual({listing_id: "LIST-001"});
   });
 });

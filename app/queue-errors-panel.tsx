@@ -15,6 +15,10 @@ import {
   retryPricingAnalysis,
   type RetryPricingAnalysisResult,
 } from "@/app/pricing-analysis-retry-actions";
+import {
+  dismissPricingAnalysisWarnings,
+  type DismissPricingAnalysisWarningsResult,
+} from "@/app/pricing-analysis-dismiss-actions";
 
 export type OperationalCounterKey = "errors" | "ready" | "review" | "active";
 
@@ -25,6 +29,10 @@ export type OperationalCounter = {
 };
 
 type QueueErrorsPanelProps = {
+  dismissAction?: (
+    listingId: string,
+    codes: string[],
+  ) => Promise<DismissPricingAnalysisWarningsResult>;
   errorMessage?: string | null;
   geminiUsage?: GeminiDailyUsageSummary | null;
   geminiUsageStatus?: "error" | "loading" | "ready";
@@ -172,6 +180,7 @@ function buildSoldCompsUsagePresentation(
 }
 
 export function QueueErrorsPanel({
+  dismissAction = dismissPricingAnalysisWarnings,
   errorMessage = null,
   geminiUsage = null,
   geminiUsageStatus = "ready",
@@ -198,6 +207,48 @@ export function QueueErrorsPanel({
   );
   const [retryErrors, setRetryErrors] = useState<Map<string, string>>(
     () => new Map(),
+  );
+  const [dismissingWarningKeys, setDismissingWarningKeys] = useState<
+    Set<string>
+  >(() => new Set());
+  const [dismissErrors, setDismissErrors] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+
+  const handleDismiss = useCallback(
+    async (listingId: string, code: string) => {
+      const dismissKey = `${listingId}::${code}`;
+
+      if (dismissingWarningKeys.has(dismissKey)) {
+        return;
+      }
+
+      setDismissingWarningKeys((previous) => new Set(previous).add(dismissKey));
+      setDismissErrors((previous) => {
+        const next = new Map(previous);
+        next.delete(dismissKey);
+        return next;
+      });
+
+      const result = await dismissAction(listingId, [code]);
+
+      setDismissingWarningKeys((previous) => {
+        const next = new Set(previous);
+        next.delete(dismissKey);
+        return next;
+      });
+
+      if (result.success) {
+        onRetryComplete?.(listingId);
+      } else if (result.error) {
+        setDismissErrors((previous) => {
+          const next = new Map(previous);
+          next.set(dismissKey, result.error!);
+          return next;
+        });
+      }
+    },
+    [dismissingWarningKeys, dismissAction, onRetryComplete],
   );
 
   const handleRetry = useCallback(
@@ -319,26 +370,59 @@ export function QueueErrorsPanel({
 
           <ol className="mt-3 list-decimal pl-5 text-sm leading-6 text-amber-100 marker:font-semibold marker:text-amber-200">
             {warningListings.map((listing, index) => {
-              const warningParts = (
-                listing.pricing_analysis_warnings ?? []
-              ).map((warning) => {
-                const modelSuffix = warning.model_name
-                  ? ` [${warning.model_name}]`
-                  : "";
-
-                return `${warning.summary}${modelSuffix}`;
-              });
-
+              const warnings = listing.pricing_analysis_warnings ?? [];
               const isRetrying = retryingListingIds.has(listing.listing_id);
               const retryError = retryErrors.get(listing.listing_id);
               const showRetry = hasRetryableWarnings(listing);
 
               return (
                 <li key={listing.id} className="pl-1 pb-3 last:pb-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="font-mono font-semibold uppercase tracking-[0.12em]">
-                      {listing.listing_id} · {warningParts.join(" · ")}
-                    </span>
+                  {warnings.map((warning, warningIndex) => {
+                    const modelSuffix = warning.model_name
+                      ? ` [${warning.model_name}]`
+                      : "";
+                    const dismissKey = `${listing.listing_id}::${warning.code}`;
+                    const isDismissing = dismissingWarningKeys.has(dismissKey);
+                    const dismissError = dismissErrors.get(dismissKey);
+
+                    return (
+                      <div
+                        key={`${listing.id}-${warning.code}`}
+                        className={warningIndex > 0 ? "mt-1.5" : undefined}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="font-mono font-semibold uppercase tracking-[0.12em]">
+                            {warningIndex === 0 ? listing.listing_id : null}{" "}
+                            {warning.summary}
+                            {modelSuffix}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={isDismissing}
+                            onClick={() =>
+                              void handleDismiss(
+                                listing.listing_id,
+                                warning.code,
+                              )
+                            }
+                            className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
+                              isDismissing
+                                ? "border-amber-400/30 bg-amber-400/10 text-amber-300/60 cursor-wait"
+                                : "border-amber-300/50 bg-amber-300/10 text-amber-100 hover:border-amber-200 hover:bg-amber-200/20 hover:text-amber-50"
+                            }`}
+                          >
+                            {isDismissing ? "Dismissing…" : "\u2715"}
+                          </button>
+                        </div>
+                        {dismissError ? (
+                          <p className="mt-1.5 text-xs text-amber-300/80">
+                            {dismissError}
+                          </p>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                  <div className="mt-2">
                     {showRetry ? (
                       <button
                         type="button"

@@ -122,6 +122,29 @@ function createRetryAction(
   });
 }
 
+function createDismissAction(
+  behaviour: "resolve" | "reject" = "resolve",
+  errorMessage?: string,
+) {
+  return vi
+    .fn()
+    .mockImplementation(async (_listingId: string, _codes: string[]) => {
+      if (behaviour === "reject") {
+        return {
+          error: errorMessage ?? "Dismiss failed.",
+          listing: null,
+          success: false,
+        };
+      }
+
+      return {
+        error: null,
+        listing: {listing_id: _listingId} as Listing,
+        success: true,
+      };
+    });
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -702,4 +725,206 @@ describe("QueueErrorsPanel", () => {
     });
   });
 
+  it("renders dismiss button for each pricing analysis warning", () => {
+    const dismissAction = createDismissAction();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-DISMISS", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                code: "llm_analysis_failed",
+                listing_id: "LIST-DISMISS",
+                summary: "First warning.",
+              }),
+              buildPricingWarning({
+                code: "llm_condition_adjusted_price_null",
+                listing_id: "LIST-DISMISS",
+                summary: "Second warning.",
+              }),
+            ],
+          }),
+        ]}
+        dismissAction={dismissAction}
+      />,
+    );
+
+    const dismissButtons = screen.getAllByText("\u2715");
+    expect(dismissButtons).toHaveLength(2);
+  });
+
+  it("dismisses one warning and leaves the other visible", async () => {
+    const dismissAction = createDismissAction();
+    const onRetryComplete = vi.fn();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-TWO", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                code: "code-A",
+                listing_id: "LIST-TWO",
+                summary: "Warning A.",
+              }),
+              buildPricingWarning({
+                code: "code-B",
+                listing_id: "LIST-TWO",
+                summary: "Warning B.",
+              }),
+            ],
+          }),
+        ]}
+        dismissAction={dismissAction}
+        onRetryComplete={onRetryComplete}
+      />,
+    );
+
+    expect(screen.getByText(/Warning A\./)).not.toBeNull();
+    expect(screen.getByText(/Warning B\./)).not.toBeNull();
+
+    const dismissButtons = screen.getAllByText("\u2715");
+    fireEvent.click(dismissButtons[0]);
+
+    expect(dismissAction).toHaveBeenCalledWith("LIST-TWO", ["code-A"]);
+
+    await vi.waitFor(() => {
+      expect(onRetryComplete).toHaveBeenCalledWith("LIST-TWO");
+    });
+  });
+
+  it("leaves unrelated listing warnings untouched after dismiss", async () => {
+    const dismissAction = createDismissAction();
+    const onRetryComplete = vi.fn();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-A", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                code: "code-A",
+                listing_id: "LIST-A",
+                summary: "Warning on A.",
+              }),
+            ],
+          }),
+          buildListing("LIST-B", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                code: "code-B",
+                listing_id: "LIST-B",
+                summary: "Warning on B.",
+              }),
+            ],
+          }),
+        ]}
+        dismissAction={dismissAction}
+        onRetryComplete={onRetryComplete}
+      />,
+    );
+
+    expect(screen.getByText(/Warning on A\./)).not.toBeNull();
+    expect(screen.getByText(/Warning on B\./)).not.toBeNull();
+
+    const dismissButtons = screen.getAllByText("\u2715");
+    fireEvent.click(dismissButtons[0]);
+
+    expect(dismissAction).toHaveBeenCalledWith("LIST-A", ["code-A"]);
+
+    await vi.waitFor(() => {
+      expect(onRetryComplete).toHaveBeenCalledWith("LIST-A");
+    });
+
+    expect(onRetryComplete).not.toHaveBeenCalledWith("LIST-B");
+  });
+
+  it("shows loading state while dismiss is in progress", async () => {
+    const dismissAction = createDismissAction();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-LOAD", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                code: "code-load",
+                listing_id: "LIST-LOAD",
+                retryable: true,
+                summary: "Dismissable warning.",
+              }),
+            ],
+          }),
+        ]}
+        dismissAction={dismissAction}
+      />,
+    );
+
+    const dismissButton = screen.getAllByText("\u2715")[0];
+    fireEvent.click(dismissButton);
+
+    expect(screen.getByText("Dismissing…")).not.toBeNull();
+    expect(dismissButton).toHaveProperty("disabled", true);
+
+    await vi.waitFor(() => {
+      expect(dismissAction).toHaveBeenCalledWith("LIST-LOAD", ["code-load"]);
+    });
+  });
+
+  it("shows error message on dismiss failure", async () => {
+    const dismissAction = createDismissAction(
+      "reject",
+      "Failed to dismiss warning.",
+    );
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-FAIL", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                code: "code-fail",
+                listing_id: "LIST-FAIL",
+                model_name: null,
+                summary: "Failing warning.",
+              }),
+            ],
+          }),
+        ]}
+        dismissAction={dismissAction}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByText("\u2715")[0]);
+
+    await vi.waitFor(() => {
+      expect(screen.getByText("Failed to dismiss warning.")).not.toBeNull();
+    });
+  });
+
+  it("retry button remains after dismissing a non-retryable warning", () => {
+    const dismissAction = createDismissAction();
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-MIXED", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [
+              buildPricingWarning({
+                code: "code-retryable",
+                listing_id: "LIST-MIXED",
+                retryable: true,
+                summary: "Retryable warning.",
+              }),
+              buildPricingWarning({
+                code: "code-nonretryable",
+                listing_id: "LIST-MIXED",
+                retryable: false,
+                summary: "Non-retryable warning.",
+              }),
+            ],
+          }),
+        ]}
+        dismissAction={dismissAction}
+      />,
+    );
+
+    expect(screen.getByText("Retry pricing analysis")).not.toBeNull();
+    expect(screen.getAllByText("\u2715")).toHaveLength(2);
+  });
 });

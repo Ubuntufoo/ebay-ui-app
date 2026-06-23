@@ -1,4 +1,5 @@
 export {
+  dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
   getAppSettings,
   getEbayEnvironment,
@@ -16,6 +17,7 @@ export {
 } from "@/lib/sidecar-api/client";
 export type {
   AppSettings,
+  DismissPricingAnalysisWarningsResponse,
   EnqueueGenerateAiResponse,
   EbayEnvironment,
   GeminiDailyUsageSummary,
