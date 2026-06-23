@@ -2,15 +2,12 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 
 import {approveListingForExport} from "@/app/listing-approve-export-actions";
 
-const {
-  getListingMock,
-  revalidatePathMock,
-  updateListingWorkflowStateMock,
-} = vi.hoisted(() => ({
-  getListingMock: vi.fn(),
-  revalidatePathMock: vi.fn(),
-  updateListingWorkflowStateMock: vi.fn(),
-}));
+const {getListingMock, revalidatePathMock, updateListingWorkflowStateMock} =
+  vi.hoisted(() => ({
+    getListingMock: vi.fn(),
+    revalidatePathMock: vi.fn(),
+    updateListingWorkflowStateMock: vi.fn(),
+  }));
 
 vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
@@ -47,7 +44,10 @@ describe("approveListingForExport", () => {
     formData.set("listing_id", "LIST-001");
     formData.set("current_status", "needs_review");
 
-    const result = await approveListingForExport({error: null, success: null}, formData);
+    const result = await approveListingForExport(
+      {error: null, success: null},
+      formData,
+    );
 
     expect(getListingMock).toHaveBeenCalledWith("LIST-001");
     expect(updateListingWorkflowStateMock).toHaveBeenCalledWith("LIST-001", {
@@ -66,7 +66,10 @@ describe("approveListingForExport", () => {
     formData.set("listing_id", "LIST-001");
     formData.set("current_status", "assets_ready");
 
-    const result = await approveListingForExport({error: null, success: null}, formData);
+    const result = await approveListingForExport(
+      {error: null, success: null},
+      formData,
+    );
 
     expect(getListingMock).not.toHaveBeenCalled();
     expect(updateListingWorkflowStateMock).not.toHaveBeenCalled();
@@ -82,12 +85,47 @@ describe("approveListingForExport", () => {
     formData.set("listing_id", "LIST-001");
     formData.set("current_status", "needs_review");
 
-    const result = await approveListingForExport({error: null, success: null}, formData);
+    const result = await approveListingForExport(
+      {error: null, success: null},
+      formData,
+    );
 
     expect(updateListingWorkflowStateMock).not.toHaveBeenCalled();
     expect(result).toEqual({
-      error: "Listing status changed to Approved for export. Refresh and try again.",
+      error:
+        "Listing status changed to Approved for export. Refresh and try again.",
       success: null,
+    });
+  });
+
+  it("approves listing with failed latest_pricing_research", async () => {
+    getListingMock.mockResolvedValueOnce({
+      status: "needs_review",
+      latest_pricing_research: {
+        status: "failed",
+        error_code: "provider_rate_limited",
+        error_message: "SoldComps API rate limit exceeded.",
+        provider: "soldcomps",
+        suggested_price: null,
+      },
+    });
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+    formData.set("current_status", "needs_review");
+
+    const result = await approveListingForExport(
+      {error: null, success: null},
+      formData,
+    );
+
+    expect(updateListingWorkflowStateMock).toHaveBeenCalledWith("LIST-001", {
+      status: "approved_for_export",
+      subStatus: "publish_queued",
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(result).toEqual({
+      error: null,
+      success: "Approved LIST-001 for export.",
     });
   });
 
@@ -101,7 +139,10 @@ describe("approveListingForExport", () => {
     formData.set("listing_id", "LIST-001");
     formData.set("current_status", "needs_review");
 
-    const result = await approveListingForExport({error: null, success: null}, formData);
+    const result = await approveListingForExport(
+      {error: null, success: null},
+      formData,
+    );
 
     expect(result).toEqual({
       error: "Sidecar request failed.",

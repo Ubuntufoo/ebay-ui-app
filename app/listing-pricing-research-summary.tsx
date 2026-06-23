@@ -21,16 +21,22 @@ function isSucceeded(status: string): boolean {
   return status === "succeeded";
 }
 
-function FailedSummary({research}: {research: ListingLatestPricingResearchSummary}) {
+function FailedSummary({
+  research,
+}: {
+  research: ListingLatestPricingResearchSummary;
+}) {
   return (
     <div className="mt-3 grid gap-2 rounded-2xl border border-amber-300 bg-amber-50/80 px-4 py-3">
+      <p className="text-sm font-medium text-amber-800">
+        Pricing research failed. Enter or confirm the price manually, then
+        continue review.
+      </p>
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-800">
           {research.status}
         </span>
-        <span className="text-amber-700">
-          Provider: {research.provider}
-        </span>
+        <span className="text-amber-700">Provider: {research.provider}</span>
       </div>
       {research.error_code ? (
         <p className="text-sm text-amber-800">
@@ -38,20 +44,20 @@ function FailedSummary({research}: {research: ListingLatestPricingResearchSummar
         </p>
       ) : null}
       {research.error_message ? (
-        <p className="text-sm text-amber-800">
-          {research.error_message}
-        </p>
+        <p className="text-sm text-amber-800">{research.error_message}</p>
       ) : null}
       {research.query ? (
-        <p className="text-xs text-amber-700">
-          Query: {research.query}
-        </p>
+        <p className="text-xs text-amber-700">Query: {research.query}</p>
       ) : null}
     </div>
   );
 }
 
-function SucceededSummary({research}: {research: ListingLatestPricingResearchSummary}) {
+function SucceededSummary({
+  research,
+}: {
+  research: ListingLatestPricingResearchSummary;
+}) {
   const hasExplanation =
     research.llm_price_explanation !== null &&
     research.llm_price_explanation.trim() !== "";
@@ -127,9 +133,7 @@ function SucceededSummary({research}: {research: ListingLatestPricingResearchSum
       </div>
 
       {research.query ? (
-        <p className="text-xs text-stone-500">
-          Query: {research.query}
-        </p>
+        <p className="text-xs text-stone-500">Query: {research.query}</p>
       ) : null}
 
       {hasExplanation ? (

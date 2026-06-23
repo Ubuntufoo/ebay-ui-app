@@ -205,7 +205,9 @@ describe("ListingEditForm", () => {
     ) as HTMLSelectElement;
 
     expect(
-      Array.from(cardConditionSelect.options).map((option) => option.textContent),
+      Array.from(cardConditionSelect.options).map(
+        (option) => option.textContent,
+      ),
     ).toEqual([
       "Select card condition",
       "Near mint or better",
@@ -542,7 +544,9 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/invalid-json.jpg"])}
+        listing={buildListing("needs_review", [
+          "https://example.com/invalid-json.jpg",
+        ])}
       />,
     );
 
@@ -553,7 +557,9 @@ describe("ListingEditForm", () => {
     });
     await user.click(screen.getByRole("button", {name: "Save edits"}));
 
-    expect(screen.getByText("Item specifics must be valid JSON.")).not.toBeNull();
+    expect(
+      screen.getByText("Item specifics must be valid JSON."),
+    ).not.toBeNull();
     expect(saveListingEditsMock).not.toHaveBeenCalled();
   });
 
@@ -660,71 +666,89 @@ describe("ListingEditForm", () => {
   it("shows Inventory / SKU review section with Gemini BSKBL suggestion", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          listing_id: "Single-000001",
-          item_specifics: {
-            Player: "Mike Trout",
-            skuCategoryCode: "BSKBL",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "Single-000001",
+            item_specifics: {
+              Player: "Mike Trout",
+              skuCategoryCode: "BSKBL",
+            },
           },
-        })}
+        )}
       />,
     );
 
     expect(screen.getByText("Inventory / SKU")).not.toBeNull();
-    expect(screen.getByText("Backend finalizes this SKU on approval.")).not.toBeNull();
-    expect((screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value).toBe(
-      "BSKBL",
-    );
+    expect(
+      screen.getByText("Backend finalizes this SKU on approval."),
+    ).not.toBeNull();
+    expect(
+      (screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value,
+    ).toBe("BSKBL");
     expect(screen.getByText("BSKBL-Single-000001")).not.toBeNull();
   });
 
   it("shows BSBL lot preview for valid lot listing IDs", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          listing_id: "Lot-000002",
-          item_specifics: {
-            Player: "Mike Trout",
-            skuCategoryCode: "BSBL",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "Lot-000002",
+            item_specifics: {
+              Player: "Mike Trout",
+              skuCategoryCode: "BSBL",
+            },
           },
-        })}
+        )}
       />,
     );
 
-    expect((screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value).toBe(
-      "BSBL",
-    );
+    expect(
+      (screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value,
+    ).toBe("BSBL");
     expect(screen.getByText("BSBL-Lot-000002")).not.toBeNull();
   });
 
   it("defaults missing skuCategoryCode to OTHER preview", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          listing_id: "Single-000003",
-          item_specifics: {
-            Player: "Mike Trout",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "Single-000003",
+            item_specifics: {
+              Player: "Mike Trout",
+            },
           },
-        })}
+        )}
       />,
     );
 
-    expect((screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value).toBe(
-      "OTHER",
-    );
+    expect(
+      (screen.getByLabelText("SKU category prefix") as HTMLSelectElement).value,
+    ).toBe("OTHER");
     expect(screen.getByText("OTHER-Single-000003")).not.toBeNull();
   });
 
   it("defaults invalid skuCategoryCode to OTHER and hides invalid option", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          listing_id: "Single-000004",
-          item_specifics: {
-            Player: "Mike Trout",
-            skuCategoryCode: "FOOTBALL",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "Single-000004",
+            item_specifics: {
+              Player: "Mike Trout",
+              skuCategoryCode: "FOOTBALL",
+            },
           },
-        })}
+        )}
       />,
     );
 
@@ -733,9 +757,7 @@ describe("ListingEditForm", () => {
     ) as HTMLSelectElement;
 
     expect(prefixSelect.value).toBe("OTHER");
-    expect(
-      screen.queryByRole("option", {name: /FOOTBALL/i}),
-    ).toBeNull();
+    expect(screen.queryByRole("option", {name: /FOOTBALL/i})).toBeNull();
     expect(screen.getByText("OTHER-Single-000004")).not.toBeNull();
   });
 
@@ -745,19 +767,26 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          listing_id: "Single-000005",
-          sku: "Single-000005",
-          item_specifics: {
-            Player: "Mike Trout",
-            Set: "Topps Chrome",
-            skuCategoryCode: "OTHER",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "Single-000005",
+            sku: "Single-000005",
+            item_specifics: {
+              Player: "Mike Trout",
+              Set: "Topps Chrome",
+              skuCategoryCode: "OTHER",
+            },
           },
-        })}
+        )}
       />,
     );
 
-    await user.selectOptions(screen.getByLabelText("SKU category prefix"), "BSKBL");
+    await user.selectOptions(
+      screen.getByLabelText("SKU category prefix"),
+      "BSKBL",
+    );
     await user.click(screen.getByRole("button", {name: "Save edits"}));
 
     const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
@@ -785,14 +814,18 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          listing_id: "Single-000006",
-          sku: "Single-000006",
-          item_specifics: {
-            Player: "Mike Trout",
-            skuCategoryCode: "BSKBL",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "Single-000006",
+            sku: "Single-000006",
+            item_specifics: {
+              Player: "Mike Trout",
+              skuCategoryCode: "BSKBL",
+            },
           },
-        })}
+        )}
       />,
     );
 
@@ -802,7 +835,8 @@ describe("ListingEditForm", () => {
 
     await user.click(screen.getByRole("button", {name: "Approve For Export"}));
 
-    const submittedFormData = approveListingForExportMock.mock.calls[0][1] as FormData;
+    const submittedFormData = approveListingForExportMock.mock
+      .calls[0][1] as FormData;
     expect(submittedFormData.get("listing_id")).toBe("Single-000006");
     expect(submittedFormData.get("current_status")).toBe("needs_review");
     expect(submittedFormData.get("sku")).toBeNull();
@@ -816,13 +850,17 @@ describe("ListingEditForm", () => {
   it("does not show editable SKU prefix selector outside needs_review", () => {
     render(
       <ListingEditForm
-        listing={buildListing("approved_for_export", ["https://example.com/review.jpg"], {
-          listing_id: "Single-000007",
-          item_specifics: {
-            Player: "Mike Trout",
-            skuCategoryCode: "BSKBL",
+        listing={buildListing(
+          "approved_for_export",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "Single-000007",
+            item_specifics: {
+              Player: "Mike Trout",
+              skuCategoryCode: "BSKBL",
+            },
           },
-        })}
+        )}
       />,
     );
 
@@ -833,13 +871,17 @@ describe("ListingEditForm", () => {
   it("shows safe warning and no invented preview for malformed listing IDs", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          listing_id: "LIST-001",
-          item_specifics: {
-            Player: "Mike Trout",
-            skuCategoryCode: "BSKBL",
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            listing_id: "LIST-001",
+            item_specifics: {
+              Player: "Mike Trout",
+              skuCategoryCode: "BSKBL",
+            },
           },
-        })}
+        )}
       />,
     );
 
@@ -1115,21 +1157,26 @@ describe("ListingEditForm", () => {
 
     rerender(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/other.jpg"], {
-          listing_id: "LIST-002",
-          title: "Another listing",
-        })}
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/other.jpg"],
+          {
+            listing_id: "LIST-002",
+            title: "Another listing",
+          },
+        )}
       />,
     );
 
-    expect(screen.getByRole("button", {name: "Approve For Export"})).toHaveProperty(
-      "disabled",
-      true,
-    );
     expect(
-      (screen.getByLabelText(
-        FIRST_LIVE_REVIEW_CHECKLIST_LABELS[0],
-      ) as HTMLInputElement).checked,
+      screen.getByRole("button", {name: "Approve For Export"}),
+    ).toHaveProperty("disabled", true);
+    expect(
+      (
+        screen.getByLabelText(
+          FIRST_LIVE_REVIEW_CHECKLIST_LABELS[0],
+        ) as HTMLInputElement
+      ).checked,
     ).toBe(false);
   });
 
@@ -1214,32 +1261,36 @@ describe("ListingEditForm", () => {
   it("renders succeeded pricing research summary with all fields and external links", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          latest_pricing_research: {
-            comp_summary: {
-              rejected_comp_count: 3,
-              rejected_comp_ids: ["comp-4", "comp-5", "comp-6"],
-              selected_comp_count: 4,
-              selected_comp_ids: ["comp-1", "comp-2", "comp-3", "comp-7"],
-              total_comp_count: 7,
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 3,
+                rejected_comp_ids: ["comp-4", "comp-5", "comp-6"],
+                selected_comp_count: 4,
+                selected_comp_ids: ["comp-1", "comp-2", "comp-3", "comp-7"],
+                total_comp_count: 7,
+              },
+              confidence: "high",
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: null,
+              error_message: null,
+              listing_id: "LIST-001",
+              llm_price_explanation: "Strong comps support this price.",
+              median_sold_price: 45.0,
+              pricing_model_name: "gemini-2.5-flash",
+              provider: "soldcomps",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-1",
+              sold_count: 12,
+              status: "succeeded",
+              suggested_price: 42.0,
+              updated_at: "2026-06-19T00:00:00.000Z",
             },
-            confidence: "high",
-            created_at: "2026-06-19T00:00:00.000Z",
-            error_code: null,
-            error_message: null,
-            listing_id: "LIST-001",
-            llm_price_explanation: "Strong comps support this price.",
-            median_sold_price: 45.0,
-            pricing_model_name: "gemini-2.5-flash",
-            provider: "soldcomps",
-            query: "2023 Topps Chrome Mike Trout",
-            research_id: "research-1",
-            sold_count: 12,
-            status: "succeeded",
-            suggested_price: 42.0,
-            updated_at: "2026-06-19T00:00:00.000Z",
           },
-        })}
+        )}
       />,
     );
 
@@ -1250,13 +1301,18 @@ describe("ListingEditForm", () => {
     expect(screen.getByText("12")).not.toBeNull();
     expect(screen.getByText("Strong comps support this price.")).not.toBeNull();
     // counts rendered inside nested spans; verify via section textContent
-    const pricingSection = screen.getByText("Strong comps support this price.")
+    const pricingSection = screen
+      .getByText("Strong comps support this price.")
       .closest("div")!;
     expect(pricingSection.textContent).toContain("Selected: 4");
     expect(pricingSection.textContent).toContain("Rejected: 3");
     expect(pricingSection.textContent).toContain("Total comps: 7");
-    expect(screen.getByText("Provider: soldcomps", {exact: false})).not.toBeNull();
-    expect(screen.getByText("Model: gemini-2.5-flash", {exact: false})).not.toBeNull();
+    expect(
+      screen.getByText("Provider: soldcomps", {exact: false}),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Model: gemini-2.5-flash", {exact: false}),
+    ).not.toBeNull();
     expect(
       screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
     ).not.toBeNull();
@@ -1272,38 +1328,49 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          latest_pricing_research: {
-            comp_summary: {
-              rejected_comp_count: 0,
-              rejected_comp_ids: [],
-              selected_comp_count: 0,
-              selected_comp_ids: [],
-              total_comp_count: 0,
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 0,
+                selected_comp_ids: [],
+                total_comp_count: 0,
+              },
+              confidence: null,
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: "provider_rate_limited",
+              error_message: "SoldComps API rate limit exceeded.",
+              listing_id: "LIST-001",
+              llm_price_explanation: null,
+              median_sold_price: null,
+              pricing_model_name: null,
+              provider: "soldcomps",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-2",
+              sold_count: null,
+              status: "failed",
+              suggested_price: null,
+              updated_at: "2026-06-19T00:00:00.000Z",
             },
-            confidence: null,
-            created_at: "2026-06-19T00:00:00.000Z",
-            error_code: "provider_rate_limited",
-            error_message: "SoldComps API rate limit exceeded.",
-            listing_id: "LIST-001",
-            llm_price_explanation: null,
-            median_sold_price: null,
-            pricing_model_name: null,
-            provider: "soldcomps",
-            query: "2023 Topps Chrome Mike Trout",
-            research_id: "research-2",
-            sold_count: null,
-            status: "failed",
-            suggested_price: null,
-            updated_at: "2026-06-19T00:00:00.000Z",
           },
-        })}
+        )}
       />,
     );
 
     expect(screen.getByText("Pricing research")).not.toBeNull();
+    expect(
+      screen.getByText(
+        /Pricing research failed\. Enter or confirm the price manually/i,
+      ),
+    ).not.toBeNull();
     expect(screen.getByText("failed")).not.toBeNull();
-    expect(screen.getByText("provider_rate_limited", {exact: false})).not.toBeNull();
+    expect(
+      screen.getByText("provider_rate_limited", {exact: false}),
+    ).not.toBeNull();
     expect(
       screen.getByText("SoldComps API rate limit exceeded."),
     ).not.toBeNull();
@@ -1329,9 +1396,13 @@ describe("ListingEditForm", () => {
   it("shows neutral message when latest_pricing_research is null or absent", () => {
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"], {
-          latest_pricing_research: null,
-        })}
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: null,
+          },
+        )}
       />,
     );
 
@@ -1344,7 +1415,9 @@ describe("ListingEditForm", () => {
 
     render(
       <ListingEditForm
-        listing={buildListing("needs_review", ["https://example.com/review.jpg"])}
+        listing={buildListing("needs_review", [
+          "https://example.com/review.jpg",
+        ])}
       />,
     );
 
