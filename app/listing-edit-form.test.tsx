@@ -1381,6 +1381,11 @@ describe("ListingEditForm", () => {
     expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
     expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
 
+    // Price input remains editable when pricing research failed
+    // and suggested_price is null.
+    const priceInput = screen.getByLabelText("Price") as HTMLInputElement;
+    expect(priceInput).toHaveProperty("disabled", false);
+
     const approveButton = screen.getByRole("button", {
       name: "Approve For Export",
     });
@@ -1391,6 +1396,63 @@ describe("ListingEditForm", () => {
     }
 
     expect(approveButton).toHaveProperty("disabled", false);
+  });
+
+  it("allows saving price edits when pricing research failed and suggested_price is null", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            price: null,
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 0,
+                selected_comp_ids: [],
+                total_comp_count: 0,
+              },
+              confidence: null,
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: "provider_timeout",
+              error_message: "Apify request timed out.",
+              listing_id: "LIST-001",
+              llm_price_explanation: null,
+              median_sold_price: null,
+              pricing_model_name: null,
+              provider: "apify",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-3",
+              sold_count: null,
+              status: "failed",
+              suggested_price: null,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+          },
+        )}
+      />,
+    );
+
+    const priceInput = screen.getByLabelText("Price") as HTMLInputElement;
+    expect(priceInput).toHaveProperty("disabled", false);
+    expect(priceInput.value).toBe("");
+
+    await user.clear(priceInput);
+    await user.type(priceInput, "29.99");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(FormData),
+    );
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    expect(submittedFormData.get("price")).toBe("29.99");
   });
 
   it("shows neutral message when latest_pricing_research is null or absent", () => {
