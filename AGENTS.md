@@ -24,6 +24,8 @@ Do not edit generated framework files. If `next-env.d.ts` is altered, revert unl
 - `README.md` - local setup, architecture notes, and command summary
 - `env.example` - UI environment variable template
 
+Shared delegate root alias for this repo: `ebay-ui-app`.
+
 ## Environment
 
 Use browser-safe env values in the client:
