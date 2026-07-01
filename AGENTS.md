@@ -4,9 +4,6 @@
 
 Keep backend-only work in the separate `backend-services` repo. In this repo, prefer UI components, server actions, and Next.js route handlers over direct browser calls to external services.
 
-## Framework Files
-Do not edit generated framework files. If `next-env.d.ts` is altered, revert unless a stable, documented update is required by the framework itself.
-
 ## Key Commands
 
 - Install dependencies: `pnpm install`
