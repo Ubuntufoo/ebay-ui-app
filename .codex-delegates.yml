@@ -1,0 +1,61 @@
+project_name: ebay-ui-app
+project_id: ebay-ui-app
+repo_root: .
+
+safe_pack_roots:
+  - app
+  - lib
+  - docs
+
+forbidden_paths:
+  - .git/**
+  - .env
+  - .env.*
+  - '**/.env'
+  - '**/.env.*'
+  - node_modules/**
+  - '**/node_modules/**'
+  - .chatgpt/**
+  - .codex/**
+  - .next/**
+  - out/**
+  - dist/**
+  - coverage/**
+  - .nyc_output/**
+  - .cache/**
+  - .turbo/**
+  - playwright-report/**
+  - test-results/**
+  - screenshots/**
+  - videos/**
+  - traces/**
+  - logs/**
+  - tmp/**
+  - temp/**
+  - '*.log'
+  - '*.sqlite'
+  - '*.sqlite3'
+  - '*.db'
+  - '*.db-shm'
+  - '*.db-wal'
+  - '*.webm'
+  - '*.png'
+  - '*.jpg'
+  - '*.jpeg'
+
+verification_hints:
+  - pnpm lint
+  - pnpm test
+  - pnpm typecheck
+
+artifact_defaults:
+  preferred_max_files: 7
+  preferred_max_lines_per_file: 220
+  soft_max_total_lines: 1000
+
+workflow_hints:
+  - Prefer bounded packing around the exact UI flow, route handler, state module, or client helper under review.
+  - Focus frontend review on app and lib changes, especially component behavior, route handlers, state transitions, and typed client contracts.
+  - Exclude env files, secrets, generated Next output, reports, screenshots, and local temp artifacts from packed evidence.
+  - Report precise file and line evidence, then verify delegate findings in the main thread.
+  - Use artifact-audit for evidence checks; use review for multi-file UI or state changes.
