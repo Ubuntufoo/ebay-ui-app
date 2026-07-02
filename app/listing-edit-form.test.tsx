@@ -7,12 +7,14 @@ import type {Listing} from "@/lib/sidecar-api";
 const {
   approveListingForExportMock,
   enqueueGenerateListingMock,
+  retryListingPricingMock,
   retryPublishListingMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
+  retryListingPricingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
@@ -20,6 +22,7 @@ const {
 
 vi.mock("@/app/listing-generate-actions", () => ({
   enqueueGenerateListing: enqueueGenerateListingMock,
+  retryListingPricing: retryListingPricingMock,
 }));
 
 vi.mock("@/app/listing-actions", () => ({
@@ -110,6 +113,7 @@ describe("ListingEditForm", () => {
   beforeEach(() => {
     approveListingForExportMock.mockReset();
     enqueueGenerateListingMock.mockReset();
+    retryListingPricingMock.mockReset();
     retryPublishListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
@@ -1453,6 +1457,58 @@ describe("ListingEditForm", () => {
 
     const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
     expect(submittedFormData.get("price")).toBe("29.99");
+  });
+
+  it("does not auto-trigger pricing re-run when saving edits", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 0,
+                selected_comp_ids: [],
+                total_comp_count: 0,
+              },
+              confidence: null,
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: "research_price_suggested_price_invalid",
+              error_message: "Suggested price did not pass validation.",
+              listing_id: "LIST-001",
+              llm_price_explanation: null,
+              median_sold_price: null,
+              pricing_model_name: null,
+              provider: "soldcomps",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-4",
+              sold_count: null,
+              status: "failed",
+              suggested_price: null,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+            listing_type: "single",
+            sub_status: "review_pending",
+          },
+        )}
+      />,
+    );
+
+    await user.clear(screen.getByLabelText("Price"));
+    await user.type(screen.getByLabelText("Price"), "31.99");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(FormData),
+    );
+    expect(retryListingPricingMock).not.toHaveBeenCalled();
   });
 
   it("shows neutral message when latest_pricing_research is null or absent", () => {

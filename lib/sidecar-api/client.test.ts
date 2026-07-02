@@ -9,6 +9,7 @@ vi.mock("@/lib/config/sidecar", () => ({
 
 import {
   dismissPricingAnalysisWarnings,
+  retryPricing,
   retryPricingAnalysis,
   updateAppSettings,
   updatePricingServiceEnabled,
@@ -157,6 +158,54 @@ describe("retryPricingAnalysis", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://sidecar.example/api/listings/Single%2F000005/retry-pricing-analysis",
+      expect.objectContaining({
+        cache: "no-store",
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
+  });
+});
+
+describe("retryPricing", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts to retry-pricing path with encoded listing id", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          alreadyQueued: false,
+          job: {id: "job-1"},
+          listing: {listing_id: "Single/000005"},
+          workflow: "research_price",
+        }),
+        {
+          headers: {"content-type": "application/json"},
+          status: 200,
+        },
+      ),
+    );
+
+    await retryPricing("Single/000005");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/Single%2F000005/retry-pricing",
       expect.objectContaining({
         cache: "no-store",
         method: "POST",

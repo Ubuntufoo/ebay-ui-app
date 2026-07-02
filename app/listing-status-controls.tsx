@@ -4,10 +4,15 @@ import {useActionState, useState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {approveListingForExport} from "@/app/listing-approve-export-actions";
+import {retryListingPricing} from "@/app/listing-generate-actions";
 import {
   initialApproveListingForExportActionState,
   type ApproveListingForExportActionState,
 } from "@/app/listing-approve-export-state";
+import {
+  initialRetryPricingActionState,
+  type RetryPricingActionState,
+} from "@/app/listing-generate-state";
 import {retryPublishListingAction} from "@/app/listing-retry-publish-actions";
 import {
   initialRetryPublishListingActionState,
@@ -152,6 +157,76 @@ function RetryPublishForm({listing}: {listing: Listing}) {
   );
 }
 
+function canRetryPricing(listing: Listing): boolean {
+  const research = listing.latest_pricing_research;
+
+  return (
+    listing.status === "needs_review" &&
+    listing.sub_status === "review_pending" &&
+    listing.listing_type === "single" &&
+    research?.status === "failed" &&
+    research.error_code === "research_price_suggested_price_invalid"
+  );
+}
+
+function RetryPricingButton() {
+  const {pending} = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex min-w-36 items-center justify-center rounded-full border border-sky-900/15 bg-sky-700 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
+    >
+      {pending ? "Queueing..." : "Re-run Pricing"}
+    </button>
+  );
+}
+
+function RetryPricingForm({listing}: {listing: Listing}) {
+  const [state, formAction] = useActionState<RetryPricingActionState, FormData>(
+    retryListingPricing,
+    initialRetryPricingActionState,
+  );
+
+  return (
+    <form
+      key={`${listing.listing_id}:${listing.updated_at}:${listing.latest_pricing_research?.updated_at ?? ""}`}
+      action={formAction}
+      className="mt-4 grid gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-4"
+    >
+      <input type="hidden" name="listing_id" value={listing.listing_id} />
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-900">
+          Full pricing retry available
+        </p>
+        <p className="mt-2 text-sm leading-6 text-sky-900/80">
+          After any manual edits above, queue a fresh provider-backed pricing
+          run.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <RetryPricingButton />
+      </div>
+      {state.success ? (
+        <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          {state.success}
+        </p>
+      ) : null}
+      {state.info ? (
+        <p className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 text-sm text-stone-700">
+          {state.info}
+        </p>
+      ) : null}
+      {state.error ? (
+        <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          {state.error}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
 export function ListingStatusControls({
   listing,
   inline = false,
@@ -225,6 +300,7 @@ export function ListingReviewGate({
     !isReviewChecklistComplete ||
     !isTitleLengthValid ||
     cardConditionApprovalMessage !== null;
+  const showRetryPricing = canRetryPricing(listing);
 
   if (listing.status !== "needs_review") {
     return null;
@@ -258,6 +334,7 @@ export function ListingReviewGate({
             No saved pricing research yet.
           </p>
         )}
+        {showRetryPricing ? <RetryPricingForm listing={listing} /> : null}
       </div>
 
       <form action={approveFormAction} className="grid gap-4">

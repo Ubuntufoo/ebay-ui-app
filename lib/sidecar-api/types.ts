@@ -174,6 +174,13 @@ export interface RetryPricingAnalysisResponse {
   message?: string;
 }
 
+export interface RetryPricingResponse {
+  alreadyQueued: boolean;
+  job: Json;
+  listing: Listing;
+  workflow: "research_price";
+}
+
 export interface DismissPricingAnalysisWarningsResponse {
   listing: Listing;
 }

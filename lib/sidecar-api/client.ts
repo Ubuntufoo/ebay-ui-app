@@ -9,6 +9,7 @@ import type {
   Listing,
   ListingsResponse,
   RetryPublishListingResponse,
+  RetryPricingResponse,
   RetryPricingAnalysisResponse,
   UpdateListingInput,
   UpdateListingImageUrlsInput,
@@ -260,6 +261,21 @@ export async function retryPricingAnalysis(
 ): Promise<RetryPricingAnalysisResponse> {
   return await sidecarFetch<RetryPricingAnalysisResponse>(
     `/api/listings/${encodeURIComponent(listingId)}/retry-pricing-analysis`,
+    {
+      method: "POST",
+      headers: {
+        ...buildHeaders(),
+        "Content-Type": "application/json",
+      },
+    },
+  );
+}
+
+export async function retryPricing(
+  listingId: string,
+): Promise<RetryPricingResponse> {
+  return await sidecarFetch<RetryPricingResponse>(
+    `/api/listings/${encodeURIComponent(listingId)}/retry-pricing`,
     {
       method: "POST",
       headers: {

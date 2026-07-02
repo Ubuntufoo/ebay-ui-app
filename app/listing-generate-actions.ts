@@ -5,10 +5,18 @@ import {revalidatePath} from "next/cache";
 import {getActionErrorMessage, readTrimmedFormField} from "@/app/action-utils";
 import {toPricingModifierOptions} from "@/app/listing-pricing-modifier-options";
 import {getListingStatusLabel} from "@/app/listing-status-flow";
-import type {GenerateListingActionState} from "@/app/listing-generate-state";
+import type {
+  GenerateListingActionState,
+  RetryPricingActionState,
+} from "@/app/listing-generate-state";
 import type {ListingPricingModifierUiState} from "@/app/listing-pricing-modifier-options";
 import type {PricingModifierOptions} from "@/lib/sidecar-api";
-import {enqueueGenerateAi, SidecarApiError, updateListing} from "@/lib/sidecar-api";
+import {
+  enqueueGenerateAi,
+  retryPricing,
+  SidecarApiError,
+  updateListing,
+} from "@/lib/sidecar-api";
 
 function readPricingModifierCheckbox(
   formData: FormData,
@@ -123,6 +131,52 @@ export async function enqueueGenerateListing(
           : getActionErrorMessage(
               error,
               "An unexpected error occurred while queueing Generate AI Draft.",
+            ),
+      info: null,
+      success: null,
+    };
+  }
+}
+
+export async function retryListingPricing(
+  _previousState: RetryPricingActionState,
+  formData: FormData,
+): Promise<RetryPricingActionState> {
+  const listingId = readTrimmedFormField(formData.get("listing_id"));
+
+  if (!listingId) {
+    return {
+      error: "Listing ID is required.",
+      info: null,
+      success: null,
+    };
+  }
+
+  try {
+    const result = await retryPricing(listingId);
+    revalidatePath("/");
+
+    if (result.alreadyQueued) {
+      return {
+        error: null,
+        info: `Pricing re-run already queued for ${listingId}.`,
+        success: null,
+      };
+    }
+
+    return {
+      error: null,
+      info: null,
+      success: `Queued pricing re-run for ${listingId}. Listing now ${getListingStatusLabel(result.listing.status)}.`,
+    };
+  } catch (error) {
+    return {
+      error:
+        error instanceof SidecarApiError
+          ? error.message
+          : getActionErrorMessage(
+              error,
+              "An unexpected error occurred while queueing pricing re-run.",
             ),
       info: null,
       success: null,

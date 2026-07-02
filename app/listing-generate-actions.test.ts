@@ -1,13 +1,21 @@
 import {beforeEach, describe, expect, it, vi} from "vitest";
 
-import {enqueueGenerateListing} from "@/app/listing-generate-actions";
+import {
+  enqueueGenerateListing,
+  retryListingPricing,
+} from "@/app/listing-generate-actions";
 
-const {enqueueGenerateAiMock, revalidatePathMock, updateListingMock} =
-  vi.hoisted(() => ({
+const {
+  enqueueGenerateAiMock,
+  retryPricingMock,
+  revalidatePathMock,
+  updateListingMock,
+} = vi.hoisted(() => ({
   enqueueGenerateAiMock: vi.fn(),
+  retryPricingMock: vi.fn(),
   revalidatePathMock: vi.fn(),
   updateListingMock: vi.fn(),
-  }));
+}));
 
 vi.mock("next/cache", () => ({
   revalidatePath: revalidatePathMock,
@@ -24,12 +32,14 @@ vi.mock("@/lib/sidecar-api", () => ({
     }
   },
   enqueueGenerateAi: enqueueGenerateAiMock,
+  retryPricing: retryPricingMock,
   updateListing: updateListingMock,
 }));
 
 describe("enqueueGenerateListing", () => {
   beforeEach(() => {
     enqueueGenerateAiMock.mockReset();
+    retryPricingMock.mockReset();
     revalidatePathMock.mockReset();
     updateListingMock.mockReset();
   });
@@ -187,6 +197,91 @@ describe("enqueueGenerateListing", () => {
 
     expect(result).toEqual({
       error: "Sidecar request failed with 409.",
+      info: null,
+      success: null,
+    });
+  });
+});
+
+describe("retryListingPricing", () => {
+  beforeEach(() => {
+    retryPricingMock.mockReset();
+    revalidatePathMock.mockReset();
+  });
+
+  it("queues a full pricing re-run for a listing", async () => {
+    retryPricingMock.mockResolvedValueOnce({
+      alreadyQueued: false,
+      job: {id: "job-1"},
+      listing: {
+        status: "needs_review",
+      },
+      workflow: "research_price",
+    });
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+
+    const result = await retryListingPricing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(retryPricingMock).toHaveBeenCalledWith("LIST-001");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/");
+    expect(result).toEqual({
+      error: null,
+      info: null,
+      success: "Queued pricing re-run for LIST-001. Listing now Needs review.",
+    });
+  });
+
+  it("rejects missing listing id", async () => {
+    const result = await retryListingPricing(
+      {error: null, info: null, success: null},
+      new FormData(),
+    );
+
+    expect(retryPricingMock).not.toHaveBeenCalled();
+    expect(revalidatePathMock).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      error: "Listing ID is required.",
+      info: null,
+      success: null,
+    });
+  });
+
+  it("surfaces full pricing sidecar errors", async () => {
+    const {SidecarApiError} = await import("@/lib/sidecar-api");
+    retryPricingMock.mockRejectedValueOnce(
+      new SidecarApiError("Sidecar request failed with 409.", 409),
+    );
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+
+    const result = await retryListingPricing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(result).toEqual({
+      error: "Sidecar request failed with 409.",
+      info: null,
+      success: null,
+    });
+  });
+
+  it("surfaces unexpected full pricing retry errors", async () => {
+    retryPricingMock.mockRejectedValueOnce(new Error("retry failed"));
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+
+    const result = await retryListingPricing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(result).toEqual({
+      error: "retry failed",
       info: null,
       success: null,
     });
