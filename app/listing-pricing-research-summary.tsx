@@ -17,8 +17,131 @@ function formatCount(count: number): string {
   return new Intl.NumberFormat("en-US").format(count);
 }
 
+function formatLabel(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
 function isSucceeded(status: string): boolean {
   return status === "succeeded";
+}
+
+function FailureSummaryMessage({
+  research,
+}: {
+  research: ListingLatestPricingResearchSummary;
+}) {
+  const failureSummary = research.failure_summary;
+  const failureQuery = failureSummary?.query ?? research.query;
+  const providerFailureStatus = failureSummary?.provider_failure_status?.trim();
+
+  if (failureSummary?.reason === "provider_zero_results") {
+    return (
+      <>
+        <p className="text-sm font-medium text-amber-800">
+          Pricing research failed because the provider returned no matching sold
+          comps. Enter or confirm the price manually, then continue review.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-700">
+          {failureQuery ? <span>Query: {failureQuery}</span> : null}
+          {typeof failureSummary.requested_count === "number" ? (
+            <span>
+              Requested comps: {formatCount(failureSummary.requested_count)}
+            </span>
+          ) : null}
+          {typeof failureSummary.provider_returned_count === "number" ? (
+            <span>
+              Provider returned:{" "}
+              {formatCount(failureSummary.provider_returned_count)}
+            </span>
+          ) : null}
+        </div>
+      </>
+    );
+  }
+
+  if (failureSummary?.reason === "all_comps_rejected") {
+    const rejectedReasonCounts = failureSummary.rejected_reason_counts
+      ? Object.entries(failureSummary.rejected_reason_counts)
+      : [];
+
+    return (
+      <>
+        <p className="text-sm font-medium text-amber-800">
+          Pricing research failed because comps were found but backend
+          validation rejected them all. Enter or confirm the price manually,
+          then continue review.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-700">
+          {failureQuery ? <span>Query: {failureQuery}</span> : null}
+          {typeof failureSummary.provider_returned_count === "number" ? (
+            <span>
+              Provider returned:{" "}
+              {formatCount(failureSummary.provider_returned_count)}
+            </span>
+          ) : null}
+          {typeof failureSummary.accepted_comp_count === "number" ? (
+            <span>
+              Accepted comps: {formatCount(failureSummary.accepted_comp_count)}
+            </span>
+          ) : null}
+          {typeof failureSummary.rejected_comp_count === "number" ? (
+            <span>
+              Rejected comps: {formatCount(failureSummary.rejected_comp_count)}
+            </span>
+          ) : null}
+        </div>
+        {rejectedReasonCounts.length > 0 ? (
+          <p className="text-xs text-amber-700">
+            Rejected reasons:{" "}
+            {rejectedReasonCounts
+              .map(
+                ([reason, count]) =>
+                  `${formatLabel(reason)} (${formatCount(count)})`,
+              )
+              .join(", ")}
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  if (failureSummary?.reason === "provider_failure") {
+    return (
+      <>
+        <p className="text-sm font-medium text-amber-800">
+          Pricing research failed because the provider call did not complete.
+          Enter or confirm the price manually, then continue review.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-amber-700">
+          {failureQuery ? <span>Query: {failureQuery}</span> : null}
+          {failureSummary.provider_failure_code ? (
+            <span>Failure code: {failureSummary.provider_failure_code}</span>
+          ) : null}
+          {failureSummary.provider_failure_category ? (
+            <span>
+              Failure category:{" "}
+              {formatLabel(failureSummary.provider_failure_category)}
+            </span>
+          ) : null}
+          {providerFailureStatus ? (
+            <span>Failure status: {providerFailureStatus}</span>
+          ) : null}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="text-sm font-medium text-amber-800">
+        Pricing research failed. Enter or confirm the price manually, then
+        continue review.
+      </p>
+      {failureQuery ? (
+        <p className="text-xs text-amber-700">Query: {failureQuery}</p>
+      ) : null}
+    </>
+  );
 }
 
 function FailedSummary({
@@ -28,10 +151,7 @@ function FailedSummary({
 }) {
   return (
     <div className="mt-3 grid gap-2 rounded-2xl border border-amber-300 bg-amber-50/80 px-4 py-3">
-      <p className="text-sm font-medium text-amber-800">
-        Pricing research failed. Enter or confirm the price manually, then
-        continue review.
-      </p>
+      <FailureSummaryMessage research={research} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-800">
           {research.status}
@@ -45,9 +165,6 @@ function FailedSummary({
       ) : null}
       {research.error_message ? (
         <p className="text-sm text-amber-800">{research.error_message}</p>
-      ) : null}
-      {research.query ? (
-        <p className="text-xs text-amber-700">Query: {research.query}</p>
       ) : null}
     </div>
   );

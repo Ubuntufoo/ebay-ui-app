@@ -1327,7 +1327,7 @@ describe("ListingEditForm", () => {
     ).not.toBeNull();
   });
 
-  it("renders failed pricing research as warning-style summary without blocking approval", async () => {
+  it("renders provider-zero failed pricing research without blocking approval", async () => {
     const user = userEvent.setup();
 
     render(
@@ -1348,6 +1348,12 @@ describe("ListingEditForm", () => {
               created_at: "2026-06-19T00:00:00.000Z",
               error_code: "provider_rate_limited",
               error_message: "SoldComps API rate limit exceeded.",
+              failure_summary: {
+                provider_returned_count: 0,
+                query: "2023 Topps Chrome Mike Trout",
+                reason: "provider_zero_results",
+                requested_count: 25,
+              },
               listing_id: "LIST-001",
               llm_price_explanation: null,
               median_sold_price: null,
@@ -1368,10 +1374,12 @@ describe("ListingEditForm", () => {
     expect(screen.getByText("Pricing research")).not.toBeNull();
     expect(
       screen.getByText(
-        /Pricing research failed\. Enter or confirm the price manually/i,
+        /provider returned no matching sold comps/i,
       ),
     ).not.toBeNull();
     expect(screen.getByText("failed")).not.toBeNull();
+    expect(screen.getByText("Requested comps: 25")).not.toBeNull();
+    expect(screen.getByText("Provider returned: 0")).not.toBeNull();
     expect(
       screen.getByText("provider_rate_limited", {exact: false}),
     ).not.toBeNull();
@@ -1400,6 +1408,227 @@ describe("ListingEditForm", () => {
     }
 
     expect(approveButton).toHaveProperty("disabled", false);
+  });
+
+  it("renders all-comps-rejected pricing failure details", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 5,
+                rejected_comp_ids: ["comp-1", "comp-2", "comp-3", "comp-4", "comp-5"],
+                selected_comp_count: 0,
+                selected_comp_ids: [],
+                total_comp_count: 5,
+              },
+              confidence: null,
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: "research_price_suggested_price_invalid",
+              error_message: "Suggested price did not pass validation.",
+              failure_summary: {
+                accepted_comp_count: 0,
+                provider_returned_count: 5,
+                query: "2023 Topps Chrome Mike Trout",
+                reason: "all_comps_rejected",
+                rejected_comp_count: 5,
+                rejected_reason_counts: {
+                  price_outlier: 3,
+                  title_mismatch: 2,
+                },
+              },
+              listing_id: "LIST-001",
+              llm_price_explanation: null,
+              median_sold_price: null,
+              pricing_model_name: null,
+              provider: "soldcomps",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-2b",
+              sold_count: null,
+              status: "failed",
+              suggested_price: null,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(
+      screen.getByText(/backend validation rejected them all/i),
+    ).not.toBeNull();
+    expect(screen.getByText("Provider returned: 5")).not.toBeNull();
+    expect(screen.getByText("Accepted comps: 0")).not.toBeNull();
+    expect(screen.getByText("Rejected comps: 5")).not.toBeNull();
+    expect(
+      screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(
+        "Rejected reasons: price outlier (3), title mismatch (2)",
+      ),
+    ).not.toBeNull();
+  });
+
+  it("renders provider-failure pricing failure details", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 0,
+                selected_comp_ids: [],
+                total_comp_count: 0,
+              },
+              confidence: null,
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: "provider_timeout",
+              error_message: "Apify request timed out.",
+              failure_summary: {
+                provider_failure_category: "retryable_timeout",
+                provider_failure_code: "apify_timeout",
+                provider_failure_status: "504",
+                query: "2023 Topps Chrome Mike Trout",
+                reason: "provider_failure",
+              },
+              listing_id: "LIST-001",
+              llm_price_explanation: null,
+              median_sold_price: null,
+              pricing_model_name: null,
+              provider: "apify",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-2c",
+              sold_count: null,
+              status: "failed",
+              suggested_price: null,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(
+      screen.getByText(/provider call did not complete/i),
+    ).not.toBeNull();
+    expect(screen.getByText("Failure code: apify_timeout")).not.toBeNull();
+    expect(
+      screen.getByText("Failure category: retryable timeout"),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
+    ).not.toBeNull();
+    expect(screen.getByText("Failure status: 504")).not.toBeNull();
+    expect(screen.getByText("Apify request timed out.")).not.toBeNull();
+  });
+
+  it("falls back to the generic failed pricing summary for unknown or missing failure_summary", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 0,
+                selected_comp_ids: [],
+                total_comp_count: 0,
+              },
+              confidence: null,
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: "provider_error",
+              error_message: "Provider returned an unexpected response.",
+              failure_summary: {
+                reason: "unknown",
+              },
+              listing_id: "LIST-001",
+              llm_price_explanation: null,
+              median_sold_price: null,
+              pricing_model_name: null,
+              provider: "soldcomps",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-2d",
+              sold_count: null,
+              status: "failed",
+              suggested_price: null,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /Pricing research failed\. Enter or confirm the price manually/i,
+      ),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Provider returned an unexpected response."),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
+    ).not.toBeNull();
+
+    cleanup();
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 0,
+                selected_comp_ids: [],
+                total_comp_count: 0,
+              },
+              confidence: null,
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: "provider_error",
+              error_message: "Provider returned an unexpected response.",
+              listing_id: "LIST-001",
+              llm_price_explanation: null,
+              median_sold_price: null,
+              pricing_model_name: null,
+              provider: "soldcomps",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-2e",
+              sold_count: null,
+              status: "failed",
+              suggested_price: null,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /Pricing research failed\. Enter or confirm the price manually/i,
+      ),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Provider returned an unexpected response."),
+    ).not.toBeNull();
+    expect(
+      screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
+    ).not.toBeNull();
   });
 
   it("allows saving price edits when pricing research failed and suggested_price is null", async () => {
