@@ -5,10 +5,15 @@ import {
   retryPricingAnalysis as retryPricingAnalysisRequest,
 } from "@/lib/sidecar-api";
 
-export type RetryPricingAnalysisResult = {
-  error: string | null;
-  success: boolean;
-};
+export type RetryPricingAnalysisResult =
+  | {
+      error: null;
+      success: true;
+    }
+  | {
+      error: string;
+      success: false;
+    };
 
 export async function retryPricingAnalysis(
   listingId: string,

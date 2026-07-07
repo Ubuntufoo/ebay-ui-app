@@ -8,9 +8,9 @@ import type {Listing} from "@/lib/sidecar-api";
 
 export type DismissPricingAnalysisWarningsResult =
   | {
-      error: string | null;
+      error: string;
       listing: null;
-      success: boolean;
+      success: false;
     }
   | {
       error: null;

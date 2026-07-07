@@ -439,10 +439,10 @@ export function QueueErrorsPanel({
 
       if (result.success) {
         onRetryComplete?.(listingId);
-      } else if (result.error) {
+      } else {
         setDismissErrors((previous) => {
           const next = new Map(previous);
-          next.set(dismissKey, result.error!);
+          next.set(dismissKey, result.error);
           return next;
         });
       }
@@ -473,10 +473,10 @@ export function QueueErrorsPanel({
 
       if (result.success) {
         onRetryComplete?.(listingId);
-      } else if (result.error) {
+      } else {
         setRetryErrors((previous) => {
           const next = new Map(previous);
-          next.set(listingId, result.error as string);
+          next.set(listingId, result.error);
           return next;
         });
       }
