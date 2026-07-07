@@ -53,6 +53,8 @@ type SoldCompsUsagePresentation = {
   state: "error" | "normal";
 };
 
+type PanelSectionTone = "error" | "warning";
+
 function isPublishedListing(status: Listing["status"] | string): boolean {
   const normalizedStatus = String(status);
 
@@ -72,6 +74,203 @@ function getPricingWarningListings(listings: Listing[]): Listing[] {
 function hasRetryableWarnings(listing: Listing): boolean {
   return (listing.pricing_analysis_warnings ?? []).some(
     (warning) => warning.retryable,
+  );
+}
+
+function getDismissKey(listingId: string, code: string): string {
+  return `${listingId}::${code}`;
+}
+
+function buildListingErrorParts(listing: Listing): string[] {
+  const errorParts = [
+    `${listing.listing_id} / ${String(listing.status)} / ${String(listing.sub_status)}`,
+  ];
+
+  if (isNonEmptyString(listing.last_error_code)) {
+    errorParts.push(`code ${listing.last_error_code.trim()}`);
+  }
+
+  if (isNonEmptyString(listing.last_error_message)) {
+    errorParts.push(`message ${listing.last_error_message.trim()}`);
+  }
+
+  return errorParts;
+}
+
+function PanelSectionHeader({
+  count,
+  title,
+  tone,
+}: {
+  count: number;
+  title: string;
+  tone: PanelSectionTone;
+}) {
+  const borderClass =
+    tone === "warning" ? "bg-amber-200 text-amber-950" : "bg-rose-200 text-rose-950";
+  const textClass = tone === "warning" ? "text-amber-100" : "text-rose-100";
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h3 className={`text-xs font-bold uppercase tracking-[0.2em] ${textClass}`}>
+        {title}
+      </h3>
+      <span
+        className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${borderClass}`}
+      >
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function PricingWarningEntry({
+  dismissErrors,
+  dismissingWarningKeys,
+  listing,
+  onDismiss,
+  onRetry,
+  retryErrors,
+  retryingListingIds,
+  showDivider,
+}: {
+  dismissErrors: Map<string, string>;
+  dismissingWarningKeys: Set<string>;
+  listing: Listing;
+  onDismiss: (listingId: string, code: string) => Promise<void>;
+  onRetry: (listingId: string) => Promise<void>;
+  retryErrors: Map<string, string>;
+  retryingListingIds: Set<string>;
+  showDivider: boolean;
+}) {
+  const warnings = listing.pricing_analysis_warnings ?? [];
+  const isRetrying = retryingListingIds.has(listing.listing_id);
+  const retryError = retryErrors.get(listing.listing_id);
+  const showRetry = hasRetryableWarnings(listing);
+
+  return (
+    <li className="pl-1 pb-3 last:pb-0">
+      {warnings.map((warning, warningIndex) => {
+        const modelSuffix = warning.model_name ? ` [${warning.model_name}]` : "";
+        const dismissKey = getDismissKey(listing.listing_id, warning.code);
+        const isDismissing = dismissingWarningKeys.has(dismissKey);
+        const dismissError = dismissErrors.get(dismissKey);
+
+        return (
+          <div
+            key={`${listing.id}-${warning.code}`}
+            className={warningIndex > 0 ? "mt-1.5" : undefined}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <span className="font-mono font-semibold uppercase tracking-[0.12em]">
+                {warningIndex === 0 ? listing.listing_id : null} {warning.summary}
+                {modelSuffix}
+              </span>
+              <button
+                type="button"
+                disabled={isDismissing}
+                onClick={() => void onDismiss(listing.listing_id, warning.code)}
+                className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
+                  isDismissing
+                    ? "border-amber-400/30 bg-amber-400/10 text-amber-300/60 cursor-wait"
+                    : "border-amber-300/50 bg-amber-300/10 text-amber-100 hover:border-amber-200 hover:bg-amber-200/20 hover:text-amber-50"
+                }`}
+              >
+                {isDismissing ? "Dismissing…" : "\u2715"}
+              </button>
+            </div>
+            {dismissError ? (
+              <p className="mt-1.5 text-xs text-amber-300/80">{dismissError}</p>
+            ) : null}
+          </div>
+        );
+      })}
+      <div className="mt-2">
+        {showRetry ? (
+          <button
+            type="button"
+            disabled={isRetrying}
+            onClick={() => void onRetry(listing.listing_id)}
+            className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
+              isRetrying
+                ? "border-amber-400/30 bg-amber-400/10 text-amber-300/60 cursor-wait"
+                : "border-amber-300/50 bg-amber-300/10 text-amber-100 hover:border-amber-200 hover:bg-amber-200/20 hover:text-amber-50"
+            }`}
+          >
+            {isRetrying ? "Retrying…" : "Retry pricing analysis"}
+          </button>
+        ) : null}
+      </div>
+      {retryError ? (
+        <p className="mt-1.5 text-xs text-amber-300/80">{retryError}</p>
+      ) : null}
+      {showDivider ? <hr className="mt-3 border-amber-300/50" /> : null}
+    </li>
+  );
+}
+
+function PricingWarningsSection({
+  dismissErrors,
+  dismissingWarningKeys,
+  listings,
+  onDismiss,
+  onRetry,
+  retryErrors,
+  retryingListingIds,
+}: {
+  dismissErrors: Map<string, string>;
+  dismissingWarningKeys: Set<string>;
+  listings: Listing[];
+  onDismiss: (listingId: string, code: string) => Promise<void>;
+  onRetry: (listingId: string) => Promise<void>;
+  retryErrors: Map<string, string>;
+  retryingListingIds: Set<string>;
+}) {
+  return (
+    <section className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-950/20 px-4 py-4">
+      <PanelSectionHeader
+        count={listings.length}
+        title="Pricing analysis warnings"
+        tone="warning"
+      />
+
+      <ol className="mt-3 list-decimal pl-5 text-sm leading-6 text-amber-100 marker:font-semibold marker:text-amber-200">
+        {listings.map((listing, index) => (
+          <PricingWarningEntry
+            key={listing.id}
+            dismissErrors={dismissErrors}
+            dismissingWarningKeys={dismissingWarningKeys}
+            listing={listing}
+            onDismiss={onDismiss}
+            onRetry={onRetry}
+            retryErrors={retryErrors}
+            retryingListingIds={retryingListingIds}
+            showDivider={index < listings.length - 1}
+          />
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function ErrorsSection({listings}: {listings: Listing[]}) {
+  return (
+    <section className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-4">
+      <PanelSectionHeader count={listings.length} title="Errors" tone="error" />
+
+      <ol className="mt-3 list-decimal pl-5 text-sm leading-6 text-rose-100 marker:font-semibold marker:text-rose-200">
+        {listings.map((listing, index) => (
+          <li key={listing.id} className="pl-1 pb-3 last:pb-0">
+            <span className="font-mono font-semibold uppercase tracking-[0.12em]">
+              {buildListingErrorParts(listing).join(" · ")}
+            </span>
+            {index < listings.length - 1 ? (
+              <hr className="mt-3 border-rose-300/50" />
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -217,7 +416,7 @@ export function QueueErrorsPanel({
 
   const handleDismiss = useCallback(
     async (listingId: string, code: string) => {
-      const dismissKey = `${listingId}::${code}`;
+      const dismissKey = getDismissKey(listingId, code);
 
       if (dismissingWarningKeys.has(dismissKey)) {
         return;
@@ -358,99 +557,15 @@ export function QueueErrorsPanel({
       </div>
 
       {warningListings.length > 0 && !errorMessage ? (
-        <section className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-950/20 px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-amber-100">
-              Pricing analysis warnings
-            </h3>
-            <span className="rounded-full bg-amber-200 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-950">
-              {warningListings.length}
-            </span>
-          </div>
-
-          <ol className="mt-3 list-decimal pl-5 text-sm leading-6 text-amber-100 marker:font-semibold marker:text-amber-200">
-            {warningListings.map((listing, index) => {
-              const warnings = listing.pricing_analysis_warnings ?? [];
-              const isRetrying = retryingListingIds.has(listing.listing_id);
-              const retryError = retryErrors.get(listing.listing_id);
-              const showRetry = hasRetryableWarnings(listing);
-
-              return (
-                <li key={listing.id} className="pl-1 pb-3 last:pb-0">
-                  {warnings.map((warning, warningIndex) => {
-                    const modelSuffix = warning.model_name
-                      ? ` [${warning.model_name}]`
-                      : "";
-                    const dismissKey = `${listing.listing_id}::${warning.code}`;
-                    const isDismissing = dismissingWarningKeys.has(dismissKey);
-                    const dismissError = dismissErrors.get(dismissKey);
-
-                    return (
-                      <div
-                        key={`${listing.id}-${warning.code}`}
-                        className={warningIndex > 0 ? "mt-1.5" : undefined}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <span className="font-mono font-semibold uppercase tracking-[0.12em]">
-                            {warningIndex === 0 ? listing.listing_id : null}{" "}
-                            {warning.summary}
-                            {modelSuffix}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={isDismissing}
-                            onClick={() =>
-                              void handleDismiss(
-                                listing.listing_id,
-                                warning.code,
-                              )
-                            }
-                            className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
-                              isDismissing
-                                ? "border-amber-400/30 bg-amber-400/10 text-amber-300/60 cursor-wait"
-                                : "border-amber-300/50 bg-amber-300/10 text-amber-100 hover:border-amber-200 hover:bg-amber-200/20 hover:text-amber-50"
-                            }`}
-                          >
-                            {isDismissing ? "Dismissing…" : "\u2715"}
-                          </button>
-                        </div>
-                        {dismissError ? (
-                          <p className="mt-1.5 text-xs text-amber-300/80">
-                            {dismissError}
-                          </p>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                  <div className="mt-2">
-                    {showRetry ? (
-                      <button
-                        type="button"
-                        disabled={isRetrying}
-                        onClick={() => void handleRetry(listing.listing_id)}
-                        className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] transition ${
-                          isRetrying
-                            ? "border-amber-400/30 bg-amber-400/10 text-amber-300/60 cursor-wait"
-                            : "border-amber-300/50 bg-amber-300/10 text-amber-100 hover:border-amber-200 hover:bg-amber-200/20 hover:text-amber-50"
-                        }`}
-                      >
-                        {isRetrying ? "Retrying…" : "Retry pricing analysis"}
-                      </button>
-                    ) : null}
-                  </div>
-                  {retryError ? (
-                    <p className="mt-1.5 text-xs text-amber-300/80">
-                      {retryError}
-                    </p>
-                  ) : null}
-                  {index < warningListings.length - 1 ? (
-                    <hr className="mt-3 border-amber-300/50" />
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        </section>
+        <PricingWarningsSection
+          dismissErrors={dismissErrors}
+          dismissingWarningKeys={dismissingWarningKeys}
+          listings={warningListings}
+          onDismiss={handleDismiss}
+          onRetry={handleRetry}
+          retryErrors={retryErrors}
+          retryingListingIds={retryingListingIds}
+        />
       ) : null}
 
       {errorMessage ? (
@@ -458,43 +573,7 @@ export function QueueErrorsPanel({
           {errorMessage}
         </p>
       ) : errorListings.length > 0 ? (
-        <section className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-rose-100">
-              Errors
-            </h3>
-            <span className="rounded-full bg-rose-200 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-rose-950">
-              {errorListings.length}
-            </span>
-          </div>
-
-          <ol className="mt-3 list-decimal pl-5 text-sm leading-6 text-rose-100 marker:font-semibold marker:text-rose-200">
-            {errorListings.map((listing, index) => {
-              const errorParts = [
-                `${listing.listing_id} / ${String(listing.status)} / ${String(listing.sub_status)}`,
-              ];
-
-              if (isNonEmptyString(listing.last_error_code)) {
-                errorParts.push(`code ${listing.last_error_code.trim()}`);
-              }
-
-              if (isNonEmptyString(listing.last_error_message)) {
-                errorParts.push(`message ${listing.last_error_message.trim()}`);
-              }
-
-              return (
-                <li key={listing.id} className="pl-1 pb-3 last:pb-0">
-                  <span className="font-mono font-semibold uppercase tracking-[0.12em]">
-                    {errorParts.join(" · ")}
-                  </span>
-                  {index < errorListings.length - 1 ? (
-                    <hr className="mt-3 border-rose-300/50" />
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        </section>
+        <ErrorsSection listings={errorListings} />
       ) : null}
     </section>
   );

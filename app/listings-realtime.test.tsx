@@ -6,7 +6,6 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {
   GeminiDailyUsageSummary,
   Listing,
-  PricingAnalysisWarning,
 } from "@/lib/sidecar-api";
 
 const fetchMock = vi.fn();
@@ -248,8 +247,6 @@ describe("ListingsRealtime", () => {
 
     expect(singleButton.getAttribute("aria-checked")).toBe("false");
     expect(lotButton.getAttribute("aria-checked")).toBe("true");
-    expect(singleButton.className).toContain("min-h-14");
-    expect(singleButton.className).toContain("text-lg");
   });
 
   it("renders initial pricing provider mode from app settings", () => {

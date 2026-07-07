@@ -195,12 +195,12 @@ export function ListingsRealtime({
       void supabase.removeChannel(channel);
     };
   }, [
+    fetchAndSetListings,
     realtimeAnonKey,
     realtimeDebounceMs,
     realtimeSchema,
     realtimeTable,
     realtimeUrl,
-    refreshPath,
   ]);
 
   async function handlePricingProviderChange(nextMode: PricingProviderMode) {

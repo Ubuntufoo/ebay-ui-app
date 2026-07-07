@@ -126,23 +126,21 @@ function createDismissAction(
   behaviour: "resolve" | "reject" = "resolve",
   errorMessage?: string,
 ) {
-  return vi
-    .fn()
-    .mockImplementation(async (_listingId: string, _codes: string[]) => {
-      if (behaviour === "reject") {
-        return {
-          error: errorMessage ?? "Dismiss failed.",
-          listing: null,
-          success: false,
-        };
-      }
-
+  return vi.fn().mockImplementation(async (_listingId: string) => {
+    if (behaviour === "reject") {
       return {
-        error: null,
-        listing: {listing_id: _listingId} as Listing,
-        success: true,
+        error: errorMessage ?? "Dismiss failed.",
+        listing: null,
+        success: false,
       };
-    });
+    }
+
+    return {
+      error: null,
+      listing: {listing_id: _listingId} as Listing,
+      success: true,
+    };
+  });
 }
 
 afterEach(() => {

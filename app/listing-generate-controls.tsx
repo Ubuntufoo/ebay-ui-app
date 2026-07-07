@@ -1,6 +1,6 @@
 "use client";
 
-import {startTransition, useActionState, useEffect, useState} from "react";
+import {startTransition, useActionState, useState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {
@@ -46,24 +46,40 @@ function PricingModifierCheckbox({
   );
 }
 
-function GenerateControlsFields({
-  listing,
-  onModifierError,
-}: {
-  listing: Listing;
-  onModifierError: (message: string | null) => void;
-}) {
+function getModifierStateResetKey(listing: Listing): string {
+  const modifierState = getPricingModifierUiState(listing.item_specifics);
+
+  return `${listing.listing_id}:${modifierState.graded}:${modifierState.auto}:${modifierState.variant}`;
+}
+
+function SellerHintsField({sellerHints}: {sellerHints: string | null}) {
+  const {pending} = useFormStatus();
+
+  return (
+    <label className="block">
+      <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
+        Seller hints
+      </span>
+      <textarea
+        name="seller_hints"
+        defaultValue={sellerHints ?? ""}
+        rows={3}
+        disabled={pending}
+        placeholder="Optional hints for draft generation"
+        className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+      />
+    </label>
+  );
+}
+
+function PricingModifierControls({listing}: {listing: Listing}) {
   const {pending} = useFormStatus();
   const [modifierState, setModifierState] =
     useState<ListingPricingModifierUiState>(() =>
       getPricingModifierUiState(listing.item_specifics),
     );
+  const [modifierError, setModifierError] = useState<string | null>(null);
   const [isSavingModifiers, setIsSavingModifiers] = useState(false);
-
-  useEffect(() => {
-    setModifierState(getPricingModifierUiState(listing.item_specifics));
-    onModifierError(null);
-  }, [listing.item_specifics, onModifierError]);
 
   function updateModifier(
     key: keyof ListingPricingModifierUiState,
@@ -76,7 +92,7 @@ function GenerateControlsFields({
     };
 
     setModifierState(nextState);
-    onModifierError(null);
+    setModifierError(null);
     setIsSavingModifiers(true);
 
     startTransition(async () => {
@@ -87,7 +103,7 @@ function GenerateControlsFields({
 
       if (result.error) {
         setModifierState(previousState);
-        onModifierError(result.error);
+        setModifierError(result.error);
       }
 
       setIsSavingModifiers(false);
@@ -96,19 +112,6 @@ function GenerateControlsFields({
 
   return (
     <>
-      <label className="block">
-        <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-stone-500">
-          Seller hints
-        </span>
-        <textarea
-          name="seller_hints"
-          defaultValue={listing.seller_hints ?? ""}
-          rows={3}
-          disabled={pending}
-          placeholder="Optional hints for draft generation"
-          className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
-        />
-      </label>
       <input
         type="hidden"
         name="exclude_graded"
@@ -153,6 +156,11 @@ function GenerateControlsFields({
           removed after results return, even when this toggle is off.
         </p>
       </div>
+      {modifierError ? (
+        <p className="max-w-xl rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          {modifierError}
+        </p>
+      ) : null}
     </>
   );
 }
@@ -162,7 +170,6 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
     GenerateListingActionState,
     FormData
   >(enqueueGenerateListing, initialGenerateListingActionState);
-  const [modifierError, setModifierError] = useState<string | null>(null);
 
   if (listing.status !== "assets_ready") {
     return null;
@@ -183,16 +190,12 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
       </div>
       <form action={formAction} className="mt-4 grid gap-4">
         <input type="hidden" name="listing_id" value={listing.listing_id} />
-        <GenerateControlsFields
+        <SellerHintsField sellerHints={listing.seller_hints} />
+        <PricingModifierControls
+          key={getModifierStateResetKey(listing)}
           listing={listing}
-          onModifierError={setModifierError}
         />
       </form>
-      {modifierError ? (
-        <p className="mt-4 max-w-xl rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {modifierError}
-        </p>
-      ) : null}
       {state.error ? (
         <p className="mt-4 max-w-xl rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
           {state.error}

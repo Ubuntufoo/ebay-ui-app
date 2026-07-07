@@ -121,8 +121,14 @@ describe("ListingGenerateControls", () => {
     await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
 
     expect(enqueueGenerateListingMock).toHaveBeenCalled();
-    const submittedFormData = enqueueGenerateListingMock.mock
-      .calls[0]?.[1] as FormData;
+    const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
+
+    expect(submittedFormData).toBeInstanceOf(FormData);
+
+    if (!(submittedFormData instanceof FormData)) {
+      throw new TypeError("Expected Generate AI Draft submission to use FormData.");
+    }
+
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
     expect(submittedFormData.get("seller_hints")).toBe("Use padded envelope");
     expect(submittedFormData.get("exclude_graded")).toBe("true");
@@ -221,6 +227,37 @@ describe("ListingGenerateControls", () => {
         graded: false,
         variant: false,
       },
+    );
+  });
+
+  it("rehydrates modifier state from updated item specifics without clearing seller hints", async () => {
+    const user = userEvent.setup();
+    const {rerender} = render(
+      <ListingGenerateControls listing={buildListing("assets_ready")} />,
+    );
+
+    const sellerHints = screen.getByLabelText("Seller hints");
+    await user.type(sellerHints, "Do not remount this field");
+
+    rerender(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            pricingModifierOptions: {
+              excludeGraded: false,
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("checkbox", {name: "Pre-filter graded comps"}),
+    ).toHaveProperty("checked", false);
+    expect(screen.getByLabelText("Seller hints")).toHaveProperty(
+      "value",
+      "Do not remount this field",
     );
   });
 
