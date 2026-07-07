@@ -17,11 +17,17 @@ Keep backend-only work in the separate `backend-services` repo. In this repo, pr
 
 - `app/` - App Router pages, route handlers, server actions, and UI state modules
 - `app/api/` - local API routes used by the UI
+- `lib/` - sidecar client, config, Supabase helpers, and shared UI-side utilities
 - `app/*.test.tsx` / `app/*.test.ts` - Vitest coverage for UI and state logic
 - `README.md` - local setup, architecture notes, and command summary
 - `env.example` - UI environment variable template
 
 Shared delegate root alias for this repo: `ebay-ui-app`.
+
+## Repo-Aware Paths
+
+- Existing top-level code/test roots here: `app/`, `lib/`, and colocated tests under `app/*.test.ts[x]` and `lib/**/*.test.ts`.
+- Omit absent generic roots like `components/`, `src/`, and `__tests__/` from lint/test/rg/delegate commands; use repo-aware presets such as `rg --files app lib`, `eslint app lib`, and explicit `app/...` or `lib/...` Vitest paths.
 
 ## Environment
 
