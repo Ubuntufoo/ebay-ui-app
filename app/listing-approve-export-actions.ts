@@ -5,11 +5,7 @@ import {revalidatePath} from "next/cache";
 import {getActionErrorMessage, readTrimmedFormField} from "@/app/action-utils";
 import {getListingStatusLabel} from "@/app/listing-status-flow";
 import type {ApproveListingForExportActionState} from "@/app/listing-approve-export-state";
-import {
-  SidecarApiError,
-  getListing,
-  updateListingWorkflowState,
-} from "@/lib/sidecar-api";
+import {getListing, updateListingWorkflowState} from "@/lib/sidecar-api";
 
 export async function approveListingForExport(
   _previousState: ApproveListingForExportActionState,
@@ -54,13 +50,10 @@ export async function approveListingForExport(
     };
   } catch (error) {
     return {
-      error:
-        error instanceof SidecarApiError
-          ? error.message
-          : getActionErrorMessage(
-              error,
-              "An unexpected error occurred while approving listing for export.",
-            ),
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while approving listing for export.",
+      ),
       success: null,
     };
   }

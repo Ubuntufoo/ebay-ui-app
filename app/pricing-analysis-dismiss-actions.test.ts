@@ -117,4 +117,22 @@ describe("dismissPricingAnalysisWarnings action", () => {
       success: false,
     });
   });
+
+  it("prefers sidecar response message when available", async () => {
+    const {SidecarApiError} = await import("@/lib/sidecar-api");
+    dismissPricingAnalysisWarningsMock.mockRejectedValue(
+      new SidecarApiError("Sidecar request failed with 409.", 409, {
+        error: "invalid_request",
+        message: "Warning code is not dismissible.",
+      }),
+    );
+
+    await expect(
+      dismissPricingAnalysisWarnings("LIST-001", ["llm_analysis_failed"]),
+    ).resolves.toEqual({
+      error: "Warning code is not dismissible.",
+      listing: null,
+      success: false,
+    });
+  });
 });

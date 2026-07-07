@@ -4,7 +4,7 @@ import {revalidatePath} from "next/cache";
 
 import {readTrimmedFormField, getActionErrorMessage} from "@/app/action-utils";
 import type {Json, UpdateListingInput} from "@/lib/sidecar-api/types";
-import {SidecarApiError, updateListing} from "@/lib/sidecar-api";
+import {updateListing} from "@/lib/sidecar-api";
 import type {SaveListingEditsActionState} from "@/app/listing-edit-state";
 
 function readNumericField(value: FormDataEntryValue | null): {
@@ -124,13 +124,10 @@ export async function saveListingEdits(
     };
   } catch (error) {
     return {
-      error:
-        error instanceof SidecarApiError
-          ? error.message
-          : getActionErrorMessage(
-              error,
-              "An unexpected error occurred while saving listing edits.",
-            ),
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while saving listing edits.",
+      ),
       success: false,
     };
   }

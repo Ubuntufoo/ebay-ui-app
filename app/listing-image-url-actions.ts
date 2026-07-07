@@ -5,7 +5,7 @@ import {revalidatePath} from "next/cache";
 import {getActionErrorMessage, readTrimmedFormField} from "@/app/action-utils";
 import {initialSaveListingImageUrlsActionState} from "@/app/listing-image-url-state";
 import {parseListingImageUrlsInput} from "@/app/listing-image-url-utils";
-import {SidecarApiError, updateListingImageUrls} from "@/lib/sidecar-api";
+import {updateListingImageUrls} from "@/lib/sidecar-api";
 import type {SaveListingImageUrlsActionState} from "@/app/listing-image-url-state";
 
 export async function saveListingImageUrls(
@@ -42,13 +42,10 @@ export async function saveListingImageUrls(
     };
   } catch (error) {
     return {
-      error:
-        error instanceof SidecarApiError
-          ? error.message
-          : getActionErrorMessage(
-              error,
-              "An unexpected error occurred while saving image URLs.",
-            ),
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while saving image URLs.",
+      ),
       success: false,
     };
   }

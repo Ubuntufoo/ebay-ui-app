@@ -49,4 +49,19 @@ describe("retryPricingAnalysis action", () => {
       success: false,
     });
   });
+
+  it("prefers sidecar response message when available", async () => {
+    const {SidecarApiError} = await import("@/lib/sidecar-api");
+    retryPricingAnalysisMock.mockRejectedValue(
+      new SidecarApiError("Sidecar request failed with 429.", 429, {
+        error: "rate_limited",
+        message: "Pricing provider is rate limited.",
+      }),
+    );
+
+    await expect(retryPricingAnalysis("LIST-001")).resolves.toEqual({
+      error: "Pricing provider is rate limited.",
+      success: false,
+    });
+  });
 });

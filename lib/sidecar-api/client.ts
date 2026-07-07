@@ -110,6 +110,20 @@ async function sidecarFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return await parseJson<T>(response);
 }
 
+function buildJsonRequestInit(
+  method: "PATCH" | "POST",
+  body?: unknown,
+): RequestInit {
+  return {
+    method,
+    headers: {
+      ...buildHeaders(),
+      "Content-Type": "application/json",
+    },
+    ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+  };
+}
+
 export async function listListings(): Promise<Listing[]> {
   const response = await sidecarFetch<ListingsResponse>("/api/listings");
   return response.listings;
@@ -134,14 +148,10 @@ export async function updatePricingServiceEnabled(
 export async function updateAppSettings(
   patch: UpdateAppSettingsInput,
 ): Promise<AppSettings> {
-  return await sidecarFetch<AppSettings>("/api/app-settings", {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-    headers: {
-      ...buildHeaders(),
-      "Content-Type": "application/json",
-    },
-  });
+  return await sidecarFetch<AppSettings>(
+    "/api/app-settings",
+    buildJsonRequestInit("PATCH", patch),
+  );
 }
 
 export async function getGeminiUsage(): Promise<GeminiDailyUsageSummary> {
@@ -177,14 +187,7 @@ export async function updateListing(
 ): Promise<Listing> {
   return await sidecarFetch<Listing>(
     `/api/listings/${encodeURIComponent(listingId)}`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(mapUpdateListingInput(patch)),
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("PATCH", mapUpdateListingInput(patch)),
   );
 }
 
@@ -194,14 +197,7 @@ export async function updateListingImageUrls(
 ): Promise<Listing> {
   return await sidecarFetch<Listing>(
     `/api/listings/${encodeURIComponent(listingId)}/image-urls`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(input),
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("PATCH", input),
   );
 }
 
@@ -211,14 +207,7 @@ export async function updateListingWorkflowState(
 ): Promise<Listing> {
   return await sidecarFetch<Listing>(
     `/api/listings/${encodeURIComponent(listingId)}/workflow-state`,
-    {
-      method: "PATCH",
-      body: JSON.stringify(input),
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("PATCH", input),
   );
 }
 
@@ -228,16 +217,9 @@ export async function enqueueGenerateAi(
 ): Promise<EnqueueGenerateAiResponse> {
   return await sidecarFetch<EnqueueGenerateAiResponse>(
     `/api/listings/${encodeURIComponent(listingId)}/generate-ai`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        sellerHints: input.sellerHints ?? null,
-      }),
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("POST", {
+      sellerHints: input.sellerHints ?? null,
+    }),
   );
 }
 
@@ -246,13 +228,7 @@ export async function retryPublishListing(
 ): Promise<RetryPublishListingResponse> {
   return await sidecarFetch<RetryPublishListingResponse>(
     `/api/listings/${encodeURIComponent(listingId)}/retry`,
-    {
-      method: "POST",
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("POST"),
   );
 }
 
@@ -261,13 +237,7 @@ export async function retryPricingAnalysis(
 ): Promise<RetryPricingAnalysisResponse> {
   return await sidecarFetch<RetryPricingAnalysisResponse>(
     `/api/listings/${encodeURIComponent(listingId)}/retry-pricing-analysis`,
-    {
-      method: "POST",
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("POST"),
   );
 }
 
@@ -276,13 +246,7 @@ export async function retryPricing(
 ): Promise<RetryPricingResponse> {
   return await sidecarFetch<RetryPricingResponse>(
     `/api/listings/${encodeURIComponent(listingId)}/retry-pricing`,
-    {
-      method: "POST",
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("POST"),
   );
 }
 
@@ -292,14 +256,7 @@ export async function dismissPricingAnalysisWarnings(
 ): Promise<Listing> {
   const response = await sidecarFetch<{listing: Listing}>(
     `/api/listings/${encodeURIComponent(listingId)}/pricing-analysis-warnings/dismiss`,
-    {
-      method: "POST",
-      body: JSON.stringify({codes}),
-      headers: {
-        ...buildHeaders(),
-        "Content-Type": "application/json",
-      },
-    },
+    buildJsonRequestInit("POST", {codes}),
   );
 
   return response.listing;

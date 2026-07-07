@@ -14,7 +14,6 @@ import type {PricingModifierOptions} from "@/lib/sidecar-api";
 import {
   enqueueGenerateAi,
   retryPricing,
-  SidecarApiError,
   updateListing,
 } from "@/lib/sidecar-api";
 
@@ -72,13 +71,10 @@ export async function saveListingPricingModifierOptions(
     return {error: null};
   } catch (error) {
     return {
-      error:
-        error instanceof SidecarApiError
-          ? error.message
-          : getActionErrorMessage(
-              error,
-              "An unexpected error occurred while saving pricing modifiers.",
-            ),
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while saving pricing modifiers.",
+      ),
     };
   }
 }
@@ -125,13 +121,10 @@ export async function enqueueGenerateListing(
     };
   } catch (error) {
     return {
-      error:
-        error instanceof SidecarApiError
-          ? error.message
-          : getActionErrorMessage(
-              error,
-              "An unexpected error occurred while queueing Generate AI Draft.",
-            ),
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while queueing Generate AI Draft.",
+      ),
       info: null,
       success: null,
     };
@@ -171,13 +164,10 @@ export async function retryListingPricing(
     };
   } catch (error) {
     return {
-      error:
-        error instanceof SidecarApiError
-          ? error.message
-          : getActionErrorMessage(
-              error,
-              "An unexpected error occurred while queueing pricing re-run.",
-            ),
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while queueing pricing re-run.",
+      ),
       info: null,
       success: null,
     };

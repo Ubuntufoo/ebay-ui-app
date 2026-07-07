@@ -1,8 +1,8 @@
 "use server";
 
+import {getActionErrorMessage} from "@/app/action-utils";
 import {
   dismissPricingAnalysisWarnings as dismissPricingAnalysisWarningsRequest,
-  SidecarApiError,
 } from "@/lib/sidecar-api";
 import type {Listing} from "@/lib/sidecar-api";
 
@@ -33,20 +33,12 @@ export async function dismissPricingAnalysisWarnings(
       success: true,
     };
   } catch (error) {
-    if (error instanceof SidecarApiError) {
-      return {
-        error:
-          error.response?.message ?? error.response?.error ?? error.message,
-        listing: null,
-        success: false,
-      };
-    }
-
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "An unexpected error occurred while dismissing the pricing analysis warning.",
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while dismissing the pricing analysis warning.",
+        {preferSidecarResponseMessage: true},
+      ),
       listing: null,
       success: false,
     };

@@ -1,8 +1,8 @@
 "use server";
 
+import {getActionErrorMessage} from "@/app/action-utils";
 import {
   retryPricingAnalysis as retryPricingAnalysisRequest,
-  SidecarApiError,
 } from "@/lib/sidecar-api";
 
 export type RetryPricingAnalysisResult = {
@@ -20,18 +20,12 @@ export async function retryPricingAnalysis(
       success: true,
     };
   } catch (error) {
-    if (error instanceof SidecarApiError) {
-      return {
-        error: error.response?.message ?? error.response?.error ?? error.message,
-        success: false,
-      };
-    }
-
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : "An unexpected error occurred while retrying pricing analysis.",
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while retrying pricing analysis.",
+        {preferSidecarResponseMessage: true},
+      ),
       success: false,
     };
   }

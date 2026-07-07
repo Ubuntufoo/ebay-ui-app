@@ -4,7 +4,7 @@ import {revalidatePath} from "next/cache";
 
 import {getActionErrorMessage} from "@/app/action-utils";
 import type {PricingProviderMode} from "@/lib/sidecar-api";
-import {SidecarApiError, updateAppSettings} from "@/lib/sidecar-api";
+import {updateAppSettings} from "@/lib/sidecar-api";
 
 export async function savePricingProviderMode(
   pricingProviderMode: PricingProviderMode,
@@ -19,13 +19,10 @@ export async function savePricingProviderMode(
     };
   } catch (error) {
     return {
-      error:
-        error instanceof SidecarApiError
-          ? error.message
-          : getActionErrorMessage(
-              error,
-              "An unexpected error occurred while saving pricing provider mode.",
-            ),
+      error: getActionErrorMessage(
+        error,
+        "An unexpected error occurred while saving pricing provider mode.",
+      ),
       success: false,
     };
   }
