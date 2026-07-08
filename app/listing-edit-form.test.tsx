@@ -153,7 +153,6 @@ describe("ListingEditForm", () => {
       screen.queryByRole("button", {name: "Approve For Export"}),
     ).toBeNull();
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
-    expect(screen.queryByRole("link", {name: "130point"})).toBeNull();
     expect(screen.queryByRole("link", {name: "SportsCardsPro"})).toBeNull();
   });
 
@@ -654,12 +653,6 @@ describe("ListingEditForm", () => {
     expect(approveButton).toHaveProperty("disabled", false);
 
     expect(
-      screen.getByRole("link", {name: "130point"}).getAttribute("href"),
-    ).toContain("130point.com/search#q=");
-    expect(
-      screen.getByRole("link", {name: "130point"}).getAttribute("target"),
-    ).toBe("_blank");
-    expect(
       screen.getByRole("link", {name: "SportsCardsPro"}).getAttribute("href"),
     ).toContain("sportscardspro.com/search-products?q=");
     expect(
@@ -737,11 +730,11 @@ describe("ListingEditForm", () => {
 
     expect(priceLabel).not.toBeNull();
     expect(
-      priceLabel!.compareDocumentPosition(pricingResearchHeading) &
+      pricingResearchHeading.compareDocumentPosition(priceLabel!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(
-      pricingResearchHeading.compareDocumentPosition(inventorySectionHeading) &
+      priceLabel!.compareDocumentPosition(inventorySectionHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
   });
@@ -1372,7 +1365,6 @@ describe("ListingEditForm", () => {
     expect(
       screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
     ).not.toBeNull();
-    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
     expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
     expect(
       screen.getByRole("button", {name: "Approve For Export"}),
@@ -1442,7 +1434,6 @@ describe("ListingEditForm", () => {
     expect(
       screen.getByText("Query: 2023 Topps Chrome Mike Trout"),
     ).not.toBeNull();
-    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
     expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
 
     // Price input remains editable when pricing research failed
@@ -1781,6 +1772,14 @@ describe("ListingEditForm", () => {
       />,
     );
 
+    const pricingResearchHeading = screen.getByText("Pricing research");
+    const retryPricingBanner = screen.getByText("Full pricing retry available");
+
+    expect(
+      pricingResearchHeading.compareDocumentPosition(retryPricingBanner) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+
     await user.clear(screen.getByLabelText("Price"));
     await user.type(screen.getByLabelText("Price"), "31.99");
     await user.click(screen.getByRole("button", {name: "Save edits"}));
@@ -1807,7 +1806,6 @@ describe("ListingEditForm", () => {
 
     expect(screen.getByText("Pricing research")).not.toBeNull();
     expect(screen.getByText("No saved pricing research yet.")).not.toBeNull();
-    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
     expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
 
     cleanup();
@@ -1822,7 +1820,6 @@ describe("ListingEditForm", () => {
 
     expect(screen.getByText("Pricing research")).not.toBeNull();
     expect(screen.getByText("No saved pricing research yet.")).not.toBeNull();
-    expect(screen.getByRole("link", {name: "130point"})).not.toBeNull();
     expect(screen.getByRole("link", {name: "SportsCardsPro"})).not.toBeNull();
   });
 });

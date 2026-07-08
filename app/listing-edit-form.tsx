@@ -120,6 +120,10 @@ export function ListingEditForm({listing}: {listing: Listing}) {
       </div>
 
       <div className="mt-4 grid gap-5">
+        {isNeedsReview ? (
+          <ListingPricingResearchPanel listing={listing} />
+        ) : null}
+
         <form
           action={formAction}
           onSubmit={(event) => {
@@ -227,13 +231,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 />
               </label>
             </div>
-
-            {isNeedsReview ? (
-              <ListingPricingResearchPanel
-                listing={listing}
-                showRetryPricingForm={false}
-              />
-            ) : null}
 
             {isNeedsReview ? (
               <section className="grid gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 p-4">
@@ -425,6 +422,7 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           cardConditionToken={cardConditionToken}
           listing={listing}
           showPricingResearchPanel={false}
+          showRetryPricingForm={false}
         />
 
       </div>

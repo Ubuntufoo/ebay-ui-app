@@ -159,10 +159,6 @@ function buildStructuredCardQuery(listing: Listing): string | null {
   return combined === "" ? null : combined;
 }
 
-function build130PointUrl(query: string): string {
-  return `https://130point.com/search#q=${encodeURIComponent(query)}`;
-}
-
 function buildSportsCardsProUrl(query: string): string {
   const params = new URLSearchParams({
     q: query,
@@ -239,10 +235,6 @@ export function getListingPricingLinks(
   return [
     ...(query
       ? [
-          {
-            label: "130point",
-            href: build130PointUrl(query),
-          },
           {
             label: "SportsCardsPro",
             href: buildSportsCardsProUrl(query),

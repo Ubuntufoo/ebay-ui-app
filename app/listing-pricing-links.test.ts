@@ -68,7 +68,7 @@ describe("listing pricing links", () => {
     );
   });
 
-  it("builds exact 130point and SportsCardsPro URLs", () => {
+  it("builds exact SportsCardsPro and eBay Terapeak URLs", () => {
     const links = getListingPricingLinks(
       buildListing({
         title: "1995-96 SkyBox NBA Hoops #379 Jim McIlvaine Rookie Card",
@@ -81,16 +81,13 @@ describe("listing pricing links", () => {
     );
 
     expect(links.map((link) => link.label)).toEqual([
-      "130point",
       "SportsCardsPro",
       "eBay Terapeak",
     ]);
     expect(links[0]?.href).toBe(
-      "https://130point.com/search#q=1995-96%20SkyBox%20NBA%20Hoops%20%23379%20Jim%20McIlvaine%20Rookie%20Card",
-    );
-    expect(links[1]?.href).toBe(
       "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+%23379+Jim+McIlvaine+Rookie+Card&type=prices",
     );
+    expect(links[1]?.label).toBe("eBay Terapeak");
   });
 
   it("falls back to structured pricing text when the title is missing", () => {
@@ -116,8 +113,8 @@ describe("listing pricing links", () => {
       1789920000000,
     );
 
-    expect(links[2]?.label).toBe("eBay Terapeak");
-    expect(links[2]?.href).toBe(
+    expect(links[1]?.label).toBe("eBay Terapeak");
+    expect(links[1]?.href).toBe(
       "https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=Michael+Jordan+1990+NBA+Hoops+%2365+-psa+-bgs+-sgc+-cgc+-signature+-sig+-autograph+-autographed+-graded+-lot&dayRange=365&endDate=1789920000000&startDate=1758384000000&categoryId=0&format=BEST_OFFER&format=FIXED_PRICE&offset=0&limit=50&tabName=SOLD&tz=America%2FNew_York",
     );
   });
@@ -135,10 +132,10 @@ describe("listing pricing links", () => {
       1789920000000,
     );
 
-    expect(links[2]?.href).toContain(
+    expect(links[1]?.href).toContain(
       "keywords=Michael+Jordan+1990+NBA+Hoops+%2365",
     );
-    expect(links[2]?.href).not.toContain("Nba");
+    expect(links[1]?.href).not.toContain("Nba");
   });
 
   it("returns the title text normalized for whitespace when specifics are missing", () => {

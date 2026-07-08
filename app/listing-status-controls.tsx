@@ -324,10 +324,12 @@ export function ListingReviewGate({
   cardConditionToken = null,
   listing,
   showPricingResearchPanel = true,
+  showRetryPricingForm = true,
 }: {
   cardConditionToken?: string | null;
   listing: Listing;
   showPricingResearchPanel?: boolean;
+  showRetryPricingForm?: boolean;
 }) {
   const [approveState, approveFormAction] = useActionState<
     ApproveListingForExportActionState,
@@ -359,7 +361,9 @@ export function ListingReviewGate({
       {showPricingResearchPanel ? (
         <ListingPricingResearchPanel listing={listing} />
       ) : null}
-      {!showPricingResearchPanel && canRetryPricing(listing) ? (
+      {!showPricingResearchPanel &&
+      showRetryPricingForm &&
+      canRetryPricing(listing) ? (
         <RetryPricingForm listing={listing} />
       ) : null}
 
