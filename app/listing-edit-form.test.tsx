@@ -694,6 +694,58 @@ describe("ListingEditForm", () => {
     expect(screen.getByText("BSKBL-Single-000001")).not.toBeNull();
   });
 
+  it("renders pricing research between the price field and Inventory / SKU review section", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 4,
+                selected_comp_ids: ["1", "2", "3", "4"],
+                total_comp_count: 4,
+              },
+              confidence: "high",
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: null,
+              error_message: null,
+              listing_id: "LIST-001",
+              llm_price_explanation: "Strong comps support this price.",
+              median_sold_price: 45,
+              pricing_model_name: "gemini-2.5-flash",
+              provider: "soldcomps",
+              query: "2023 Topps Chrome Mike Trout",
+              research_id: "research-order",
+              sold_count: 12,
+              status: "succeeded",
+              suggested_price: 42,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+          },
+        )}
+      />,
+    );
+
+    const priceInput = screen.getByLabelText("Price");
+    const pricingResearchHeading = screen.getByText("Pricing research");
+    const inventorySectionHeading = screen.getByText("Inventory / SKU");
+    const priceLabel = priceInput.closest("label");
+
+    expect(priceLabel).not.toBeNull();
+    expect(
+      priceLabel!.compareDocumentPosition(pricingResearchHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      pricingResearchHeading.compareDocumentPosition(inventorySectionHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
   it("shows BSBL lot preview for valid lot listing IDs", () => {
     render(
       <ListingEditForm

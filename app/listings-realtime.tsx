@@ -102,8 +102,17 @@ export function ListingsRealtime({
 
       if (Array.isArray(payload.listings)) {
         setListings(payload.listings);
+      }
+
+      if ("geminiUsage" in payload) {
         setGeminiUsage(payload.geminiUsage ?? null);
+      }
+
+      if ("geminiUsageStatus" in payload) {
         setGeminiUsageStatus(payload.geminiUsageStatus ?? "error");
+      }
+
+      if ("soldCompsUsage" in payload) {
         setSoldCompsUsage(payload.soldCompsUsage ?? null);
       }
     } catch {

@@ -227,6 +227,55 @@ function RetryPricingForm({listing}: {listing: Listing}) {
   );
 }
 
+export function ListingPricingResearchPanel({
+  listing,
+  showRetryPricingForm = true,
+}: {
+  listing: Listing;
+  showRetryPricingForm?: boolean;
+}) {
+  const pricingLinks =
+    listing.status === "needs_review" ? getListingPricingLinks(listing) : [];
+  const showRetryPricing = canRetryPricing(listing);
+
+  if (listing.status !== "needs_review") {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-stone-950/10 bg-white/80 px-4 py-4">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+        Pricing research
+      </p>
+      <div className="mt-3 flex flex-wrap gap-3">
+        {pricingLinks.map((link) => (
+          <a
+            key={link.label}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
+      {listing.latest_pricing_research ? (
+        <ListingPricingResearchSummary
+          research={listing.latest_pricing_research}
+        />
+      ) : (
+        <p className="mt-3 text-sm text-stone-400">
+          No saved pricing research yet.
+        </p>
+      )}
+      {showRetryPricing && showRetryPricingForm ? (
+        <RetryPricingForm listing={listing} />
+      ) : null}
+    </div>
+  );
+}
+
 export function ListingStatusControls({
   listing,
   inline = false,
@@ -274,9 +323,11 @@ export function ListingStatusControls({
 export function ListingReviewGate({
   cardConditionToken = null,
   listing,
+  showPricingResearchPanel = true,
 }: {
   cardConditionToken?: string | null;
   listing: Listing;
+  showPricingResearchPanel?: boolean;
 }) {
   const [approveState, approveFormAction] = useActionState<
     ApproveListingForExportActionState,
@@ -290,8 +341,6 @@ export function ListingReviewGate({
   );
   const titleLength = getTitleLength(listing.title);
   const isTitleLengthValid = !isTitleTooLong(listing.title);
-  const pricingLinks =
-    listing.status === "needs_review" ? getListingPricingLinks(listing) : [];
   const cardConditionApprovalMessage = getTradingCardConditionApprovalMessage(
     listing,
     cardConditionToken,
@@ -300,7 +349,6 @@ export function ListingReviewGate({
     !isReviewChecklistComplete ||
     !isTitleLengthValid ||
     cardConditionApprovalMessage !== null;
-  const showRetryPricing = canRetryPricing(listing);
 
   if (listing.status !== "needs_review") {
     return null;
@@ -308,34 +356,12 @@ export function ListingReviewGate({
 
   return (
     <section className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4">
-      <div className="rounded-2xl border border-stone-950/10 bg-white/80 px-4 py-4">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-          Pricing research
-        </p>
-        <div className="mt-3 flex flex-wrap gap-3">
-          {pricingLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
-            >
-              {link.label}
-            </a>
-          ))}
-        </div>
-        {listing.latest_pricing_research ? (
-          <ListingPricingResearchSummary
-            research={listing.latest_pricing_research}
-          />
-        ) : (
-          <p className="mt-3 text-sm text-stone-400">
-            No saved pricing research yet.
-          </p>
-        )}
-        {showRetryPricing ? <RetryPricingForm listing={listing} /> : null}
-      </div>
+      {showPricingResearchPanel ? (
+        <ListingPricingResearchPanel listing={listing} />
+      ) : null}
+      {!showPricingResearchPanel && canRetryPricing(listing) ? (
+        <RetryPricingForm listing={listing} />
+      ) : null}
 
       <form action={approveFormAction} className="grid gap-4">
         <input type="hidden" name="listing_id" value={listing.listing_id} />

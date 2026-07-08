@@ -155,48 +155,42 @@ async function ListingsSection({
 
   return (
     <>
-      {listings.length === 0 ? (
-        <>
-          <QueueErrorsPanelFallback />
-          <ListingsEmptyState />
-        </>
-      ) : (
-        <ListingsRealtime
-          initialGeminiUsage={
-            geminiUsageResult.status === "success"
-              ? geminiUsageResult.geminiUsage
-              : null
-          }
-          initialGeminiUsageStatus={
-            geminiUsageResult.status === "success" ? "ready" : "error"
-          }
-          initialCaptureMode={
-            appSettingsResult.status === "success"
-              ? appSettingsResult.settings.capture_mode
-              : null
-          }
-          initialPricingServiceEnabled={
-            appSettingsResult.status === "success"
-              ? appSettingsResult.settings.pricing_service_enabled
-              : null
-          }
-          initialListings={listings}
-          initialPricingProviderMode={
-            appSettingsResult.status === "success"
-              ? appSettingsResult.settings.pricing_provider_mode
-              : "off"
-          }
-          initialSoldCompsUsage={
-            appSettingsResult.status === "success"
-              ? appSettingsResult.settings.soldcomps_usage
-              : null
-          }
-          panelErrorMessage={null}
-          ordersToShipCount={ordersToShipCount}
-          realtimeAnonKey={getListingsRealtimePublicKey()}
-          realtimeUrl={getListingsRealtimePublicUrl()}
-        />
-      )}
+      <ListingsRealtime
+        initialGeminiUsage={
+          geminiUsageResult.status === "success"
+            ? geminiUsageResult.geminiUsage
+            : null
+        }
+        initialGeminiUsageStatus={
+          geminiUsageResult.status === "success" ? "ready" : "error"
+        }
+        initialCaptureMode={
+          appSettingsResult.status === "success"
+            ? appSettingsResult.settings.capture_mode
+            : null
+        }
+        initialPricingServiceEnabled={
+          appSettingsResult.status === "success"
+            ? appSettingsResult.settings.pricing_service_enabled
+            : null
+        }
+        initialListings={listings}
+        initialPricingProviderMode={
+          appSettingsResult.status === "success"
+            ? appSettingsResult.settings.pricing_provider_mode
+            : "off"
+        }
+        initialSoldCompsUsage={
+          appSettingsResult.status === "success"
+            ? appSettingsResult.settings.soldcomps_usage
+            : null
+        }
+        panelErrorMessage={null}
+        ordersToShipCount={ordersToShipCount}
+        realtimeAnonKey={getListingsRealtimePublicKey()}
+        realtimeUrl={getListingsRealtimePublicUrl()}
+      />
+      {listings.length === 0 ? <ListingsEmptyState /> : null}
     </>
   );
 }

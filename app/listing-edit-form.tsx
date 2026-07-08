@@ -6,6 +6,7 @@ import {useFormStatus} from "react-dom";
 import {saveListingEdits} from "@/app/listing-actions";
 import {initialSaveListingEditsActionState} from "@/app/listing-edit-state";
 import {
+  ListingPricingResearchPanel,
   ListingReviewGate,
   ListingStatusControls,
 } from "@/app/listing-status-controls";
@@ -228,6 +229,13 @@ export function ListingEditForm({listing}: {listing: Listing}) {
             </div>
 
             {isNeedsReview ? (
+              <ListingPricingResearchPanel
+                listing={listing}
+                showRetryPricingForm={false}
+              />
+            ) : null}
+
+            {isNeedsReview ? (
               <section className="grid gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -416,6 +424,7 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           key={`${listing.listing_id}:${listing.status}`}
           cardConditionToken={cardConditionToken}
           listing={listing}
+          showPricingResearchPanel={false}
         />
 
       </div>

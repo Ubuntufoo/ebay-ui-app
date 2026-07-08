@@ -6,6 +6,7 @@ import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 import type {
   GeminiDailyUsageSummary,
   Listing,
+  SoldCompsUsageSummary,
 } from "@/lib/sidecar-api";
 
 const fetchMock = vi.fn();
@@ -139,9 +140,10 @@ function jsonResponse(
   listings: Listing[],
   geminiUsage: GeminiDailyUsageSummary | null = buildGeminiUsage(),
   geminiUsageStatus: "error" | "ready" = "ready",
+  soldCompsUsage: SoldCompsUsageSummary | null = null,
 ) {
   return new Response(
-    JSON.stringify({geminiUsage, geminiUsageStatus, listings}),
+    JSON.stringify({geminiUsage, geminiUsageStatus, listings, soldCompsUsage}),
     {
       headers: {"content-type": "application/json"},
       status: 200,
@@ -161,6 +163,17 @@ function renderListingsRealtime(
       {...overrides}
     />,
   );
+}
+
+function buildSoldCompsUsage(
+  overrides: Partial<SoldCompsUsageSummary> = {},
+): SoldCompsUsageSummary {
+  return {
+    limit: 100,
+    updatedAt: "2026-06-16T16:30:00.000Z",
+    used: 39,
+    ...overrides,
+  };
 }
 
 async function triggerDebouncedRealtimeEvent(
@@ -237,6 +250,25 @@ describe("ListingsRealtime", () => {
       },
       expect.any(Function),
     );
+  });
+
+  it("renders dashboard metrics even when the initial listings collection is empty", () => {
+    renderListingsRealtime({
+      initialGeminiUsage: buildGeminiUsage(),
+      initialListings: [],
+      initialSoldCompsUsage: buildSoldCompsUsage(),
+      ordersToShipCount: 3,
+    });
+
+    expect(screen.getByText("Gemini: 21/500")).not.toBeNull();
+    expect(screen.getByText("SoldComps: 39/100")).not.toBeNull();
+    expect(
+      screen.getByRole("link", {name: "Orders to ship: 3"}),
+    ).not.toBeNull();
+    expect(screen.getByTestId("operational-counter-errors")).not.toBeNull();
+    expect(screen.getByTestId("operational-counter-ready")).not.toBeNull();
+    expect(screen.getByTestId("operational-counter-review")).not.toBeNull();
+    expect(screen.getByTestId("operational-counter-active")).not.toBeNull();
   });
 
   it("renders capture mode toggle with clear single and lot labels", () => {
@@ -603,6 +635,42 @@ describe("ListingsRealtime", () => {
     expect(screen.getByText(/Gemini: 21\/500/)?.textContent).toContain(
       "Last: gemini-2.5-pro",
     );
+  });
+
+  it("replaces initial SoldComps usage with the latest refresh payload value", async () => {
+    const realtimePayloadHandlers: Array<(payload: unknown) => void> = [];
+    realtimeChannelOnMock.mockImplementation((_event, _filter, callback) => {
+      realtimePayloadHandlers.push(callback as (payload: unknown) => void);
+      return realtimeChannel;
+    });
+
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        [],
+        buildGeminiUsage(),
+        "ready",
+        buildSoldCompsUsage({used: 86}),
+      ),
+    );
+
+    renderListingsRealtime({
+      initialListings: [],
+      initialSoldCompsUsage: buildSoldCompsUsage({used: 39}),
+    });
+
+    expect(screen.getByText("SoldComps: 39/100")).not.toBeNull();
+
+    await triggerDebouncedRealtimeEvent(
+      realtimePayloadHandlers[0]
+        ? (payload) => {
+            realtimePayloadHandlers[0]?.(payload);
+          }
+        : undefined,
+      "UPDATE",
+    );
+
+    expect(screen.getByText("SoldComps: 86/100")).not.toBeNull();
+    expect(screen.queryByText("SoldComps: 39/100")).toBeNull();
   });
 
   it("queues one follow-up refresh when update lands mid-fetch", async () => {
