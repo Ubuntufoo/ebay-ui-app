@@ -1316,11 +1316,15 @@ describe("ListingEditForm", () => {
           {
             latest_pricing_research: {
               comp_summary: {
+                normalization_accepted_count: 26,
+                normalization_rejected_count: 24,
+                provider_reported_count: 137,
+                provider_returned_count: 50,
                 rejected_comp_count: 3,
                 rejected_comp_ids: ["comp-4", "comp-5", "comp-6"],
                 selected_comp_count: 4,
                 selected_comp_ids: ["comp-1", "comp-2", "comp-3", "comp-7"],
-                total_comp_count: 7,
+                total_comp_count: 26,
               },
               confidence: "high",
               created_at: "2026-06-19T00:00:00.000Z",
@@ -1353,9 +1357,12 @@ describe("ListingEditForm", () => {
     const pricingSection = screen
       .getByText("Strong comps support this price.")
       .closest("div")!;
-    expect(pricingSection.textContent).toContain("Selected: 4");
-    expect(pricingSection.textContent).toContain("Rejected: 3");
-    expect(pricingSection.textContent).toContain("Total comps: 7");
+    expect(pricingSection.textContent).toContain("Accepted: 26");
+    expect(pricingSection.textContent).toContain("Rejected: 24");
+    expect(pricingSection.textContent).toContain("Provider returned: 50");
+    expect(pricingSection.textContent).toContain("Provider total: 137");
+    expect(pricingSection.textContent).not.toContain("Selected: 4");
+    expect(pricingSection.textContent).not.toContain("Total comps: 26");
     expect(
       screen.getByText("Provider: soldcomps", {exact: false}),
     ).not.toBeNull();

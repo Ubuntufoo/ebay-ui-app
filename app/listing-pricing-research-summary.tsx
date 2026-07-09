@@ -178,6 +178,17 @@ function SucceededSummary({
   const hasExplanation =
     research.llm_price_explanation !== null &&
     research.llm_price_explanation.trim() !== "";
+  const acceptedCount =
+    research.comp_summary.normalization_accepted_count ??
+    research.comp_summary.total_comp_count;
+  const rejectedCount =
+    research.comp_summary.normalization_rejected_count ??
+    research.comp_summary.rejected_comp_count;
+  const providerReturnedCount = research.comp_summary.provider_returned_count;
+  const providerReportedCount = research.comp_summary.provider_reported_count;
+  const showProviderTotal =
+    typeof providerReportedCount === "number" &&
+    providerReportedCount !== providerReturnedCount;
 
   return (
     <div className="mt-3 grid gap-3">
@@ -230,23 +241,33 @@ function SucceededSummary({
 
       <div className="flex flex-wrap items-center gap-4 text-[11px] text-stone-500">
         <span>
-          Selected:{" "}
+          Accepted:{" "}
           <span className="font-semibold text-stone-700">
-            {formatCount(research.comp_summary.selected_comp_count)}
+            {formatCount(acceptedCount)}
           </span>
         </span>
         <span>
           Rejected:{" "}
           <span className="font-semibold text-stone-700">
-            {formatCount(research.comp_summary.rejected_comp_count)}
+            {formatCount(rejectedCount)}
           </span>
         </span>
-        <span>
-          Total comps:{" "}
-          <span className="font-semibold text-stone-700">
-            {formatCount(research.comp_summary.total_comp_count)}
+        {typeof providerReturnedCount === "number" ? (
+          <span>
+            Provider returned:{" "}
+            <span className="font-semibold text-stone-700">
+              {formatCount(providerReturnedCount)}
+            </span>
           </span>
-        </span>
+        ) : null}
+        {showProviderTotal ? (
+          <span>
+            Provider total:{" "}
+            <span className="font-semibold text-stone-700">
+              {formatCount(providerReportedCount)}
+            </span>
+          </span>
+        ) : null}
       </div>
 
       {research.query ? (
