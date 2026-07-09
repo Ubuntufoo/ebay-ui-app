@@ -227,6 +227,40 @@ function RetryPricingForm({listing}: {listing: Listing}) {
   );
 }
 
+function getYearUnverifiedWarning(listing: Listing) {
+  return (
+    listing.identity_warnings?.find(
+      (warning) => warning.code === "year_unverified",
+    ) ?? null
+  );
+}
+
+function ListingIdentityWarningNotice({listing}: {listing: Listing}) {
+  const warning = getYearUnverifiedWarning(listing);
+
+  if (warning === null) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 grid gap-2 rounded-2xl border border-amber-300 bg-amber-50/80 px-4 py-3">
+      <p className="text-sm font-medium text-amber-900">{warning.summary}</p>
+      {warning.likely_year !== null && warning.likely_year !== undefined ? (
+        <p className="text-xs text-amber-800">
+          Likely year: {String(warning.likely_year)}. Advisory only; year is
+          not confirmed.
+        </p>
+      ) : null}
+      {warning.likely_year_range ? (
+        <p className="text-xs text-amber-800">
+          Likely range: {warning.likely_year_range}. Advisory only; year is not
+          confirmed.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ListingPricingResearchPanel({
   listing,
   showRetryPricingForm = true,
@@ -247,6 +281,7 @@ export function ListingPricingResearchPanel({
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
         Pricing research
       </p>
+      <ListingIdentityWarningNotice listing={listing} />
       <div className="mt-3 flex flex-wrap gap-3">
         {pricingLinks.map((link) => (
           <a

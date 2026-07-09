@@ -74,6 +74,14 @@ export interface PricingAnalysisWarning {
   model_name: string | null;
 }
 
+export interface ListingIdentityWarning {
+  code: string;
+  likely_year?: string | null;
+  likely_year_range?: string | null;
+  severity: "warning";
+  summary: string;
+}
+
 export interface ListingLatestPricingResearchCompSummary {
   normalization_accepted_count?: number;
   normalization_rejected_count?: number;
@@ -143,6 +151,7 @@ export interface Listing {
   exported_at: string | null;
   handling_days: number | null;
   id: string;
+  identity_warnings?: ListingIdentityWarning[] | null;
   image_urls: Json;
   item_specifics: Json;
   last_error_at: string | null;

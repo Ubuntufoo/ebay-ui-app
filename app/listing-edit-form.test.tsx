@@ -81,6 +81,7 @@ function buildListing(
       Set: "Topps Chrome",
       Year: "2023",
     },
+    identity_warnings: null,
     last_error_at: null,
     last_error_code: null,
     last_error_context: null,
@@ -737,6 +738,86 @@ describe("ListingEditForm", () => {
       priceLabel!.compareDocumentPosition(inventorySectionHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
+  });
+
+  it("renders a per-listing uncertain-year notice with advisory likely year details", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            identity_warnings: [
+              {
+                code: "year_unverified",
+                likely_year: "1955",
+                likely_year_range: "1954-1956",
+                severity: "warning",
+                summary: "Card year is unverified.",
+              },
+            ],
+            latest_pricing_research: {
+              comp_summary: {
+                rejected_comp_count: 0,
+                rejected_comp_ids: [],
+                selected_comp_count: 4,
+                selected_comp_ids: ["1", "2", "3", "4"],
+                total_comp_count: 4,
+              },
+              confidence: "high",
+              created_at: "2026-06-19T00:00:00.000Z",
+              error_code: null,
+              error_message: null,
+              listing_id: "LIST-001",
+              llm_price_explanation: "Strong comps support this price.",
+              median_sold_price: 45,
+              pricing_model_name: "gemini-2.5-flash",
+              provider: "soldcomps",
+              query: "1955 Topps Sandy Koufax",
+              research_id: "research-year-warning",
+              sold_count: 12,
+              status: "succeeded",
+              suggested_price: 42,
+              updated_at: "2026-06-19T00:00:00.000Z",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect(screen.getByText("Card year is unverified.")).not.toBeNull();
+    expect(
+      screen.getByText("Likely year: 1955. Advisory only; year is not confirmed."),
+    ).not.toBeNull();
+    expect(
+      screen.getByText(
+        "Likely range: 1954-1956. Advisory only; year is not confirmed.",
+      ),
+    ).not.toBeNull();
+  });
+
+  it("does not render an uncertain-year notice without a year_unverified identity warning", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/review.jpg"],
+          {
+            identity_warnings: [
+              {
+                code: "player_unverified",
+                severity: "warning",
+                summary: "Player is unverified.",
+              },
+            ],
+          },
+        )}
+      />,
+    );
+
+    expect(screen.queryByText("Card year is unverified.")).toBeNull();
+    expect(screen.queryByText(/Likely year:/i)).toBeNull();
+    expect(screen.queryByText(/Likely range:/i)).toBeNull();
   });
 
   it("shows BSBL lot preview for valid lot listing IDs", () => {
