@@ -169,11 +169,6 @@ async function ListingsSection({
             ? appSettingsResult.settings.capture_mode
             : null
         }
-        initialPricingServiceEnabled={
-          appSettingsResult.status === "success"
-            ? appSettingsResult.settings.pricing_service_enabled
-            : null
-        }
         initialListings={listings}
         initialPricingProviderMode={
           appSettingsResult.status === "success"

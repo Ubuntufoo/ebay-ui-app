@@ -88,7 +88,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   );
   const itemSpecificsState = parseItemSpecificsText(itemSpecificsText);
   const cardConditionToken = getCardConditionTokenFromItemSpecifics(
-    itemSpecificsState.value as Parameters<typeof getCardConditionTokenFromItemSpecifics>[0],
+    itemSpecificsState.value as Parameters<
+      typeof getCardConditionTokenFromItemSpecifics
+    >[0],
   );
   const normalizedCardConditionToken =
     normalizeTradingCardConditionToken(cardConditionToken);
@@ -135,17 +137,13 @@ export function ListingEditForm({listing}: {listing: Listing}) {
         >
           {isGenerating ? (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-              AI generation is in progress. Listing edits are locked until
-              the draft is ready for review.
+              AI generation is in progress. Listing edits are locked until the
+              draft is ready for review.
             </div>
           ) : null}
 
           <fieldset disabled={isGenerating} className="grid gap-4">
-            <input
-              type="hidden"
-              name="listing_id"
-              value={listing.listing_id}
-            />
+            <input type="hidden" name="listing_id" value={listing.listing_id} />
 
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
@@ -168,7 +166,7 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 <textarea
                   name="seller_hints"
                   defaultValue={listing.seller_hints ?? ""}
-                  rows={3}
+                  rows={2}
                   disabled={isGenerating}
                   className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
                 />
@@ -181,14 +179,14 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 <textarea
                   name="description"
                   defaultValue={listing.description ?? ""}
-                  rows={4}
+                  rows={2}
                   disabled={isGenerating}
                   className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
                 />
               </label>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.7fr)_minmax(0,0.95fr)_minmax(0,1.35fr)]">
               <label className="block">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
                   Price
@@ -205,6 +203,75 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 />
               </label>
 
+              <div className="grid gap-2">
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                    Card Condition
+                  </span>
+                  <select
+                    name="card_condition"
+                    value={selectedCardConditionValue}
+                    onChange={(event) => {
+                      if (itemSpecificsState.error !== null) {
+                        return;
+                      }
+
+                      const nextToken = event.target.value;
+                      const updatedItemSpecifics =
+                        updateItemSpecificsTradingCardCondition(
+                          itemSpecificsState.value as Parameters<
+                            typeof updateItemSpecificsTradingCardCondition
+                          >[0],
+                          nextToken === "" ? null : nextToken,
+                        );
+
+                      if (updatedItemSpecifics === null) {
+                        return;
+                      }
+
+                      setItemSpecificsText(
+                        updatedItemSpecifics === null
+                          ? ""
+                          : JSON.stringify(updatedItemSpecifics, null, 2),
+                      );
+                    }}
+                    disabled={isGenerating || itemSpecificsError !== null}
+                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+                  >
+                    <option value="">Select card condition</option>
+                    {tradingCardConditionOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {cardConditionToken !== null &&
+                normalizedCardConditionToken === null ? (
+                  <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Current saved Card Condition &quot;{cardConditionToken}
+                    &quot; is not supported. Choose a supported value before
+                    approving for export.
+                  </p>
+                ) : null}
+              </div>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Condition notes
+                </span>
+                <textarea
+                  name="condition_notes"
+                  defaultValue={listing.condition_notes ?? ""}
+                  rows={3}
+                  disabled={isGenerating}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                />
+              </label>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
                   Category ID
@@ -231,6 +298,26 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 />
               </label>
             </div>
+
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                Item specifics (JSON)
+              </span>
+              <textarea
+                name="item_specifics"
+                value={itemSpecificsText}
+                onChange={(event) => setItemSpecificsText(event.target.value)}
+                rows={9}
+                disabled={isGenerating}
+                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
+              />
+            </label>
+
+            {itemSpecificsError ? (
+              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+                {itemSpecificsError}
+              </p>
+            ) : null}
 
             {isNeedsReview ? (
               <section className="grid gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 p-4">
@@ -265,7 +352,8 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                         const updatedItemSpecifics =
                           setStructuredSkuPrefixInItemSpecifics(
                             itemSpecificsState.value as Listing["item_specifics"],
-                            event.target.value as (typeof structuredSkuPrefixes)[number],
+                            event.target
+                              .value as (typeof structuredSkuPrefixes)[number],
                           );
 
                         setItemSpecificsText(
@@ -304,92 +392,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
               </section>
             ) : null}
 
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Item specifics (JSON)
-              </span>
-              <textarea
-                name="item_specifics"
-                value={itemSpecificsText}
-                onChange={(event) => setItemSpecificsText(event.target.value)}
-                rows={9}
-                disabled={isGenerating}
-                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
-              />
-            </label>
-
-            {itemSpecificsError ? (
-              <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-                {itemSpecificsError}
-              </p>
-            ) : null}
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Condition notes
-                </span>
-                <textarea
-                  name="condition_notes"
-                  defaultValue={listing.condition_notes ?? ""}
-                  rows={3}
-                  disabled={isGenerating}
-                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                />
-              </label>
-
-              <div className="grid gap-2">
-                <label className="block">
-                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                    Card Condition
-                  </span>
-                  <select
-                    name="card_condition"
-                    value={selectedCardConditionValue}
-                    onChange={(event) => {
-                      if (itemSpecificsState.error !== null) {
-                        return;
-                      }
-
-                      const nextToken = event.target.value;
-                      const updatedItemSpecifics = updateItemSpecificsTradingCardCondition(
-                        itemSpecificsState.value as Parameters<typeof updateItemSpecificsTradingCardCondition>[0],
-                        nextToken === "" ? null : nextToken,
-                      );
-
-                      if (updatedItemSpecifics === null) {
-                        return;
-                      }
-
-                      setItemSpecificsText(
-                        updatedItemSpecifics === null
-                          ? ""
-                          : JSON.stringify(updatedItemSpecifics, null, 2),
-                      );
-                    }}
-                    disabled={isGenerating || itemSpecificsError !== null}
-                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
-                  >
-                    <option value="">Select card condition</option>
-                    {tradingCardConditionOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {cardConditionToken !== null &&
-                normalizedCardConditionToken === null ? (
-                  <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Current saved Card Condition &quot;{cardConditionToken}
-                    &quot; is not supported. Choose a supported value before
-                    approving for export.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
             <div className="flex items-center gap-3">
               <SaveButton
                 disabled={isGenerating || itemSpecificsError !== null}
@@ -397,9 +399,7 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 pendingLabel="Saving..."
               />
               {itemSpecificsError ? (
-                <span className="text-sm text-rose-700">
-                  Fix JSON to save.
-                </span>
+                <span className="text-sm text-rose-700">Fix JSON to save.</span>
               ) : null}
             </div>
 
@@ -424,7 +424,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           showPricingResearchPanel={false}
           showRetryPricingForm={false}
         />
-
       </div>
     </div>
   );

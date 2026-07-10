@@ -117,6 +117,25 @@ describe("ListingReviewGate pricing retry", () => {
       screen.getByRole("button", {name: "Re-run Pricing"}),
     ).not.toBeNull();
     expect(screen.getByText(/Full pricing retry available/i)).not.toBeNull();
+    expect(
+      screen.queryByText(/After any manual edits above, queue a fresh provider-backed pricing run\./i),
+    ).toBeNull();
+  });
+
+  it("groups failed pricing research and full retry controls in the same responsive row", () => {
+    render(<ListingReviewGate listing={buildListing()} />);
+
+    const retryHeading = screen.getByText("Full pricing retry available");
+    const failureMessage = screen.getByText(
+      "Suggested price did not pass validation.",
+    );
+    const retryPanel = retryHeading.closest("form");
+    const failurePanel = failureMessage.closest("div");
+
+    expect(retryPanel).not.toBeNull();
+    expect(failurePanel).not.toBeNull();
+    expect(retryPanel?.parentElement).toBe(failurePanel?.parentElement);
+    expect(retryPanel?.parentElement?.className).toContain("lg:grid-cols-2");
   });
 
   it("hides Re-run Pricing for succeeded, missing, and non-retryable research states", () => {

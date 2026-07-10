@@ -5,7 +5,6 @@ import {useCallback, useEffect, useState} from "react";
 import {savePricingProviderMode} from "@/app/pricing-provider-actions";
 import {ListingsTableEditable} from "@/app/listings-table-editable";
 import {QueueErrorsPanel} from "@/app/queue-errors-panel";
-import {PricingServiceToggle} from "@/app/pricing-service-toggle";
 import type {
   GeminiDailyUsageSummary,
   Listing,
@@ -23,18 +22,18 @@ const captureModeOptions = [
 
 const pricingProviderOptions: Array<{
   label: string;
-  value: PricingProviderMode;
+  value: SupportedPricingProviderMode;
 }> = [
   {label: "Off", value: "off"},
   {label: "SoldComps", value: "soldcomps"},
-  {label: "Apify", value: "apify"},
 ];
+
+type SupportedPricingProviderMode = Exclude<PricingProviderMode, "apify">;
 
 type ListingsRealtimeProps = {
   initialCaptureMode?: string | null;
   initialGeminiUsage?: GeminiDailyUsageSummary | null;
   initialGeminiUsageStatus?: GeminiUsageStatus;
-  initialPricingServiceEnabled?: boolean | null;
   initialListings: Listing[];
   initialPricingProviderMode?: PricingProviderMode;
   initialSoldCompsUsage?: SoldCompsUsageSummary | null;
@@ -52,7 +51,6 @@ export function ListingsRealtime({
   initialCaptureMode = null,
   initialGeminiUsage = null,
   initialGeminiUsageStatus = "ready",
-  initialPricingServiceEnabled = null,
   initialListings,
   initialPricingProviderMode = "off",
   initialSoldCompsUsage = null,
@@ -77,7 +75,9 @@ export function ListingsRealtime({
     initialCaptureMode === "lot_3_image" ? "lot_3_image" : "single_2_image",
   );
   const [pricingProviderMode, setPricingProviderMode] =
-    useState<PricingProviderMode>(() => initialPricingProviderMode);
+    useState<SupportedPricingProviderMode>(() =>
+      getSupportedPricingProviderMode(initialPricingProviderMode),
+    );
   const [pricingProviderError, setPricingProviderError] = useState<
     string | null
   >(null);
@@ -212,7 +212,9 @@ export function ListingsRealtime({
     realtimeUrl,
   ]);
 
-  async function handlePricingProviderChange(nextMode: PricingProviderMode) {
+  async function handlePricingProviderChange(
+    nextMode: SupportedPricingProviderMode,
+  ) {
     if (pricingProviderSaving || nextMode === pricingProviderMode) {
       return;
     }
@@ -283,7 +285,7 @@ export function ListingsRealtime({
               <div
                 role="radiogroup"
                 aria-label="Pricing provider"
-                className="grid min-w-0 flex-1 grid-cols-3 gap-2 sm:flex sm:items-center"
+                className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:flex sm:items-center"
               >
                 {pricingProviderOptions.map((option) => {
                   const selected = pricingProviderMode === option.value;
@@ -321,13 +323,16 @@ export function ListingsRealtime({
                 {pricingProviderError}
               </p>
             ) : null}
-            <div className="mt-3 border-t border-stone-950/10 pt-3">
-              <PricingServiceToggle enabled={initialPricingServiceEnabled} />
-            </div>
           </section>
         </div>
       </div>
       <ListingsTableEditable listings={listings} />
     </>
   );
+}
+
+function getSupportedPricingProviderMode(
+  mode: PricingProviderMode,
+): SupportedPricingProviderMode {
+  return mode === "off" ? "off" : "soldcomps";
 }

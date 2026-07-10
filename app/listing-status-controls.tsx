@@ -183,7 +183,13 @@ function RetryPricingButton() {
   );
 }
 
-function RetryPricingForm({listing}: {listing: Listing}) {
+function RetryPricingForm({
+  className = "",
+  listing,
+}: {
+  className?: string;
+  listing: Listing;
+}) {
   const [state, formAction] = useActionState<RetryPricingActionState, FormData>(
     retryListingPricing,
     initialRetryPricingActionState,
@@ -193,16 +199,12 @@ function RetryPricingForm({listing}: {listing: Listing}) {
     <form
       key={`${listing.listing_id}:${listing.updated_at}:${listing.latest_pricing_research?.updated_at ?? ""}`}
       action={formAction}
-      className="mt-4 grid gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-4"
+      className={`grid gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-4 ${className}`.trim()}
     >
       <input type="hidden" name="listing_id" value={listing.listing_id} />
       <div>
         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-sky-900">
           Full pricing retry available
-        </p>
-        <p className="mt-2 text-sm leading-6 text-sky-900/80">
-          After any manual edits above, queue a fresh provider-backed pricing
-          run.
         </p>
       </div>
       <div className="flex flex-wrap gap-3">
@@ -271,6 +273,10 @@ export function ListingPricingResearchPanel({
   const pricingLinks =
     listing.status === "needs_review" ? getListingPricingLinks(listing) : [];
   const showRetryPricing = canRetryPricing(listing);
+  const showFailedPricingRetryPair =
+    showRetryPricing &&
+    showRetryPricingForm &&
+    listing.latest_pricing_research?.status === "failed";
 
   if (listing.status !== "needs_review") {
     return null;
@@ -296,16 +302,30 @@ export function ListingPricingResearchPanel({
         ))}
       </div>
       {listing.latest_pricing_research ? (
-        <ListingPricingResearchSummary
-          research={listing.latest_pricing_research}
-        />
-      ) : (
+        showFailedPricingRetryPair ? (
+          <div className="mt-3 grid items-start gap-3 lg:grid-cols-2">
+            <ListingPricingResearchSummary
+              className="h-full"
+              research={listing.latest_pricing_research}
+            />
+            <RetryPricingForm className="h-full" listing={listing} />
+          </div>
+        ) : (
+          <ListingPricingResearchSummary
+            className="mt-3"
+            research={listing.latest_pricing_research}
+          />
+        )
+      ) : null}
+      {!listing.latest_pricing_research ? (
         <p className="mt-3 text-sm text-stone-400">
           No saved pricing research yet.
         </p>
-      )}
-      {showRetryPricing && showRetryPricingForm ? (
-        <RetryPricingForm listing={listing} />
+      ) : null}
+      {showRetryPricing &&
+      showRetryPricingForm &&
+      !showFailedPricingRetryPair ? (
+        <RetryPricingForm className="mt-4" listing={listing} />
       ) : null}
     </div>
   );

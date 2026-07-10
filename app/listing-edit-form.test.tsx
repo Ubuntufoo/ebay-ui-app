@@ -688,7 +688,7 @@ describe("ListingEditForm", () => {
     expect(screen.getByText("BSKBL-Single-000001")).not.toBeNull();
   });
 
-  it("renders pricing research between the price field and Inventory / SKU review section", () => {
+  it("groups pricing and condition inputs ahead of secondary ids and inventory review", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -725,17 +725,52 @@ describe("ListingEditForm", () => {
     );
 
     const priceInput = screen.getByLabelText("Price");
+    const cardConditionInput = screen.getByLabelText("Card Condition");
+    const conditionNotesInput = screen.getByLabelText("Condition notes");
+    const categoryIdInput = screen.getByLabelText("Category ID");
+    const conditionIdInput = screen.getByLabelText("Condition ID");
+    const itemSpecificsInput = screen.getByLabelText("Item specifics (JSON)");
     const pricingResearchHeading = screen.getByText("Pricing research");
     const inventorySectionHeading = screen.getByText("Inventory / SKU");
     const priceLabel = priceInput.closest("label");
+    const cardConditionLabel = cardConditionInput.closest("label");
+    const conditionNotesLabel = conditionNotesInput.closest("label");
+    const categoryIdLabel = categoryIdInput.closest("label");
+    const conditionIdLabel = conditionIdInput.closest("label");
+    const itemSpecificsLabel = itemSpecificsInput.closest("label");
 
     expect(priceLabel).not.toBeNull();
+    expect(cardConditionLabel).not.toBeNull();
+    expect(conditionNotesLabel).not.toBeNull();
+    expect(categoryIdLabel).not.toBeNull();
+    expect(conditionIdLabel).not.toBeNull();
+    expect(itemSpecificsLabel).not.toBeNull();
     expect(
       pricingResearchHeading.compareDocumentPosition(priceLabel!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(
-      priceLabel!.compareDocumentPosition(inventorySectionHeading) &
+      priceLabel!.compareDocumentPosition(cardConditionLabel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      cardConditionLabel!.compareDocumentPosition(conditionNotesLabel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      conditionNotesLabel!.compareDocumentPosition(categoryIdLabel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      categoryIdLabel!.compareDocumentPosition(conditionIdLabel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      conditionIdLabel!.compareDocumentPosition(itemSpecificsLabel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      itemSpecificsLabel!.compareDocumentPosition(inventorySectionHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
   });

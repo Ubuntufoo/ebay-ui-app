@@ -145,12 +145,16 @@ function FailureSummaryMessage({
 }
 
 function FailedSummary({
+  className = "",
   research,
 }: {
+  className?: string;
   research: ListingLatestPricingResearchSummary;
 }) {
   return (
-    <div className="mt-3 grid gap-2 rounded-2xl border border-amber-300 bg-amber-50/80 px-4 py-3">
+    <div
+      className={`grid gap-2 rounded-2xl border border-amber-300 bg-amber-50/80 px-4 py-3 ${className}`.trim()}
+    >
       <FailureSummaryMessage research={research} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-amber-800">
@@ -171,8 +175,10 @@ function FailedSummary({
 }
 
 function SucceededSummary({
+  className = "",
   research,
 }: {
+  className?: string;
   research: ListingLatestPricingResearchSummary;
 }) {
   const hasExplanation =
@@ -191,7 +197,7 @@ function SucceededSummary({
     providerReportedCount !== providerReturnedCount;
 
   return (
-    <div className="mt-3 grid gap-3">
+    <div className={`grid gap-3 ${className}`.trim()}>
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
@@ -291,13 +297,15 @@ function SucceededSummary({
 }
 
 export function ListingPricingResearchSummary({
+  className = "",
   research,
 }: {
+  className?: string;
   research: ListingLatestPricingResearchSummary;
 }) {
   if (isSucceeded(research.status)) {
-    return <SucceededSummary research={research} />;
+    return <SucceededSummary className={className} research={research} />;
   }
 
-  return <FailedSummary research={research} />;
+  return <FailedSummary className={className} research={research} />;
 }

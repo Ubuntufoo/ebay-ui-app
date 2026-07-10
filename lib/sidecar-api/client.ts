@@ -139,12 +139,6 @@ export async function getAppSettings(): Promise<AppSettings> {
   return await sidecarFetch<AppSettings>("/api/app-settings");
 }
 
-export async function updatePricingServiceEnabled(
-  pricingServiceEnabled: boolean,
-): Promise<AppSettings> {
-  return await updateAppSettings({pricingServiceEnabled});
-}
-
 export async function updateAppSettings(
   patch: UpdateAppSettingsInput,
 ): Promise<AppSettings> {

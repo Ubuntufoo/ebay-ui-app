@@ -7,7 +7,6 @@ export {
   getListing,
   listListings,
   retryPublishListing,
-  updatePricingServiceEnabled,
   retryPricing,
   retryPricingAnalysis,
   updateAppSettings,

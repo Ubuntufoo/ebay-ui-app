@@ -27,7 +27,6 @@ const {
   savePricingProviderModeMock,
   saveListingEditsMock,
   saveListingImageUrlsMock,
-  togglePricingServiceActionMock,
 } = vi.hoisted(() => ({
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
@@ -36,7 +35,6 @@ const {
   savePricingProviderModeMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
-  togglePricingServiceActionMock: vi.fn(),
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -49,10 +47,6 @@ vi.mock("@/app/listing-actions", () => ({
 
 vi.mock("@/app/listing-image-url-actions", () => ({
   saveListingImageUrls: saveListingImageUrlsMock,
-}));
-
-vi.mock("@/app/pricing-service-toggle-actions", () => ({
-  togglePricingServiceAction: togglePricingServiceActionMock,
 }));
 
 vi.mock("@/app/listing-approve-export-actions", () => ({
@@ -202,7 +196,6 @@ describe("ListingsRealtime", () => {
     savePricingProviderModeMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
-    togglePricingServiceActionMock.mockReset();
     retryPricingAnalysisMock.mockReset();
     savePricingProviderModeMock.mockResolvedValue({error: null, success: true});
     realtimeChannelOnMock.mockReturnValue(realtimeChannel);
@@ -294,19 +287,29 @@ describe("ListingsRealtime", () => {
     ).toBe("false");
   });
 
+  it("exposes only supported manual pricing provider options", () => {
+    renderListingsRealtime({initialPricingProviderMode: "off"});
+
+    expect(screen.getByRole("radio", {name: "Off"})).not.toBeNull();
+    expect(screen.getByRole("radio", {name: "SoldComps"})).not.toBeNull();
+    expect(screen.queryByRole("radio", {name: "Apify"})).toBeNull();
+  });
+
   it("saves pricing provider mode changes", async () => {
     renderListingsRealtime({initialPricingProviderMode: "off"});
 
-    fireEvent.click(screen.getByRole("radio", {name: "Apify"}));
+    fireEvent.click(screen.getByRole("radio", {name: "SoldComps"}));
 
-    expect(savePricingProviderModeMock).toHaveBeenCalledWith("apify");
+    expect(savePricingProviderModeMock).toHaveBeenCalledWith("soldcomps");
 
     await act(async () => {
       await Promise.resolve();
     });
 
     expect(
-      screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked"),
+      screen
+        .getByRole("radio", {name: "SoldComps"})
+        .getAttribute("aria-checked"),
     ).toBe("true");
   });
 
@@ -331,9 +334,6 @@ describe("ListingsRealtime", () => {
     expect(
       screen.getByRole("radio", {name: "SoldComps"}).getAttribute("disabled"),
     ).not.toBeNull();
-    expect(
-      screen.getByRole("radio", {name: "Apify"}).getAttribute("disabled"),
-    ).not.toBeNull();
     expect(screen.getByText("Saving")).not.toBeNull();
 
     await act(async () => {
@@ -344,6 +344,19 @@ describe("ListingsRealtime", () => {
     expect(screen.queryByText("Saving")).toBeNull();
   });
 
+  it("maps a persisted apify provider mode to the supported SoldComps selection", () => {
+    renderListingsRealtime({initialPricingProviderMode: "apify"});
+
+    expect(
+      screen
+        .getByRole("radio", {name: "SoldComps"})
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("radio", {name: "Off"}).getAttribute("aria-checked"),
+    ).toBe("false");
+  });
+
   it("restores previous pricing provider mode and shows error when save fails", async () => {
     savePricingProviderModeMock.mockResolvedValue({
       error: "Provider save failed.",
@@ -352,7 +365,7 @@ describe("ListingsRealtime", () => {
 
     renderListingsRealtime({initialPricingProviderMode: "soldcomps"});
 
-    fireEvent.click(screen.getByRole("radio", {name: "Apify"}));
+    fireEvent.click(screen.getByRole("radio", {name: "Off"}));
 
     await act(async () => {
       await Promise.resolve();
@@ -365,17 +378,8 @@ describe("ListingsRealtime", () => {
         .getAttribute("aria-checked"),
     ).toBe("true");
     expect(
-      screen.getByRole("radio", {name: "Apify"}).getAttribute("aria-checked"),
+      screen.getByRole("radio", {name: "Off"}).getAttribute("aria-checked"),
     ).toBe("false");
-  });
-
-  it("passes pricing service state into controls card", () => {
-    renderListingsRealtime({initialPricingServiceEnabled: true});
-
-    expect(
-      screen.getByRole("button", {name: "Disable automatic pricing"}),
-    ).not.toBeNull();
-    expect(screen.getByText("Automatic pricing on")).not.toBeNull();
   });
 
   it.each(["INSERT", "UPDATE", "DELETE"] as const)(
