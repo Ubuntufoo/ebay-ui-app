@@ -174,11 +174,64 @@ function FailedSummary({
   );
 }
 
-function SucceededSummary({
-  className = "",
+function SucceededSummaryStats({
   research,
 }: {
-  className?: string;
+  research: ListingLatestPricingResearchSummary;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+          Suggested
+        </span>
+        <p className="mt-0.5 text-lg font-semibold tracking-[-0.02em] text-stone-900">
+          {formatPrice(research.suggested_price)}
+        </p>
+      </div>
+
+      {research.confidence ? (
+        <span
+          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${
+            research.confidence === "high"
+              ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
+              : research.confidence === "medium"
+                ? "border border-amber-300 bg-amber-50 text-amber-800"
+                : "border border-rose-300 bg-rose-50 text-rose-800"
+          }`}
+        >
+          {research.confidence} confidence
+        </span>
+      ) : null}
+
+      {research.median_sold_price !== null ? (
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+            Median sold
+          </span>
+          <p className="mt-0.5 text-sm font-medium text-stone-600">
+            {formatPrice(research.median_sold_price)}
+          </p>
+        </div>
+      ) : null}
+
+      {research.sold_count !== null ? (
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+            Sold count
+          </span>
+          <p className="mt-0.5 text-sm font-medium text-stone-600">
+            {formatCount(research.sold_count)}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SucceededSummaryDetails({
+  research,
+}: {
   research: ListingLatestPricingResearchSummary;
 }) {
   const hasExplanation =
@@ -197,54 +250,7 @@ function SucceededSummary({
     providerReportedCount !== providerReturnedCount;
 
   return (
-    <div className={`grid gap-3 ${className}`.trim()}>
-      <div className="flex flex-wrap items-center gap-3">
-        <div>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
-            Suggested
-          </span>
-          <p className="mt-0.5 text-lg font-semibold tracking-[-0.02em] text-stone-900">
-            {formatPrice(research.suggested_price)}
-          </p>
-        </div>
-
-        {research.confidence ? (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${
-              research.confidence === "high"
-                ? "border border-emerald-300 bg-emerald-50 text-emerald-800"
-                : research.confidence === "medium"
-                  ? "border border-amber-300 bg-amber-50 text-amber-800"
-                  : "border border-rose-300 bg-rose-50 text-rose-800"
-            }`}
-          >
-            {research.confidence} confidence
-          </span>
-        ) : null}
-
-        {research.median_sold_price !== null ? (
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
-              Median sold
-            </span>
-            <p className="mt-0.5 text-sm font-medium text-stone-600">
-              {formatPrice(research.median_sold_price)}
-            </p>
-          </div>
-        ) : null}
-
-        {research.sold_count !== null ? (
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
-              Sold count
-            </span>
-            <p className="mt-0.5 text-sm font-medium text-stone-600">
-              {formatCount(research.sold_count)}
-            </p>
-          </div>
-        ) : null}
-      </div>
-
+    <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-4 text-[11px] text-stone-500">
         <span>
           Accepted:{" "}
@@ -295,6 +301,23 @@ function SucceededSummary({
     </div>
   );
 }
+
+function SucceededSummary({
+  className = "",
+  research,
+}: {
+  className?: string;
+  research: ListingLatestPricingResearchSummary;
+}) {
+  return (
+    <div className={`grid gap-3 ${className}`.trim()}>
+      <SucceededSummaryStats research={research} />
+      <SucceededSummaryDetails research={research} />
+    </div>
+  );
+}
+
+export {SucceededSummaryStats, SucceededSummaryDetails};
 
 export function ListingPricingResearchSummary({
   className = "",

@@ -19,7 +19,11 @@ import {
   type RetryPublishListingActionState,
 } from "@/app/listing-retry-publish-state";
 import {getListingPricingLinks} from "@/app/listing-pricing-links";
-import {ListingPricingResearchSummary} from "@/app/listing-pricing-research-summary";
+import {
+  ListingPricingResearchSummary,
+  SucceededSummaryDetails,
+  SucceededSummaryStats,
+} from "@/app/listing-pricing-research-summary";
 import {ListingGenerateControls} from "@/app/listing-generate-controls";
 import {getTradingCardConditionApprovalMessage} from "@/app/trading-card-condition-utils";
 import type {Listing} from "@/lib/sidecar-api";
@@ -249,8 +253,8 @@ function ListingIdentityWarningNotice({listing}: {listing: Listing}) {
       <p className="text-sm font-medium text-amber-900">{warning.summary}</p>
       {warning.likely_year !== null && warning.likely_year !== undefined ? (
         <p className="text-xs text-amber-800">
-          Likely year: {String(warning.likely_year)}. Advisory only; year is
-          not confirmed.
+          Likely year: {String(warning.likely_year)}. Advisory only; year is not
+          confirmed.
         </p>
       ) : null}
       {warning.likely_year_range ? (
@@ -282,25 +286,33 @@ export function ListingPricingResearchPanel({
     return null;
   }
 
+  const showSucceededTwoColumn =
+    listing.latest_pricing_research?.status === "succeeded";
+
   return (
     <div className="rounded-2xl border border-stone-950/10 bg-white/80 px-4 py-4">
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
         Pricing research
       </p>
       <ListingIdentityWarningNotice listing={listing} />
-      <div className="mt-3 flex flex-wrap gap-3">
-        {pricingLinks.map((link) => (
-          <a
-            key={link.label}
-            href={link.href}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
-          >
-            {link.label}
-          </a>
-        ))}
-      </div>
+
+      {/* Pricing links before the grid (only for non-succeeded) */}
+      {!showSucceededTwoColumn ? (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {pricingLinks.map((link) => (
+            <a
+              key={link.label}
+              href={link.href}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
+      ) : null}
+
       {listing.latest_pricing_research ? (
         showFailedPricingRetryPair ? (
           <div className="mt-3 grid items-start gap-3 lg:grid-cols-2">
@@ -310,6 +322,41 @@ export function ListingPricingResearchPanel({
             />
             <RetryPricingForm className="h-full" listing={listing} />
           </div>
+        ) : showSucceededTwoColumn ? (
+          <div className="mt-3 grid items-start gap-4 lg:grid-cols-2">
+            <div className="grid gap-4">
+              {pricingLinks.length > 0 ? (
+                <div className="flex flex-wrap gap-3">
+                  {pricingLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center justify-center rounded-full border border-stone-950/15 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                    >
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+              <div className="rounded-2xl border border-stone-950/10 bg-stone-50/60 px-4 py-4">
+                <SucceededSummaryStats
+                  research={listing.latest_pricing_research}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4">
+              <div className="rounded-2xl border border-stone-950/10 bg-stone-50/60 px-4 py-4">
+                <SucceededSummaryDetails
+                  research={listing.latest_pricing_research}
+                />
+              </div>
+              {showRetryPricing && showRetryPricingForm ? (
+                <RetryPricingForm listing={listing} />
+              ) : null}
+            </div>
+          </div>
         ) : (
           <ListingPricingResearchSummary
             className="mt-3"
@@ -317,14 +364,17 @@ export function ListingPricingResearchPanel({
           />
         )
       ) : null}
+
       {!listing.latest_pricing_research ? (
         <p className="mt-3 text-sm text-stone-400">
           No saved pricing research yet.
         </p>
       ) : null}
+
       {showRetryPricing &&
       showRetryPricingForm &&
-      !showFailedPricingRetryPair ? (
+      !showFailedPricingRetryPair &&
+      !showSucceededTwoColumn ? (
         <RetryPricingForm className="mt-4" listing={listing} />
       ) : null}
     </div>

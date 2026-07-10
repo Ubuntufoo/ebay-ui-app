@@ -264,54 +264,54 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 <textarea
                   name="condition_notes"
                   defaultValue={listing.condition_notes ?? ""}
-                  rows={3}
+                  rows={1}
                   disabled={isGenerating}
                   className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
                 />
               </label>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <label className="block">
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Category ID
+                  Item specifics (JSON)
                 </span>
-                <input
-                  type="text"
-                  name="category_id"
-                  defaultValue={listing.category_id ?? ""}
+                <textarea
+                  name="item_specifics"
+                  value={itemSpecificsText}
+                  onChange={(event) => setItemSpecificsText(event.target.value)}
+                  rows={9}
                   disabled={isGenerating}
-                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
                 />
               </label>
-
-              <label className="block">
-                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                  Condition ID
-                </span>
-                <input
-                  type="text"
-                  name="condition_id"
-                  defaultValue={listing.condition_id ?? ""}
-                  disabled={isGenerating}
-                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
-                />
-              </label>
+              <div className="grid gap-4 content-start">
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                    Category ID
+                  </span>
+                  <input
+                    type="text"
+                    name="category_id"
+                    defaultValue={listing.category_id ?? ""}
+                    disabled={isGenerating}
+                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                    Condition ID
+                  </span>
+                  <input
+                    type="text"
+                    name="condition_id"
+                    defaultValue={listing.condition_id ?? ""}
+                    disabled={isGenerating}
+                    className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
+                  />
+                </label>
+              </div>
             </div>
-
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Item specifics (JSON)
-              </span>
-              <textarea
-                name="item_specifics"
-                value={itemSpecificsText}
-                onChange={(event) => setItemSpecificsText(event.target.value)}
-                rows={9}
-                disabled={isGenerating}
-                className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 font-mono text-sm text-stone-900 outline-none transition focus:border-stone-950"
-              />
-            </label>
 
             {itemSpecificsError ? (
               <p className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
