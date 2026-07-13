@@ -75,6 +75,7 @@ describe("listing pricing links", () => {
         item_specifics: {
           Manufacturer: "nba hoops",
           Player: "jim mcilvaine",
+          Sport: "Basketball",
           Year: "1995-96",
         },
       }),
@@ -85,9 +86,115 @@ describe("listing pricing links", () => {
       "eBay Terapeak",
     ]);
     expect(links[0]?.href).toBe(
-      "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+%23379+Jim+McIlvaine+Rookie+Card&type=prices",
+      "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+%23379+Jim+McIlvaine+Rookie+Card&type=prices&sport=basketball-cards",
     );
     expect(links[1]?.label).toBe("eBay Terapeak");
+  });
+
+  it("maps supported SportsCardsPro sports case-insensitively", () => {
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: " baseball ",
+          },
+          title: "Baseball card",
+        }),
+      )[0]?.href,
+    ).toContain("sport=baseball-cards");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: "BASKETBALL",
+          },
+          title: "Basketball card",
+        }),
+      )[0]?.href,
+    ).toContain("sport=basketball-cards");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: "Football",
+          },
+          title: "Football card",
+        }),
+      )[0]?.href,
+    ).toContain("sport=football-cards");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: "hOcKeY",
+          },
+          title: "Hockey card",
+        }),
+      )[0]?.href,
+    ).toContain("sport=hockey-cards");
+  });
+
+  it("omits unsupported or malformed SportsCardsPro sport values", () => {
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {},
+          title: "No sport card",
+        }),
+      )[0]?.href,
+    ).not.toContain("sport=");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: "  ",
+          },
+          title: "Blank sport card",
+        }),
+      )[0]?.href,
+    ).not.toContain("sport=");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: "Soccer",
+          },
+          title: "Unsupported sport card",
+        }),
+      )[0]?.href,
+    ).not.toContain("sport=");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: ["Baseball"],
+          },
+          title: "Array sport card",
+        }),
+      )[0]?.href,
+    ).not.toContain("sport=");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: {
+              label: "Baseball",
+            },
+          },
+          title: "Object sport card",
+        }),
+      )[0]?.href,
+    ).not.toContain("sport=");
+    expect(
+      getListingPricingLinks(
+        buildListing({
+          item_specifics: {
+            Sport: "baseball-cards",
+          },
+          title: "Already suffixed sport card",
+        }),
+      )[0]?.href,
+    ).not.toContain("sport=");
   });
 
   it("falls back to structured pricing text when the title is missing", () => {

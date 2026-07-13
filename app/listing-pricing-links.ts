@@ -12,8 +12,16 @@ const keyAliases = {
   cardNumber: ["card number", "card no", "card #", "#", "number"],
   player: ["player", "athlete", "character"],
   series: ["series"],
+  sport: ["sport"],
   set: ["set"],
   year: ["year"],
+} as const;
+
+const sportsCardsProSportMap = {
+  baseball: "baseball-cards",
+  basketball: "basketball-cards",
+  football: "football-cards",
+  hockey: "hockey-cards",
 } as const;
 
 function isRecord(
@@ -159,11 +167,25 @@ function buildStructuredCardQuery(listing: Listing): string | null {
   return combined === "" ? null : combined;
 }
 
-function buildSportsCardsProUrl(query: string): string {
+function readSportsCardsProSportSlug(listing: Listing): string | null {
+  const sport = readSpecificValue(listing.item_specifics, keyAliases.sport);
+  if (!sport) {
+    return null;
+  }
+
+  const normalized = normalizeWhitespace(sport).toLowerCase();
+  return sportsCardsProSportMap[normalized as keyof typeof sportsCardsProSportMap] ?? null;
+}
+
+function buildSportsCardsProUrl(query: string, sport: string | null): string {
   const params = new URLSearchParams({
     q: query,
     type: "prices",
   });
+
+  if (sport) {
+    params.append("sport", sport);
+  }
 
   return `https://www.sportscardspro.com/search-products?${params.toString()}`;
 }
@@ -226,6 +248,7 @@ export function getListingPricingLinks(
   now = Date.now(),
 ): PricingLink[] {
   const query = buildListingPricingSearchText(listing);
+  const sport = readSportsCardsProSportSlug(listing);
   const terapeakQuery = buildTerapeakSearchText(listing);
 
   if (!query && !terapeakQuery) {
@@ -237,7 +260,7 @@ export function getListingPricingLinks(
       ? [
           {
             label: "SportsCardsPro",
-            href: buildSportsCardsProUrl(query),
+            href: buildSportsCardsProUrl(query, sport),
           },
         ]
       : []),
