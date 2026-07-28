@@ -74,6 +74,7 @@ function buildListing(overrides: Partial<Listing> = {}): Listing {
       llm_price_explanation: null,
       median_sold_price: null,
       pricing_model_name: null,
+      price_adjustment: null,
       provider: "soldcomps",
       query: "2023 Topps Chrome Mike Trout",
       research_id: "research-1",

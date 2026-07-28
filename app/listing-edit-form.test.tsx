@@ -711,6 +711,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: "Strong comps support this price.",
               median_sold_price: 45,
               pricing_model_name: "gemini-2.5-flash",
+              price_adjustment: null,
               provider: "soldcomps",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-order",
@@ -758,7 +759,11 @@ describe("ListingEditForm", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(
-      conditionNotesLabel!.compareDocumentPosition(categoryIdLabel!) &
+      conditionNotesLabel!.compareDocumentPosition(itemSpecificsLabel!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      itemSpecificsLabel!.compareDocumentPosition(categoryIdLabel!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(
@@ -766,11 +771,7 @@ describe("ListingEditForm", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
     expect(
-      conditionIdLabel!.compareDocumentPosition(itemSpecificsLabel!) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).not.toBe(0);
-    expect(
-      itemSpecificsLabel!.compareDocumentPosition(inventorySectionHeading) &
+      conditionIdLabel!.compareDocumentPosition(inventorySectionHeading) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).not.toBe(0);
   });
@@ -807,6 +808,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: "Strong comps support this price.",
               median_sold_price: 45,
               pricing_model_name: "gemini-2.5-flash",
+              price_adjustment: null,
               provider: "soldcomps",
               query: "1955 Topps Sandy Koufax",
               research_id: "research-year-warning",
@@ -1450,6 +1452,26 @@ describe("ListingEditForm", () => {
               llm_price_explanation: "Strong comps support this price.",
               median_sold_price: 45.0,
               pricing_model_name: "gemini-2.5-flash",
+              price_adjustment: {
+                applied_condition_percent: 0,
+                comp_median_condition_score: 5.5,
+                competitive_adjusted_price: 111.7485,
+                competitive_discount_percent: 5,
+                condition_adjusted_price: 117.63,
+                condition_reason: "negative_blocked_for_top_condition",
+                explicit_comp_condition_count: 8,
+                final_suggested_price: 111.75,
+                final_total_adjustment_percent: -5,
+                listing_condition_label: "Near Mint or Better",
+                listing_condition_score: 5,
+                median_sold_price: 117.63,
+                observed_condition_delta: -0.5,
+                raw_condition_percent: -12.25,
+                recent_accepted_comp_count: 8,
+                recent_window_days: 90,
+                sales_velocity_discount_percent: 0,
+                sales_velocity_tier: "high",
+              },
               provider: "soldcomps",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-1",
@@ -1469,6 +1491,34 @@ describe("ListingEditForm", () => {
     expect(screen.getByText("$45.00")).not.toBeNull();
     expect(screen.getByText("12")).not.toBeNull();
     expect(screen.getByText("Strong comps support this price.")).not.toBeNull();
+    const priceModifiersHeading = screen.getByRole("heading", {
+      name: "Price modifiers",
+    });
+    const succeededSummaryCard = screen
+      .getByText("Suggested")
+      .closest(".rounded-2xl");
+
+    expect(priceModifiersHeading).not.toBeNull();
+    expect(succeededSummaryCard).not.toBeNull();
+    expect(succeededSummaryCard?.textContent).toContain("Accepted: 26");
+    expect(succeededSummaryCard?.textContent).toContain("Rejected: 24");
+    expect(succeededSummaryCard?.textContent).toContain("Provider returned: 50");
+    expect(succeededSummaryCard?.textContent).toContain(
+      "Query: 2023 Topps Chrome Mike Trout",
+    );
+    expect(succeededSummaryCard?.textContent).toContain(
+      "Provider: soldcomps · Model: gemini-2.5-flash",
+    );
+    expect(succeededSummaryCard?.textContent).not.toContain("Price modifiers");
+    expect(
+      succeededSummaryCard?.contains(priceModifiersHeading),
+    ).toBe(false);
+    expect(screen.getByText("Raw -12.25% · Applied 0%")).not.toBeNull();
+    expect(
+      screen.getByText(
+        "Negative condition adjustment blocked because the listing is Near Mint or Better.",
+      ),
+    ).not.toBeNull();
     // counts rendered inside nested spans; verify via section textContent
     const pricingSection = screen
       .getByText("Strong comps support this price.")
@@ -1525,6 +1575,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: null,
               median_sold_price: null,
               pricing_model_name: null,
+              price_adjustment: null,
               provider: "soldcomps",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-2",
@@ -1610,6 +1661,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: null,
               median_sold_price: null,
               pricing_model_name: null,
+              price_adjustment: null,
               provider: "soldcomps",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-2b",
@@ -1669,6 +1721,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: null,
               median_sold_price: null,
               pricing_model_name: null,
+              price_adjustment: null,
               provider: "apify",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-2c",
@@ -1722,6 +1775,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: null,
               median_sold_price: null,
               pricing_model_name: null,
+              price_adjustment: null,
               provider: "soldcomps",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-2d",
@@ -1771,6 +1825,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: null,
               median_sold_price: null,
               pricing_model_name: null,
+              price_adjustment: null,
               provider: "soldcomps",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-2e",
@@ -1824,6 +1879,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: null,
               median_sold_price: null,
               pricing_model_name: null,
+              price_adjustment: null,
               provider: "apify",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-3",
@@ -1880,6 +1936,7 @@ describe("ListingEditForm", () => {
               llm_price_explanation: null,
               median_sold_price: null,
               pricing_model_name: null,
+              price_adjustment: null,
               provider: "soldcomps",
               query: "2023 Topps Chrome Mike Trout",
               research_id: "research-4",

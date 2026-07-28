@@ -21,6 +21,7 @@ import {
 import {getListingPricingLinks} from "@/app/listing-pricing-links";
 import {
   ListingPricingResearchSummary,
+  SucceededPriceAdjustment,
   SucceededSummaryDetails,
   SucceededSummaryStats,
 } from "@/app/listing-pricing-research-summary";
@@ -288,6 +289,9 @@ export function ListingPricingResearchPanel({
 
   const showSucceededTwoColumn =
     listing.latest_pricing_research?.status === "succeeded";
+  const showSucceededPriceAdjustment =
+    showSucceededTwoColumn &&
+    listing.latest_pricing_research?.price_adjustment !== null;
 
   return (
     <div className="rounded-2xl border border-stone-950/10 bg-white/80 px-4 py-4">
@@ -323,7 +327,11 @@ export function ListingPricingResearchPanel({
             <RetryPricingForm className="h-full" listing={listing} />
           </div>
         ) : showSucceededTwoColumn ? (
-          <div className="mt-3 grid items-start gap-4 lg:grid-cols-2">
+          <div
+            className={`mt-3 grid items-start gap-4 ${
+              showSucceededPriceAdjustment ? "lg:grid-cols-2" : ""
+            }`.trim()}
+          >
             <div className="grid gap-4">
               {pricingLinks.length > 0 ? (
                 <div className="flex flex-wrap gap-3">
@@ -340,22 +348,21 @@ export function ListingPricingResearchPanel({
                   ))}
                 </div>
               ) : null}
-              <div className="rounded-2xl border border-stone-950/10 bg-stone-50/60 px-4 py-4">
+              <div className="grid gap-4 rounded-2xl border border-stone-950/10 bg-stone-50/60 px-4 py-4">
                 <SucceededSummaryStats
                   research={listing.latest_pricing_research}
                 />
-              </div>
-            </div>
-            <div className="grid gap-4">
-              <div className="rounded-2xl border border-stone-950/10 bg-stone-50/60 px-4 py-4">
                 <SucceededSummaryDetails
                   research={listing.latest_pricing_research}
+                  showPriceAdjustment={false}
                 />
               </div>
-              {showRetryPricing && showRetryPricingForm ? (
-                <RetryPricingForm listing={listing} />
-              ) : null}
             </div>
+            {showSucceededPriceAdjustment ? (
+              <SucceededPriceAdjustment
+                research={listing.latest_pricing_research}
+              />
+            ) : null}
           </div>
         ) : (
           <ListingPricingResearchSummary
