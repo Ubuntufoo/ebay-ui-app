@@ -55,6 +55,7 @@ describe("enqueueGenerateListing", () => {
     const formData = new FormData();
     formData.set("listing_id", "LIST-001");
     formData.set("seller_hints", "  Use padded envelope  ");
+    formData.set("auto_pricing_enabled", "true");
 
     const result = await enqueueGenerateListing(
       {error: null, info: null, success: null},
@@ -62,6 +63,7 @@ describe("enqueueGenerateListing", () => {
     );
 
     expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
+      autoPricingEnabled: true,
       sellerHints: "Use padded envelope",
     });
     expect(updateListingMock).not.toHaveBeenCalled();
@@ -73,7 +75,7 @@ describe("enqueueGenerateListing", () => {
     });
   });
 
-  it("sends null for empty seller hints", async () => {
+  it("forwards false for an unchecked auto-pricing checkbox", async () => {
     enqueueGenerateAiMock.mockResolvedValueOnce({
       alreadyQueued: false,
       job: {id: "job-1"},
@@ -91,6 +93,7 @@ describe("enqueueGenerateListing", () => {
     );
 
     expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
+      autoPricingEnabled: false,
       sellerHints: null,
     });
   });
@@ -123,6 +126,7 @@ describe("enqueueGenerateListing", () => {
       },
     });
     expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
+      autoPricingEnabled: false,
       sellerHints: null,
     });
   });

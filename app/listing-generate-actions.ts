@@ -95,6 +95,8 @@ export async function enqueueGenerateListing(
 
   try {
     const sellerHints = readTrimmedFormField(formData.get("seller_hints"));
+    const autoPricingEnabled =
+      formData.get("auto_pricing_enabled") === "true";
     const pricingModifierOptions = readPricingModifierOptions(formData);
 
     if (pricingModifierOptions) {
@@ -102,6 +104,7 @@ export async function enqueueGenerateListing(
     }
 
     const result = await enqueueGenerateAi(listingId, {
+      autoPricingEnabled,
       sellerHints,
     });
     revalidatePath("/");

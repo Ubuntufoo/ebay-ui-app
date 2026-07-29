@@ -29,6 +29,7 @@ import type {Listing} from "@/lib/sidecar-api";
 function buildListing(overrides: Partial<Listing> = {}): Listing {
   return {
     approved_for_export_at: null,
+    auto_pricing_enabled: true,
     capture_mode: null,
     category_id: null,
     condition_id: null,

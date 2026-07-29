@@ -9,10 +9,65 @@ vi.mock("@/lib/config/sidecar", () => ({
 
 import {
   dismissPricingAnalysisWarnings,
+  enqueueGenerateAi,
   retryPricing,
   retryPricingAnalysis,
   updateAppSettings,
 } from "@/lib/sidecar-api/client";
+
+describe("enqueueGenerateAi", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts seller hints and the explicit auto-pricing preference", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          alreadyQueued: false,
+          job: {id: "job-1"},
+          listing: {listing_id: "Single/000005"},
+        }),
+        {
+          headers: {"content-type": "application/json"},
+          status: 200,
+        },
+      ),
+    );
+
+    await enqueueGenerateAi("Single/000005", {
+      autoPricingEnabled: false,
+      sellerHints: "Use padded envelope",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/Single%2F000005/generate-ai",
+      expect.objectContaining({
+        body: JSON.stringify({
+          sellerHints: "Use padded envelope",
+          autoPricingEnabled: false,
+        }),
+        cache: "no-store",
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
+  });
+});
 
 describe("sidecar app settings updates", () => {
   beforeEach(() => {

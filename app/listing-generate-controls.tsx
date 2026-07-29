@@ -49,7 +49,7 @@ function PricingModifierCheckbox({
 function getModifierStateResetKey(listing: Listing): string {
   const modifierState = getPricingModifierUiState(listing.item_specifics);
 
-  return `${listing.listing_id}:${modifierState.graded}:${modifierState.auto}:${modifierState.variant}`;
+  return `${listing.listing_id}:${listing.auto_pricing_enabled}:${modifierState.graded}:${modifierState.auto}:${modifierState.variant}`;
 }
 
 function SellerHintsField({sellerHints}: {sellerHints: string | null}) {
@@ -74,6 +74,9 @@ function SellerHintsField({sellerHints}: {sellerHints: string | null}) {
 
 function PricingModifierControls({listing}: {listing: Listing}) {
   const {pending} = useFormStatus();
+  const [autoPricingEnabled, setAutoPricingEnabled] = useState(
+    listing.auto_pricing_enabled,
+  );
   const [modifierState, setModifierState] =
     useState<ListingPricingModifierUiState>(() =>
       getPricingModifierUiState(listing.item_specifics),
@@ -135,6 +138,13 @@ function PricingModifierControls({listing}: {listing: Listing}) {
         >
           {pending ? "Generating..." : "Generate AI Draft"}
         </button>
+        <PricingModifierCheckbox
+          checked={autoPricingEnabled}
+          disabled={pending}
+          label="Auto Pricing?"
+          name="auto_pricing_enabled"
+          onChange={setAutoPricingEnabled}
+        />
         <div className="flex flex-wrap items-center gap-2">
           <PricingModifierCheckbox
             checked={modifierState.graded}

@@ -167,6 +167,7 @@ export interface ListingLatestPricingResearchSummary {
 
 export interface Listing {
   approved_for_export_at: string | null;
+  auto_pricing_enabled: boolean;
   capture_mode: string | null;
   category_id: string | null;
   condition_id: string | null;

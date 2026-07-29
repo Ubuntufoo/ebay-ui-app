@@ -207,12 +207,13 @@ export async function updateListingWorkflowState(
 
 export async function enqueueGenerateAi(
   listingId: string,
-  input: {sellerHints?: string | null},
+  input: {autoPricingEnabled: boolean; sellerHints?: string | null},
 ): Promise<EnqueueGenerateAiResponse> {
   return await sidecarFetch<EnqueueGenerateAiResponse>(
     `/api/listings/${encodeURIComponent(listingId)}/generate-ai`,
     buildJsonRequestInit("POST", {
       sellerHints: input.sellerHints ?? null,
+      autoPricingEnabled: input.autoPricingEnabled,
     }),
   );
 }

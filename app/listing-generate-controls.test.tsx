@@ -20,6 +20,7 @@ import {ListingGenerateControls} from "@/app/listing-generate-controls";
 function buildListing(status: Listing["status"]): Listing {
   return {
     approved_for_export_at: null,
+    auto_pricing_enabled: true,
     capture_mode: null,
     category_id: null,
     condition_id: null,
@@ -131,6 +132,7 @@ describe("ListingGenerateControls", () => {
 
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
     expect(submittedFormData.get("seller_hints")).toBe("Use padded envelope");
+    expect(submittedFormData.get("auto_pricing_enabled")).toBe("true");
     expect(submittedFormData.get("exclude_graded")).toBe("true");
     expect(submittedFormData.get("exclude_autographs")).toBe("true");
     expect(submittedFormData.get("exclude_variants")).toBe("false");
@@ -145,6 +147,9 @@ describe("ListingGenerateControls", () => {
       "disabled",
       true,
     );
+    expect(
+      screen.getByRole("checkbox", {name: "Auto Pricing?"}),
+    ).toHaveProperty("disabled", true);
 
     deferred.resolve({
       error: null,
@@ -186,6 +191,68 @@ describe("ListingGenerateControls", () => {
     expect(
       screen.getByRole("checkbox", {name: "Avoid autographs"}),
     ).toHaveProperty("checked", true);
+  });
+
+  it("hydrates the persisted auto-pricing preference", () => {
+    const {rerender} = render(
+      <ListingGenerateControls listing={buildListing("assets_ready")} />,
+    );
+
+    expect(
+      screen.getByRole("checkbox", {name: "Auto Pricing?"}),
+    ).toHaveProperty("checked", true);
+
+    rerender(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          auto_pricing_enabled: false,
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("checkbox", {name: "Auto Pricing?"}),
+    ).toHaveProperty("checked", false);
+  });
+
+  it("keeps the Generate label static and does not persist on toggle", async () => {
+    const user = userEvent.setup();
+
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+
+    expect(
+      screen.getByRole("button", {name: "Generate AI Draft"}),
+    ).not.toBeNull();
+    expect(saveListingPricingModifierOptionsMock).not.toHaveBeenCalled();
+  });
+
+  it("submits unchecked auto pricing as a missing checkbox value", async () => {
+    enqueueGenerateListingMock.mockResolvedValueOnce({
+      error: null,
+      info: null,
+      success: "queued",
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          auto_pricing_enabled: false,
+        }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
+
+    const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+    expect(
+      (submittedFormData as FormData).get("auto_pricing_enabled"),
+    ).toBeNull();
   });
 
   it("hydrates partial persisted modifier values", () => {
