@@ -1,4 +1,5 @@
 export {
+  abandonListing,
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
   getAppSettings,
@@ -16,6 +17,7 @@ export {
   SidecarApiError,
 } from "@/lib/sidecar-api/client";
 export type {
+  AbandonListingResponse,
   AppSettings,
   DismissPricingAnalysisWarningsResponse,
   EnqueueGenerateAiResponse,

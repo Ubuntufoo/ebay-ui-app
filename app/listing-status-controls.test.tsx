@@ -112,6 +112,33 @@ describe("ListingReviewGate pricing retry", () => {
     cleanup();
   });
 
+  it("allows valid approval immediately without checklist fields", async () => {
+    approveListingForExportMock.mockResolvedValueOnce({
+      error: null,
+      success: "Approved LIST-001 for export.",
+    });
+    const user = userEvent.setup();
+
+    render(<ListingReviewGate listing={buildListing()} />);
+
+    expect(screen.queryByText(/final review checklist/i)).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+
+    const approveButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+    expect(approveButton).toHaveProperty("disabled", false);
+
+    await user.click(approveButton);
+
+    const submittedFormData = approveListingForExportMock.mock
+      .calls[0][1] as FormData;
+    expect(Array.from(submittedFormData.entries())).toEqual([
+      ["listing_id", "LIST-001"],
+      ["current_status", "needs_review"],
+    ]);
+  });
+
   it("shows Re-run Pricing for deterministic failed pricing research", () => {
     render(<ListingReviewGate listing={buildListing()} />);
 

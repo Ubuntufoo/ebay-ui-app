@@ -1,6 +1,6 @@
 "use client";
 
-import {useActionState, useState} from "react";
+import {useActionState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {approveListingForExport} from "@/app/listing-approve-export-actions";
@@ -59,25 +59,6 @@ function RetryPublishButton({disabled}: {disabled?: boolean}) {
       {pending ? "Retrying..." : "Retry Publish"}
     </button>
   );
-}
-
-const FINAL_REVIEW_CHECKLIST_ITEMS = [
-  "Title is accurate and eBay-safe.",
-  "Price is correct.",
-  "Category is correct.",
-  "Condition is correct.",
-  "Images are correct and ordered front/back or lot sequence.",
-  "Item specifics look correct.",
-] as const;
-type FinalReviewChecklistItem = (typeof FINAL_REVIEW_CHECKLIST_ITEMS)[number];
-
-function createInitialChecklistState(): Record<
-  FinalReviewChecklistItem,
-  boolean
-> {
-  return Object.fromEntries(
-    FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => [item, false]),
-  ) as Record<FinalReviewChecklistItem, boolean>;
 }
 
 function getTitleLength(title: Listing["title"]): number {
@@ -447,12 +428,6 @@ export function ListingReviewGate({
     ApproveListingForExportActionState,
     FormData
   >(approveListingForExport, initialApproveListingForExportActionState);
-  const [completedChecklistItems, setCompletedChecklistItems] = useState(
-    createInitialChecklistState,
-  );
-  const isReviewChecklistComplete = FINAL_REVIEW_CHECKLIST_ITEMS.every(
-    (item) => completedChecklistItems[item] === true,
-  );
   const titleLength = getTitleLength(listing.title);
   const isTitleLengthValid = !isTitleTooLong(listing.title);
   const cardConditionApprovalMessage = getTradingCardConditionApprovalMessage(
@@ -460,9 +435,7 @@ export function ListingReviewGate({
     cardConditionToken,
   );
   const isApproveDisabled =
-    !isReviewChecklistComplete ||
-    !isTitleLengthValid ||
-    cardConditionApprovalMessage !== null;
+    !isTitleLengthValid || cardConditionApprovalMessage !== null;
 
   if (listing.status !== "needs_review") {
     return null;
@@ -482,42 +455,21 @@ export function ListingReviewGate({
       <form action={approveFormAction} className="grid gap-4">
         <input type="hidden" name="listing_id" value={listing.listing_id} />
         <input type="hidden" name="current_status" value={listing.status} />
-        <div className="rounded-2xl border border-emerald-300 bg-white/80 px-4 py-4">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-800">
-            Final review checklist
-          </p>
-          {cardConditionApprovalMessage !== null ? (
-            <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-              {cardConditionApprovalMessage}
-            </p>
-          ) : null}
-          {!isTitleLengthValid ? (
-            <p className="mt-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
-              eBay titles must be 80 characters or fewer. Current title:{" "}
-              {titleLength} characters.
-            </p>
-          ) : null}
-          <div className="mt-3 grid gap-2 md:grid-cols-2 md:gap-x-6">
-            {FINAL_REVIEW_CHECKLIST_ITEMS.map((item) => (
-              <label
-                key={item}
-                className="flex items-start gap-2 text-sm leading-6 text-stone-700"
-              >
-                <input
-                  type="checkbox"
-                  checked={completedChecklistItems[item]}
-                  onChange={(event) =>
-                    setCompletedChecklistItems((current) => ({
-                      ...current,
-                      [item]: event.target.checked,
-                    }))
-                  }
-                />
-                <span>{item}</span>
-              </label>
-            ))}
+        {cardConditionApprovalMessage !== null || !isTitleLengthValid ? (
+          <div className="grid gap-3 rounded-2xl border border-emerald-300 bg-white/80 px-4 py-4">
+            {cardConditionApprovalMessage !== null ? (
+              <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                {cardConditionApprovalMessage}
+              </p>
+            ) : null}
+            {!isTitleLengthValid ? (
+              <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
+                eBay titles must be 80 characters or fewer. Current title:{" "}
+                {titleLength} characters.
+              </p>
+            ) : null}
           </div>
-        </div>
+        ) : null}
         <div className="flex flex-wrap gap-3">
           <ApproveForExportButton disabled={isApproveDisabled} />
         </div>

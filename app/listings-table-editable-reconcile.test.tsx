@@ -130,8 +130,8 @@ describe("ListingsTableEditable reconciliation", () => {
     );
 
     expect(
-      screen.getByText(/Final review checklist/i),
-    ).not.toBeNull();
+      screen.getByRole("button", {name: "Approve For Export"}),
+    ).toHaveProperty("disabled", false);
     expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
       "Gemini draft title",
     );

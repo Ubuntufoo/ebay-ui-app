@@ -43,15 +43,6 @@ vi.mock("@/app/listing-retry-publish-actions", () => ({
 
 import {ListingEditForm} from "@/app/listing-edit-form";
 
-const FIRST_LIVE_REVIEW_CHECKLIST_LABELS = [
-  "Title is accurate and eBay-safe.",
-  "Price is correct.",
-  "Category is correct.",
-  "Condition is correct.",
-  "Images are correct and ordered front/back or lot sequence.",
-  "Item specifics look correct.",
-] as const;
-
 function buildListing(
   status: Listing["status"],
   imageUrls: string[] = ["https://example.com/image.jpg"],
@@ -150,7 +141,6 @@ describe("ListingEditForm", () => {
     );
     expect(screen.queryByRole("button", {name: "Assets ready"})).toBeNull();
     expect(screen.queryByRole("button", {name: "Needs review"})).toBeNull();
-    expect(screen.queryByText("Final review checklist")).toBeNull();
     expect(
       screen.queryByRole("button", {name: "Approve For Export"}),
     ).toBeNull();
@@ -193,7 +183,6 @@ describe("ListingEditForm", () => {
     expect(screen.getByLabelText("Description")).not.toBeNull();
     expect(screen.getByLabelText("Price")).not.toBeNull();
     expect(screen.getByLabelText("Item specifics (JSON)")).not.toBeNull();
-    expect(screen.queryByText("Final review checklist")).toBeNull();
     expect(
       screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
     ).toBeNull();
@@ -598,8 +587,7 @@ describe("ListingEditForm", () => {
     expect(submittedItemSpecifics["Card Condition"]).toBe("EXCELLENT");
   });
 
-  it("keeps normal edit behavior available for needs_review", async () => {
-    const user = userEvent.setup();
+  it("keeps normal edit behavior and immediate approval available for needs_review", () => {
     render(
       <ListingEditForm
         listing={buildListing("needs_review", [
@@ -637,7 +625,6 @@ describe("ListingEditForm", () => {
     expect(
       screen.queryByRole("link", {name: "Open LIST-001 image 2"}),
     ).toBeNull();
-    expect(screen.getByText("Final review checklist")).not.toBeNull();
     expect(
       screen.queryByText(/eBay titles must be 80 characters or fewer\./i),
     ).toBeNull();
@@ -646,12 +633,6 @@ describe("ListingEditForm", () => {
     const approveButton = screen.getByRole("button", {
       name: "Approve For Export",
     });
-    expect(approveButton).toHaveProperty("disabled", true);
-
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", false);
 
     expect(
@@ -997,10 +978,6 @@ describe("ListingEditForm", () => {
       />,
     );
 
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     await user.click(screen.getByRole("button", {name: "Approve For Export"}));
 
     const submittedFormData = approveListingForExportMock.mock
@@ -1059,9 +1036,7 @@ describe("ListingEditForm", () => {
     expect(screen.queryByText("BSKBL-LIST-001")).toBeNull();
   });
 
-  it("blocks approve for raw trading-card listings without a supported Card Condition", async () => {
-    const user = userEvent.setup();
-
+  it("blocks approve for raw trading-card listings without a supported Card Condition", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1086,10 +1061,6 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", true);
     expect(
       screen.getByText(
@@ -1098,9 +1069,7 @@ describe("ListingEditForm", () => {
     ).not.toBeNull();
   });
 
-  it("allows approve for raw trading-card listings with a supported Card Condition", async () => {
-    const user = userEvent.setup();
-
+  it("allows approve for raw trading-card listings with a supported Card Condition", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1130,16 +1099,10 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", false);
   });
 
-  it("allows approve for raw trading-card listings with a normalized legacy Card Condition", async () => {
-    const user = userEvent.setup();
-
+  it("allows approve for raw trading-card listings with a normalized legacy Card Condition", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1167,16 +1130,10 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", false);
   });
 
-  it("blocks approve for graded trading-card listings", async () => {
-    const user = userEvent.setup();
-
+  it("blocks approve for graded trading-card listings", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1201,10 +1158,6 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", true);
     expect(
       screen.getByText(
@@ -1213,9 +1166,7 @@ describe("ListingEditForm", () => {
     ).not.toBeNull();
   });
 
-  it("does not require Card Condition for non-trading-card listings", async () => {
-    const user = userEvent.setup();
-
+  it("does not require Card Condition for non-trading-card listings", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1240,15 +1191,10 @@ describe("ListingEditForm", () => {
       name: "Approve For Export",
     });
 
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", false);
   });
 
-  it("shows title-length validation and keeps approve disabled when the title is 81 characters", async () => {
-    const user = userEvent.setup();
+  it("shows title-length validation and keeps approve disabled when the title is 81 characters", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1272,15 +1218,10 @@ describe("ListingEditForm", () => {
     });
     expect(approveButton).toHaveProperty("disabled", true);
 
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", true);
   });
 
-  it("allows approve once the checklist is complete when the title is exactly 80 characters", async () => {
-    const user = userEvent.setup();
+  it("allows immediate approval when the title is exactly 80 characters", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1300,52 +1241,7 @@ describe("ListingEditForm", () => {
     const approveButton = screen.getByRole("button", {
       name: "Approve For Export",
     });
-    expect(approveButton).toHaveProperty("disabled", true);
-
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", false);
-  });
-
-  it("resets the checklist when switching listings", async () => {
-    const user = userEvent.setup();
-    const {rerender} = render(
-      <ListingEditForm listing={buildListing("needs_review")} />,
-    );
-
-    const approveButton = screen.getByRole("button", {
-      name: "Approve For Export",
-    });
-    await user.click(
-      screen.getByLabelText(FIRST_LIVE_REVIEW_CHECKLIST_LABELS[0]),
-    );
-    expect(approveButton).toHaveProperty("disabled", true);
-
-    rerender(
-      <ListingEditForm
-        listing={buildListing(
-          "needs_review",
-          ["https://example.com/other.jpg"],
-          {
-            listing_id: "LIST-002",
-            title: "Another listing",
-          },
-        )}
-      />,
-    );
-
-    expect(
-      screen.getByRole("button", {name: "Approve For Export"}),
-    ).toHaveProperty("disabled", true);
-    expect(
-      (
-        screen.getByLabelText(
-          FIRST_LIVE_REVIEW_CHECKLIST_LABELS[0],
-        ) as HTMLInputElement
-      ).checked,
-    ).toBe(false);
   });
 
   it("shows retry publish for approved_for_export listings with user-fixable errors and submits listing_id", async () => {
@@ -1369,7 +1265,6 @@ describe("ListingEditForm", () => {
       />,
     );
 
-    expect(screen.queryByText("Final review checklist")).toBeNull();
     expect(
       screen.queryByRole("button", {name: "Approve For Export"}),
     ).toBeNull();
@@ -1545,9 +1440,7 @@ describe("ListingEditForm", () => {
     ).not.toBeNull();
   });
 
-  it("renders provider-zero failed pricing research without blocking approval", async () => {
-    const user = userEvent.setup();
-
+  it("renders provider-zero failed pricing research without blocking approval", () => {
     render(
       <ListingEditForm
         listing={buildListing(
@@ -1619,12 +1512,6 @@ describe("ListingEditForm", () => {
     const approveButton = screen.getByRole("button", {
       name: "Approve For Export",
     });
-    expect(approveButton).toHaveProperty("disabled", true);
-
-    for (const checklistLabel of FIRST_LIVE_REVIEW_CHECKLIST_LABELS) {
-      await user.click(screen.getByLabelText(checklistLabel));
-    }
-
     expect(approveButton).toHaveProperty("disabled", false);
   });
 

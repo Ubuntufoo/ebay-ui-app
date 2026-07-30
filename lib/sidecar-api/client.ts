@@ -2,6 +2,7 @@ import "server-only";
 
 import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
+  AbandonListingResponse,
   AppSettings,
   EnqueueGenerateAiResponse,
   EbayEnvironment,
@@ -132,6 +133,15 @@ export async function listListings(): Promise<Listing[]> {
 export async function getListing(listingId: string): Promise<Listing> {
   return await sidecarFetch<Listing>(
     `/api/listings/${encodeURIComponent(listingId)}`,
+  );
+}
+
+export async function abandonListing(
+  listingId: string,
+): Promise<AbandonListingResponse> {
+  return await sidecarFetch<AbandonListingResponse>(
+    `/api/listings/${encodeURIComponent(listingId)}/abandon`,
+    buildJsonRequestInit("POST", {confirmed: true}),
   );
 }
 

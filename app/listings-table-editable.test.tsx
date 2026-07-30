@@ -1,10 +1,12 @@
-import {cleanup, render, screen, within} from "@testing-library/react";
+import {cleanup, render, screen, waitFor, within} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import {useState} from "react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import type {Listing} from "@/lib/sidecar-api";
 
 const {
+  abandonListingActionMock,
   approveListingForExportMock,
   enqueueGenerateListingMock,
   retryPublishListingMock,
@@ -12,12 +14,17 @@ const {
   saveListingImageUrlsMock,
   saveListingPricingModifierOptionsMock,
 } = vi.hoisted(() => ({
+  abandonListingActionMock: vi.fn(),
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
   saveListingPricingModifierOptionsMock: vi.fn(),
+}));
+
+vi.mock("@/app/listing-abandon-actions", () => ({
+  abandonListingAction: abandonListingActionMock,
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -99,12 +106,215 @@ describe("ListingsTableEditable", () => {
   });
 
   beforeEach(() => {
+    abandonListingActionMock.mockReset();
     approveListingForExportMock.mockReset();
     enqueueGenerateListingMock.mockReset();
     saveListingEditsMock.mockReset();
     saveListingImageUrlsMock.mockReset();
     saveListingPricingModifierOptionsMock.mockReset();
     saveListingPricingModifierOptionsMock.mockResolvedValue({error: null});
+  });
+
+  it("toggles expandable rows from non-interactive cells and switches selection", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("LIST-ONE", "needs_review", "2026-05-20T02:00:00.000Z", {
+            title: "First listing title",
+          }),
+          buildListing("LIST-TWO", "assets_ready", "2026-05-20T01:00:00.000Z", {
+            title: "Second listing title",
+          }),
+        ]}
+      />,
+    );
+
+    const firstRow = screen.getByText("LIST-ONE").closest("tr") as HTMLTableRowElement;
+    const secondRow = screen.getByText("LIST-TWO").closest("tr") as HTMLTableRowElement;
+
+    await user.click(within(firstRow).getByText("LIST-ONE"));
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+
+    await user.click(within(firstRow).getByText("First listing title"));
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    await user.click(within(firstRow).getByText("Needs review"));
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+
+    await user.click(firstRow.cells[4]);
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    await user.click(within(firstRow).getByText("LIST-ONE"));
+    await user.click(within(secondRow).getByText("Second listing title"));
+
+    expect(screen.getAllByText("Edit listing")).toHaveLength(1);
+    expect(screen.getByLabelText("Title")).toHaveProperty(
+      "value",
+      "Second listing title",
+    );
+  });
+
+  it("keeps intake rows read-only and active row actions vertically stacked", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("LIST-INTAKE", "record_created", "2026-05-20T02:00:00.000Z"),
+          buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z"),
+        ]}
+      />,
+    );
+
+    const intakeRow = screen.getByText("LIST-INTAKE").closest("tr") as HTMLTableRowElement;
+    const reviewRow = screen.getByText("LIST-REV").closest("tr") as HTMLTableRowElement;
+    const intakeActions = within(intakeRow).getByText("Read only").parentElement;
+    const reviewButton = within(reviewRow).getByRole("button", {name: "Review"});
+    const abandonButton = within(reviewRow).getByRole("button", {
+      name: "Abandon Listing",
+    });
+
+    expect(intakeRow.className).not.toContain("cursor-pointer");
+    await user.click(within(intakeRow).getByText("LIST-INTAKE"));
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    expect(intakeActions?.className).toContain("flex-col");
+    expect(reviewButton.parentElement?.className).toContain("flex-col");
+    expect(reviewButton.className).toContain("whitespace-nowrap");
+    expect(abandonButton.className).toContain("whitespace-nowrap");
+  });
+
+  it("keeps explicit controls and image links from toggling through the row", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z", {
+            image_urls: ["https://example.com/review.jpg"],
+          }),
+        ]}
+      />,
+    );
+
+    const reviewButton = screen.getByRole("button", {name: "Review"});
+    await user.click(reviewButton);
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+
+    await user.click(reviewButton);
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    const imageLink = screen.getByRole("link", {name: "Open LIST-REV image 1"});
+    imageLink.addEventListener("click", (event) => event.preventDefault(), {
+      once: true,
+    });
+    await user.click(imageLink);
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    await user.click(screen.getByText("LIST-REV"));
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", {name: "Abandon Listing"}));
+    expect(
+      screen.getByRole("dialog", {name: "Confirm Listing Abandonment"}),
+    ).not.toBeNull();
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+  });
+
+  it("shows abandonment for every active row and enables only needs_review", () => {
+    const statuses = [
+      "record_created",
+      "image_processing_queued",
+      "images_processed",
+      "assets_ready",
+      "generating",
+      "needs_review",
+      "approved_for_export",
+      "sold",
+    ] as const;
+
+    render(
+      <ListingsTableEditable
+        listings={statuses.map((status, index) =>
+          buildListing(
+            `LIST-${status}`,
+            status,
+            `2026-05-20T${String(index).padStart(2, "0")}:00:00.000Z`,
+          ),
+        )}
+      />,
+    );
+
+    const buttons = screen.getAllByRole("button", {
+      name: "Abandon Listing",
+    });
+    expect(buttons).toHaveLength(statuses.length);
+
+    for (const status of statuses) {
+      const row = screen.getByText(`LIST-${status}`).closest("tr");
+      const button = within(row as HTMLTableRowElement).getByRole("button", {
+        name: "Abandon Listing",
+      });
+      expect(button).toHaveProperty("disabled", status !== "needs_review");
+    }
+  });
+
+  it("opens the exact abandonment dialog for an enabled row", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z"),
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {name: "Abandon Listing"}),
+    );
+
+    expect(
+      screen.getByRole("dialog", {name: "Confirm Listing Abandonment"}),
+    ).not.toBeNull();
+  });
+
+  it("removes an abandoned expanded row immediately", async () => {
+    abandonListingActionMock.mockResolvedValueOnce({
+      abandonedListingId: "LIST-REV",
+      error: null,
+      success: "Abandoned LIST-REV.",
+    });
+    const user = userEvent.setup();
+
+    function Harness() {
+      const [listings, setListings] = useState([
+        buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z"),
+      ]);
+
+      return (
+        <ListingsTableEditable
+          listings={listings}
+          onListingAbandoned={(listingId) =>
+            setListings((current) =>
+              current.filter((listing) => listing.listing_id !== listingId),
+            )
+          }
+        />
+      );
+    }
+
+    render(<Harness />);
+    await user.click(screen.getByRole("button", {name: "Review"}));
+    expect(screen.getByText("Edit listing")).not.toBeNull();
+
+    await user.click(
+      screen.getByRole("button", {name: "Abandon Listing"}),
+    );
+    await user.click(screen.getByRole("button", {name: "Confirm"}));
+
+    await waitFor(() => {
+      expect(screen.queryByText("LIST-REV")).toBeNull();
+    });
+    expect(screen.queryByText("Edit listing")).toBeNull();
   });
 
   it("allows viewing generating listings but keeps controls locked", async () => {
@@ -232,7 +442,8 @@ describe("ListingsTableEditable", () => {
     expect(screen.getByLabelText("Title")).not.toBeNull();
   });
 
-  it("moves exported and listed listings into the Published Listings panel", () => {
+  it("moves exported and listed listings into a non-clickable Published Listings panel", async () => {
+    const user = userEvent.setup();
     render(
       <ListingsTableEditable
         listings={[
@@ -318,5 +529,12 @@ describe("ListingsTableEditable", () => {
         .closest("tr")
         ?.querySelector("a"),
     ).toBeNull();
+
+    const publishedRow = exportedPanel
+      .getByText("Exported listing")
+      .closest("tr") as HTMLTableRowElement;
+    expect(publishedRow.className).not.toContain("cursor-pointer");
+    await user.click(exportedPanel.getByText("Exported listing"));
+    expect(screen.queryByText("Edit listing")).toBeNull();
   });
 });

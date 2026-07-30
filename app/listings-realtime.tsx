@@ -238,6 +238,12 @@ export function ListingsRealtime({
     void fetchAndSetListings();
   }, [fetchAndSetListings]);
 
+  const handleListingAbandoned = useCallback((listingId: string) => {
+    setListings((currentListings) =>
+      currentListings.filter((listing) => listing.listing_id !== listingId),
+    );
+  }, []);
+
   return (
     <>
       <div className="space-y-2">
@@ -326,7 +332,10 @@ export function ListingsRealtime({
           </section>
         </div>
       </div>
-      <ListingsTableEditable listings={listings} />
+      <ListingsTableEditable
+        listings={listings}
+        onListingAbandoned={handleListingAbandoned}
+      />
     </>
   );
 }

@@ -8,12 +8,58 @@ vi.mock("@/lib/config/sidecar", () => ({
 }));
 
 import {
+  abandonListing,
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
   retryPricing,
   retryPricingAnalysis,
   updateAppSettings,
 } from "@/lib/sidecar-api/client";
+
+describe("abandonListing", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts exact confirmation to the encoded abandonment endpoint", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({abandoned: true, listingId: "Single/000005"}),
+        {
+          headers: {"content-type": "application/json"},
+          status: 200,
+        },
+      ),
+    );
+
+    const result = await abandonListing("Single/000005");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/Single%2F000005/abandon",
+      expect.objectContaining({
+        body: JSON.stringify({confirmed: true}),
+        cache: "no-store",
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
+    expect(result).toEqual({abandoned: true, listingId: "Single/000005"});
+  });
+});
 
 describe("enqueueGenerateAi", () => {
   beforeEach(() => {

@@ -20,6 +20,7 @@ const realtimeChannel = {
 const removeChannelMock = vi.fn();
 const getSupabaseBrowserClientMock = vi.hoisted(() => vi.fn());
 const {
+  abandonListingActionMock,
   approveListingForExportMock,
   enqueueGenerateListingMock,
   retryPublishListingMock,
@@ -28,6 +29,7 @@ const {
   saveListingEditsMock,
   saveListingImageUrlsMock,
 } = vi.hoisted(() => ({
+  abandonListingActionMock: vi.fn(),
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
@@ -35,6 +37,10 @@ const {
   savePricingProviderModeMock: vi.fn(),
   saveListingEditsMock: vi.fn(),
   saveListingImageUrlsMock: vi.fn(),
+}));
+
+vi.mock("@/app/listing-abandon-actions", () => ({
+  abandonListingAction: abandonListingActionMock,
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -187,6 +193,7 @@ async function triggerDebouncedRealtimeEvent(
 describe("ListingsRealtime", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    abandonListingActionMock.mockReset();
     fetchMock.mockReset();
     realtimeChannelOnMock.mockReset();
     realtimeChannelSubscribeMock.mockReset();
@@ -215,6 +222,32 @@ describe("ListingsRealtime", () => {
       removeChannel: removeChannelMock,
     });
     vi.stubGlobal("fetch", fetchMock);
+  });
+
+  it("removes an abandoned listing without waiting for realtime", async () => {
+    abandonListingActionMock.mockResolvedValueOnce({
+      abandonedListingId: "LIST-ABANDON",
+      error: null,
+      success: "Abandoned LIST-ABANDON.",
+    });
+    renderListingsRealtime({
+      initialListings: [
+        buildListing({
+          id: "LIST-ABANDON-row-id",
+          listing_id: "LIST-ABANDON",
+          status: "needs_review",
+          sub_status: "review_pending",
+        }),
+      ],
+    });
+
+    fireEvent.click(screen.getByRole("button", {name: "Abandon Listing"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm"}));
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText("LIST-ABANDON")).toBeNull();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   afterEach(() => {
@@ -494,7 +527,9 @@ describe("ListingsRealtime", () => {
     );
 
     expect(screen.getByRole("button", {name: "Review"})).not.toBeNull();
-    expect(screen.getByText(/Final review checklist/i)).not.toBeNull();
+    expect(
+      screen.getByRole("button", {name: "Approve For Export"}),
+    ).toHaveProperty("disabled", false);
     expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
       "Gemini draft title",
     );

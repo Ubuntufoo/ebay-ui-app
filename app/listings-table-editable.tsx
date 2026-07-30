@@ -1,7 +1,15 @@
 "use client";
 
-import {Fragment, startTransition, useEffect, useMemo, useState} from "react";
+import {
+  Fragment,
+  startTransition,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from "react";
 
+import {ListingAbandonControls} from "@/app/listing-abandon-controls";
 import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
 import {hasPersistedListingError} from "@/app/listing-error-utils";
@@ -57,6 +65,22 @@ function sortNewestFirst(listings: Listing[]): Listing[] {
 function isIntakeListing(status: Listing["status"]): boolean {
   return status === "record_created";
 }
+
+const INTERACTIVE_ROW_DESCENDANT_SELECTOR = [
+  "a",
+  "button",
+  "dialog",
+  "form",
+  "input",
+  "label",
+  "select",
+  "summary",
+  "textarea",
+  '[contenteditable="true"]',
+  '[role="button"]',
+  '[role="dialog"]',
+  '[role="link"]',
+].join(",");
 
 // Treat `exported` as the canonical published/completed status. `listed`
 // remains supported for backward compatibility and will also render in this
@@ -162,10 +186,17 @@ function PublishedListingsPanel({listings}: {listings: Listing[]}) {
   );
 }
 
-export function ListingsTableEditable({listings}: {listings: Listing[]}) {
+export function ListingsTableEditable({
+  listings,
+  onListingAbandoned,
+}: {
+  listings: Listing[];
+  onListingAbandoned?: (listingId: string) => void;
+}) {
   const [selectedListingId, setSelectedListingId] = useState<string | null>(
     null,
   );
+  const [abandonListingId, setAbandonListingId] = useState<string | null>(null);
   const sortedListings = useMemo(() => sortNewestFirst(listings), [listings]);
   const activeListings = useMemo(
     () =>
@@ -195,6 +226,34 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
       });
     }
   }, [selectedListing, selectedListingId]);
+
+  function handleListingAbandoned(listingId: string) {
+    setSelectedListingId((currentId) =>
+      currentId === listingId ? null : currentId,
+    );
+    setAbandonListingId(null);
+    onListingAbandoned?.(listingId);
+  }
+
+  function toggleSelectedListing(listingId: string) {
+    setSelectedListingId((currentId) =>
+      currentId === listingId ? null : listingId,
+    );
+  }
+
+  function handleSummaryRowClick(
+    event: ReactMouseEvent<HTMLTableRowElement>,
+    listingId: string,
+  ) {
+    if (
+      event.target instanceof Element &&
+      event.target.closest(INTERACTIVE_ROW_DESCENDANT_SELECTOR)
+    ) {
+      return;
+    }
+
+    toggleSelectedListing(listingId);
+  }
 
   return (
     <div>
@@ -244,8 +303,21 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                     return (
                       <Fragment key={listing.id}>
                         <tr
+                          onClick={
+                            intakeOnly
+                              ? undefined
+                              : (event) =>
+                                  handleSummaryRowClick(
+                                    event,
+                                    listing.listing_id,
+                                  )
+                          }
                           className={`border-b border-stone-950/10 ${
-                            intakeOnly ? "bg-stone-100/50" : ""
+                            intakeOnly
+                              ? "bg-stone-100/50"
+                              : `cursor-pointer transition-colors hover:bg-stone-100/80 ${
+                                  isSelected ? "bg-stone-100/80" : ""
+                                }`
                           }`}
                         >
                           <td className="px-4 py-3 font-mono text-sm text-stone-600">
@@ -315,26 +387,39 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
                             </div>
                           </td>
                           <td className="px-4 py-3 text-sm text-stone-600">
-                            {intakeOnly ? (
-                              <span className="inline-flex rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">
-                                Read only
-                              </span>
-                            ) : (
+                            <div className="inline-flex flex-col items-stretch gap-1.5">
+                              {intakeOnly ? (
+                                <span className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">
+                                  Read only
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  title={actionTitle}
+                                  onClick={() =>
+                                    toggleSelectedListing(listing.listing_id)
+                                  }
+                                  className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950/15 bg-white px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                                >
+                                  {actionLabel}
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                title={actionTitle}
-                                onClick={() =>
-                                  setSelectedListingId((currentId) =>
-                                    currentId === listing.listing_id
-                                      ? null
-                                      : listing.listing_id,
-                                  )
+                                title={
+                                  listing.status === "needs_review"
+                                    ? "Abandon this listing"
+                                    : "Only Needs review listings can be abandoned."
                                 }
-                                className="inline-flex rounded-full border border-stone-950/15 bg-white px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                                disabled={listing.status !== "needs_review"}
+                                onClick={() =>
+                                  setAbandonListingId(listing.listing_id)
+                                }
+                                className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-800 bg-rose-700 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
                               >
-                                {actionLabel}
+                                Abandon Listing
                               </button>
-                            )}
+                            </div>
                           </td>
                         </tr>
 
@@ -361,6 +446,15 @@ export function ListingsTableEditable({listings}: {listings: Listing[]}) {
       <div className="mt-12 border-t-2 border-stone-300 pt-8">
         <PublishedListingsPanel listings={publishedListings} />
       </div>
+
+      {abandonListingId !== null ? (
+        <ListingAbandonControls
+          key={abandonListingId}
+          listingId={abandonListingId}
+          onAbandoned={handleListingAbandoned}
+          onCancel={() => setAbandonListingId(null)}
+        />
+      ) : null}
     </div>
   );
 }

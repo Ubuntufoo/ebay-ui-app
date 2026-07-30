@@ -215,6 +215,11 @@ export interface ListingsResponse {
   listings: Listing[];
 }
 
+export interface AbandonListingResponse {
+  abandoned: true;
+  listingId: string;
+}
+
 export interface EnqueueGenerateAiResponse {
   alreadyQueued: boolean;
   job: Json;
