@@ -259,9 +259,22 @@ export function ListingsTableEditable({
     <div>
       {activeListings.length > 0 ? (
         <div className="mt-6 overflow-hidden rounded-[1.75rem] border border-stone-950/10 bg-stone-50/80 shadow-[0_14px_40px_rgba(68,64,60,0.08)]">
-          <div className="max-h-[calc(100vh-14rem)] overflow-auto xl:max-h-[calc(100vh-12rem)]">
+          <div
+            className="max-h-[calc(100vh-14rem)] overflow-auto xl:max-h-[calc(100vh-12rem)]"
+            style={{scrollbarGutter: "stable"}}
+          >
             <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse">
+              <table className="w-full min-w-[68rem] table-fixed border-collapse">
+                <colgroup>
+                  <col className="w-[12%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[16%]" />
+                </colgroup>
                 <thead className="sticky top-0 z-10">
                   <tr className="border-b border-stone-950/10 bg-stone-100/95 text-left backdrop-blur">
                     {[
@@ -352,11 +365,11 @@ export function ListingsTableEditable({
                           <td className="px-4 py-3 text-sm text-stone-600">
                             {getListingSubStatusLabel(listing.sub_status)}
                           </td>
-                          <td className="px-4 py-3 text-sm font-semibold text-stone-900">
+                          <td className="break-words px-4 py-3 text-sm font-semibold text-stone-900">
                             {listing.title ?? "Untitled listing"}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="min-w-40">
+                            <div className="min-w-0 overflow-hidden">
                               <ListingImageGallery
                                 listingId={listing.listing_id}
                                 imageUrls={listing.image_urls}
@@ -399,7 +412,7 @@ export function ListingsTableEditable({
                                   onClick={() =>
                                     toggleSelectedListing(listing.listing_id)
                                   }
-                                  className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950/15 bg-white px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                                  className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950/15 bg-white px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
                                 >
                                   {actionLabel}
                                 </button>
@@ -415,7 +428,7 @@ export function ListingsTableEditable({
                                 onClick={() =>
                                   setAbandonListingId(listing.listing_id)
                                 }
-                                className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-800 bg-rose-700 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
+                                className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-800 bg-rose-700 px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
                               >
                                 Abandon Listing
                               </button>

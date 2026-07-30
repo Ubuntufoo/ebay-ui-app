@@ -173,6 +173,11 @@ describe("ListingsTableEditable", () => {
     const abandonButton = within(reviewRow).getByRole("button", {
       name: "Abandon Listing",
     });
+    const activeTable = screen.getByRole("table");
+    const scrollContainer = activeTable.parentElement?.parentElement;
+    const columnWidths = Array.from(
+      activeTable.querySelectorAll("colgroup col"),
+    ).map((column) => column.className);
 
     expect(intakeRow.className).not.toContain("cursor-pointer");
     await user.click(within(intakeRow).getByText("LIST-INTAKE"));
@@ -182,6 +187,19 @@ describe("ListingsTableEditable", () => {
     expect(reviewButton.parentElement?.className).toContain("flex-col");
     expect(reviewButton.className).toContain("whitespace-nowrap");
     expect(abandonButton.className).toContain("whitespace-nowrap");
+    expect(scrollContainer?.style.scrollbarGutter).toBe("stable");
+    expect(activeTable.className).toContain("table-fixed");
+    expect(activeTable.className).toContain("min-w-[68rem]");
+    expect(columnWidths).toEqual([
+      "w-[12%]",
+      "w-[11%]",
+      "w-[11%]",
+      "w-[16%]",
+      "w-[16%]",
+      "w-[7%]",
+      "w-[11%]",
+      "w-[16%]",
+    ]);
   });
 
   it("keeps explicit controls and image links from toggling through the row", async () => {
