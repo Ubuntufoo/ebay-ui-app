@@ -1,6 +1,9 @@
 import {describe, expect, it} from "vitest";
 
-import {buildStructuredSkuPreview} from "@/app/structured-sku-utils";
+import {
+  buildStructuredSkuPreview,
+  isStructuredSku,
+} from "@/app/structured-sku-utils";
 
 describe("buildStructuredSkuPreview", () => {
   it("builds preview for valid Single listing IDs", () => {
@@ -29,5 +32,27 @@ describe("buildStructuredSkuPreview", () => {
 
   it("rejects malformed listing IDs", () => {
     expect(buildStructuredSkuPreview("LIST-001", "OTHER")).toBeNull();
+  });
+});
+
+describe("isStructuredSku", () => {
+  it.each([
+    "BSKBL-Single-000001",
+    "BSBL-Lot-999999",
+    "OTHER-Single-123456",
+  ])("accepts %s", (sku) => {
+    expect(isStructuredSku(sku)).toBe(true);
+  });
+
+  it.each([
+    null,
+    "",
+    "SKU-Single-000001",
+    "BSKBL-single-000001",
+    "BSKBL-Single-000000",
+    "BSKBL-Single-12345",
+    "BSKBL-Lot-1234567",
+  ])("rejects %s", (sku) => {
+    expect(isStructuredSku(sku)).toBe(false);
   });
 });

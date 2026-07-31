@@ -12,13 +12,15 @@ import {
 import {ListingAbandonControls} from "@/app/listing-abandon-controls";
 import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
+import {ListingSandboxDeleteControls} from "@/app/listing-sandbox-delete-controls";
 import {hasPersistedListingError} from "@/app/listing-error-utils";
 import {
   getListingStatusBadgeClassName,
   getListingStatusLabel,
   getListingSubStatusLabel,
 } from "@/app/listing-status-flow";
-import type {Listing} from "@/lib/sidecar-api";
+import {isStructuredSku} from "@/app/structured-sku-utils";
+import type {EbayEnvironment, Listing} from "@/lib/sidecar-api";
 
 function formatPrice(price: number | null): string {
   if (price === null) {
@@ -82,22 +84,23 @@ const INTERACTIVE_ROW_DESCENDANT_SELECTOR = [
   '[role="link"]',
 ].join(",");
 
-// Treat `exported` as the canonical published/completed status. `listed`
-// remains supported for backward compatibility and will also render in this
-// read-only published panel if present.
-function isPublishedListing(status: Listing["status"] | string): boolean {
-  const normalizedStatus = String(status);
-
-  return normalizedStatus === "exported" || normalizedStatus === "listed";
+function isPublishedListing(status: Listing["status"]): boolean {
+  return status === "exported" || status === "listed";
 }
 
-function getPublishedStatusLabel(status: Listing["status"] | string): string {
-  return String(status) === "exported"
-    ? "Exported"
-    : getListingStatusLabel(status as Listing["status"]);
+function getPublishedStatusLabel(status: Listing["status"]): string {
+  return status === "exported" ? "Exported" : getListingStatusLabel(status);
 }
 
-function PublishedListingsPanel({listings}: {listings: Listing[]}) {
+function PublishedListingsPanel({
+  ebayEnvironment,
+  listings,
+  onDeleteRequested,
+}: {
+  ebayEnvironment: EbayEnvironment["environment"] | null;
+  listings: Listing[];
+  onDeleteRequested: (listing: Listing) => void;
+}) {
   if (listings.length === 0) {
     return null;
   }
@@ -120,6 +123,7 @@ function PublishedListingsPanel({listings}: {listings: Listing[]}) {
                 "Price",
                 "eBay URL",
                 "Exported At",
+                ...(ebayEnvironment === "sandbox" ? ["Actions"] : []),
               ].map((column) => (
                 <th
                   key={column}
@@ -177,6 +181,27 @@ function PublishedListingsPanel({listings}: {listings: Listing[]}) {
                 <td className="px-4 py-3 text-sm text-stone-600">
                   {formatExportedAt(listing.exported_at)}
                 </td>
+                {ebayEnvironment === "sandbox" ? (
+                  <td className="px-4 py-3 text-sm text-stone-600">
+                    <button
+                      type="button"
+                      disabled={
+                        !isStructuredSku(listing.sku) || listing.sold_at !== null
+                      }
+                      title={
+                        !isStructuredSku(listing.sku)
+                          ? "A valid structured SKU is required for sandbox deletion."
+                          : listing.sold_at !== null
+                            ? "Sold listings cannot be deleted."
+                            : "Permanently delete this sandbox listing"
+                      }
+                      onClick={() => onDeleteRequested(listing)}
+                      className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-900 bg-rose-700 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
+                    >
+                      Delete Sandbox Listing
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
@@ -187,16 +212,22 @@ function PublishedListingsPanel({listings}: {listings: Listing[]}) {
 }
 
 export function ListingsTableEditable({
+  ebayEnvironment = null,
   listings,
   onListingAbandoned,
+  onSandboxListingDeleted,
 }: {
+  ebayEnvironment?: EbayEnvironment["environment"] | null;
   listings: Listing[];
   onListingAbandoned?: (listingId: string) => void;
+  onSandboxListingDeleted?: (listingId: string) => void;
 }) {
   const [selectedListingId, setSelectedListingId] = useState<string | null>(
     null,
   );
   const [abandonListingId, setAbandonListingId] = useState<string | null>(null);
+  const [sandboxDeleteListing, setSandboxDeleteListing] =
+    useState<Listing | null>(null);
   const sortedListings = useMemo(() => sortNewestFirst(listings), [listings]);
   const activeListings = useMemo(
     () =>
@@ -233,6 +264,11 @@ export function ListingsTableEditable({
     );
     setAbandonListingId(null);
     onListingAbandoned?.(listingId);
+  }
+
+  function handleSandboxListingDeleted(listingId: string) {
+    setSandboxDeleteListing(null);
+    onSandboxListingDeleted?.(listingId);
   }
 
   function toggleSelectedListing(listingId: string) {
@@ -457,7 +493,11 @@ export function ListingsTableEditable({
       ) : null}
 
       <div className="mt-12 border-t-2 border-stone-300 pt-8">
-        <PublishedListingsPanel listings={publishedListings} />
+        <PublishedListingsPanel
+          ebayEnvironment={ebayEnvironment}
+          listings={publishedListings}
+          onDeleteRequested={setSandboxDeleteListing}
+        />
       </div>
 
       {abandonListingId !== null ? (
@@ -466,6 +506,18 @@ export function ListingsTableEditable({
           listingId={abandonListingId}
           onAbandoned={handleListingAbandoned}
           onCancel={() => setAbandonListingId(null)}
+        />
+      ) : null}
+
+      {sandboxDeleteListing !== null &&
+      isStructuredSku(sandboxDeleteListing.sku) ? (
+        <ListingSandboxDeleteControls
+          key={`${sandboxDeleteListing.listing_id}:${sandboxDeleteListing.updated_at}`}
+          expectedSku={sandboxDeleteListing.sku}
+          expectedUpdatedAt={sandboxDeleteListing.updated_at}
+          listingId={sandboxDeleteListing.listing_id}
+          onDeleted={handleSandboxListingDeleted}
+          onCancel={() => setSandboxDeleteListing(null)}
         />
       ) : null}
     </div>

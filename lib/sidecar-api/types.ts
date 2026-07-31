@@ -14,6 +14,7 @@ export const listingStatuses = [
   "generating",
   "needs_review",
   "approved_for_export",
+  "exported",
   "listed",
   "sold",
 ] as const;
@@ -218,6 +219,25 @@ export interface ListingsResponse {
 export interface AbandonListingResponse {
   abandoned: true;
   listingId: string;
+}
+
+export interface DeleteSandboxListingResponse {
+  deleted: true;
+  listingId: string;
+  sku: string;
+  remoteOutcome: {
+    deletedInventoryItem: boolean;
+    deletedOfferCount: number;
+    endedListingCount: number;
+    missingResourceCount: number;
+    status: "deleted" | "skipped";
+  };
+  localOutcome: {
+    databaseDeleted: true;
+    r2ObjectCount: number;
+    status: "deleted";
+    watcherDirectoryRemoved: true;
+  };
 }
 
 export interface EnqueueGenerateAiResponse {

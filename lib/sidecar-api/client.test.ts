@@ -9,6 +9,7 @@ vi.mock("@/lib/config/sidecar", () => ({
 
 import {
   abandonListing,
+  deleteSandboxListing,
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
   retryPricing,
@@ -58,6 +59,79 @@ describe("abandonListing", () => {
       }),
     );
     expect(result).toEqual({abandoned: true, listingId: "Single/000005"});
+  });
+});
+
+describe("deleteSandboxListing", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts exact stale-write confirmation to the encoded sandbox delete endpoint", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          deleted: true,
+          listingId: "Single/000005",
+          sku: "BSKBL-Single-000005",
+          remoteOutcome: {
+            deletedInventoryItem: true,
+            deletedOfferCount: 1,
+            endedListingCount: 1,
+            missingResourceCount: 0,
+            status: "deleted",
+          },
+          localOutcome: {
+            databaseDeleted: true,
+            r2ObjectCount: 2,
+            status: "deleted",
+            watcherDirectoryRemoved: true,
+          },
+        }),
+        {
+          headers: {"content-type": "application/json"},
+          status: 200,
+        },
+      ),
+    );
+
+    const result = await deleteSandboxListing("Single/000005", {
+      expectedSku: "BSKBL-Single-000005",
+      expectedUpdatedAt: "2026-07-30T18:43:17.000Z",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/Single%2F000005/delete-sandbox",
+      expect.objectContaining({
+        body: JSON.stringify({
+          confirmed: true,
+          expectedSku: "BSKBL-Single-000005",
+          expectedUpdatedAt: "2026-07-30T18:43:17.000Z",
+        }),
+        cache: "no-store",
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
+    expect(result).toMatchObject({
+      deleted: true,
+      listingId: "Single/000005",
+      sku: "BSKBL-Single-000005",
+    });
   });
 });
 

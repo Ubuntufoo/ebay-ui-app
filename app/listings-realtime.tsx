@@ -6,6 +6,7 @@ import {savePricingProviderMode} from "@/app/pricing-provider-actions";
 import {ListingsTableEditable} from "@/app/listings-table-editable";
 import {QueueErrorsPanel} from "@/app/queue-errors-panel";
 import type {
+  EbayEnvironment,
   GeminiDailyUsageSummary,
   Listing,
   PricingProviderMode,
@@ -32,6 +33,7 @@ type SupportedPricingProviderMode = Exclude<PricingProviderMode, "apify">;
 
 type ListingsRealtimeProps = {
   initialCaptureMode?: string | null;
+  initialEbayEnvironment?: EbayEnvironment["environment"] | null;
   initialGeminiUsage?: GeminiDailyUsageSummary | null;
   initialGeminiUsageStatus?: GeminiUsageStatus;
   initialListings: Listing[];
@@ -49,6 +51,7 @@ type ListingsRealtimeProps = {
 
 export function ListingsRealtime({
   initialCaptureMode = null,
+  initialEbayEnvironment = null,
   initialGeminiUsage = null,
   initialGeminiUsageStatus = "ready",
   initialListings,
@@ -244,6 +247,12 @@ export function ListingsRealtime({
     );
   }, []);
 
+  const handleSandboxListingDeleted = useCallback((listingId: string) => {
+    setListings((currentListings) =>
+      currentListings.filter((listing) => listing.listing_id !== listingId),
+    );
+  }, []);
+
   return (
     <>
       <div className="space-y-2">
@@ -333,8 +342,10 @@ export function ListingsRealtime({
         </div>
       </div>
       <ListingsTableEditable
+        ebayEnvironment={initialEbayEnvironment}
         listings={listings}
         onListingAbandoned={handleListingAbandoned}
+        onSandboxListingDeleted={handleSandboxListingDeleted}
       />
     </>
   );

@@ -4,9 +4,11 @@ import {QueueErrorsPanelFallback} from "@/app/queue-errors-panel";
 import {
   SidecarApiError,
   getAppSettings,
+  getEbayEnvironment,
   getGeminiUsage,
   listListings,
   type AppSettings,
+  type EbayEnvironment,
   type GeminiDailyUsageSummary,
   type Listing,
 } from "@/lib/sidecar-api";
@@ -80,6 +82,8 @@ type UnshippedOrdersLoadResult =
   | {status: "success"; count: number}
   | {status: "error"; message: string};
 
+type EbayEnvironmentValue = EbayEnvironment["environment"] | null;
+
 function OrdersToShipIndicator({count}: {count: number}) {
   return (
     <a
@@ -103,6 +107,7 @@ function OrdersToShipIndicator({count}: {count: number}) {
 async function ListingsSection({
   geminiUsagePromise,
   appSettingsPromise,
+  ebayEnvironmentPromise,
   listingsPromise,
   unshippedOrdersPromise,
 }: {
@@ -110,15 +115,22 @@ async function ListingsSection({
     | {status: "success"; settings: AppSettings}
     | {status: "error"; message: string}
   >;
+  ebayEnvironmentPromise: Promise<EbayEnvironmentValue>;
   geminiUsagePromise: Promise<GeminiUsageLoadResult>;
   listingsPromise: Promise<ListingsLoadResult>;
   unshippedOrdersPromise: Promise<UnshippedOrdersLoadResult>;
 }) {
-  const [listingsResult, unshippedOrdersResult, geminiUsageResult] =
+  const [
+    listingsResult,
+    unshippedOrdersResult,
+    geminiUsageResult,
+    ebayEnvironment,
+  ] =
     await Promise.all([
       listingsPromise,
       unshippedOrdersPromise,
       geminiUsagePromise,
+      ebayEnvironmentPromise,
     ]);
   const appSettingsResult = await appSettingsPromise;
   const ordersToShipCount =
@@ -169,6 +181,7 @@ async function ListingsSection({
             ? appSettingsResult.settings.capture_mode
             : null
         }
+        initialEbayEnvironment={ebayEnvironment}
         initialListings={listings}
         initialPricingProviderMode={
           appSettingsResult.status === "success"
@@ -240,6 +253,14 @@ async function loadGeminiUsage(): Promise<GeminiUsageLoadResult> {
     return {
       status: "error",
     };
+  }
+}
+
+async function loadEbayEnvironment(): Promise<EbayEnvironmentValue> {
+  try {
+    return (await getEbayEnvironment()).environment;
+  } catch {
+    return null;
   }
 }
 
@@ -368,6 +389,7 @@ export default function Home() {
   const listingsPromise = loadListings();
   const unshippedOrdersPromise = loadUnshippedOrders();
   const geminiUsagePromise = loadGeminiUsage();
+  const ebayEnvironmentPromise = loadEbayEnvironment();
   const appSettingsPromise = loadAppSettings();
   return (
     <main className="app-scrollbar min-h-screen overflow-x-hidden bg-[#efe7d8] text-stone-950">
@@ -378,6 +400,7 @@ export default function Home() {
           <Suspense fallback={<ListingsSectionFallback />}>
           <ListingsSection
             appSettingsPromise={appSettingsPromise}
+            ebayEnvironmentPromise={ebayEnvironmentPromise}
             geminiUsagePromise={geminiUsagePromise}
             listingsPromise={listingsPromise}
             unshippedOrdersPromise={unshippedOrdersPromise}

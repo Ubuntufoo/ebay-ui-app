@@ -4,6 +4,7 @@ import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AbandonListingResponse,
   AppSettings,
+  DeleteSandboxListingResponse,
   EnqueueGenerateAiResponse,
   EbayEnvironment,
   GeminiDailyUsageSummary,
@@ -142,6 +143,20 @@ export async function abandonListing(
   return await sidecarFetch<AbandonListingResponse>(
     `/api/listings/${encodeURIComponent(listingId)}/abandon`,
     buildJsonRequestInit("POST", {confirmed: true}),
+  );
+}
+
+export async function deleteSandboxListing(
+  listingId: string,
+  input: {expectedSku: string; expectedUpdatedAt: string},
+): Promise<DeleteSandboxListingResponse> {
+  return await sidecarFetch<DeleteSandboxListingResponse>(
+    `/api/listings/${encodeURIComponent(listingId)}/delete-sandbox`,
+    buildJsonRequestInit("POST", {
+      confirmed: true,
+      expectedSku: input.expectedSku,
+      expectedUpdatedAt: input.expectedUpdatedAt,
+    }),
   );
 }
 

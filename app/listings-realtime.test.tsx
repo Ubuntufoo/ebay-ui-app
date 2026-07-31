@@ -21,6 +21,7 @@ const removeChannelMock = vi.fn();
 const getSupabaseBrowserClientMock = vi.hoisted(() => vi.fn());
 const {
   abandonListingActionMock,
+  deleteSandboxListingActionMock,
   approveListingForExportMock,
   enqueueGenerateListingMock,
   retryPublishListingMock,
@@ -30,6 +31,7 @@ const {
   saveListingImageUrlsMock,
 } = vi.hoisted(() => ({
   abandonListingActionMock: vi.fn(),
+  deleteSandboxListingActionMock: vi.fn(),
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
@@ -41,6 +43,10 @@ const {
 
 vi.mock("@/app/listing-abandon-actions", () => ({
   abandonListingAction: abandonListingActionMock,
+}));
+
+vi.mock("@/app/listing-sandbox-delete-actions", () => ({
+  deleteSandboxListingAction: deleteSandboxListingActionMock,
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -194,6 +200,7 @@ describe("ListingsRealtime", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     abandonListingActionMock.mockReset();
+    deleteSandboxListingActionMock.mockReset();
     fetchMock.mockReset();
     realtimeChannelOnMock.mockReset();
     realtimeChannelSubscribeMock.mockReset();
@@ -248,6 +255,44 @@ describe("ListingsRealtime", () => {
       expect(screen.queryByText("LIST-ABANDON")).toBeNull();
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("removes a deleted sandbox listing without waiting for realtime", async () => {
+    deleteSandboxListingActionMock.mockResolvedValueOnce({
+      deletedListingId: "Single-000005",
+      deletedSku: "BSKBL-Single-000005",
+      error: null,
+      success: "Deleted sandbox listing BSKBL-Single-000005.",
+    });
+    renderListingsRealtime({
+      initialEbayEnvironment: "sandbox",
+      initialListings: [
+        buildListing({
+          id: "Single-000005-row-id",
+          listing_id: "Single-000005",
+          sku: "BSKBL-Single-000005",
+          status: "exported",
+          sub_status: "idle",
+        }),
+      ],
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {name: "Delete Sandbox Listing"}),
+    );
+    fireEvent.click(screen.getByRole("button", {name: "Confirm Delete"}));
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText("Single-000005")).toBeNull();
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    const realtimeHandler = realtimeChannelOnMock.mock.calls[0]?.[2] as
+      | ((payload: unknown) => void)
+      | undefined;
+    fetchMock.mockResolvedValueOnce(jsonResponse([]));
+    await triggerDebouncedRealtimeEvent(realtimeHandler, "DELETE");
+    expect(screen.queryByText("Single-000005")).toBeNull();
   });
 
   afterEach(() => {

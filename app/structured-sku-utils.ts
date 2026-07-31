@@ -1,5 +1,3 @@
-"use client";
-
 import type {Listing} from "@/lib/sidecar-api";
 import type {Json} from "@/lib/sidecar-api/types";
 
@@ -14,6 +12,7 @@ export const structuredSkuPrefixLabels: Record<StructuredSkuPrefix, string> = {
 };
 
 const BASE_LISTING_ID_PATTERN = /^(Single|Lot)-(?!000000)\d{6}$/;
+const STRUCTURED_SKU_PATTERN = /^(?:BSKBL|BSBL|OTHER)-(?:Single|Lot)-(?!000000)\d{6}$/;
 
 function isRecord(
   value: Json | undefined,
@@ -28,6 +27,10 @@ export function isStructuredSkuPrefix(
     typeof value === "string" &&
     structuredSkuPrefixes.includes(value as StructuredSkuPrefix)
   );
+}
+
+export function isStructuredSku(value: unknown): value is string {
+  return typeof value === "string" && STRUCTURED_SKU_PATTERN.test(value);
 }
 
 export function getStructuredSkuPrefixFromItemSpecifics(

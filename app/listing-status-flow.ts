@@ -18,6 +18,7 @@ const listingStatusLabels = {
   generating: "Generating",
   needs_review: "Needs review",
   approved_for_export: "Approved for export",
+  exported: "Exported",
   listed: "Listed",
   sold: "Sold",
 } as const satisfies Record<ListingStatus, string>;
@@ -30,6 +31,7 @@ const listingStatusBadgeClasses = {
   generating: "border-amber-300 bg-amber-50 text-amber-900",
   needs_review: "border-emerald-300 bg-emerald-50 text-emerald-900",
   approved_for_export: "border-violet-300 bg-violet-50 text-violet-800",
+  exported: "border-teal-300 bg-teal-50 text-teal-800",
   listed: "border-indigo-300 bg-indigo-50 text-indigo-800",
   sold: "border-rose-300 bg-rose-50 text-rose-800",
 } as const satisfies Record<ListingStatus, string>;

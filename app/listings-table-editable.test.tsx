@@ -7,6 +7,7 @@ import type {Listing} from "@/lib/sidecar-api";
 
 const {
   abandonListingActionMock,
+  deleteSandboxListingActionMock,
   approveListingForExportMock,
   enqueueGenerateListingMock,
   retryPublishListingMock,
@@ -15,6 +16,7 @@ const {
   saveListingPricingModifierOptionsMock,
 } = vi.hoisted(() => ({
   abandonListingActionMock: vi.fn(),
+  deleteSandboxListingActionMock: vi.fn(),
   approveListingForExportMock: vi.fn(),
   enqueueGenerateListingMock: vi.fn(),
   retryPublishListingMock: vi.fn(),
@@ -25,6 +27,10 @@ const {
 
 vi.mock("@/app/listing-abandon-actions", () => ({
   abandonListingAction: abandonListingActionMock,
+}));
+
+vi.mock("@/app/listing-sandbox-delete-actions", () => ({
+  deleteSandboxListingAction: deleteSandboxListingActionMock,
 }));
 
 vi.mock("@/app/listing-generate-actions", () => ({
@@ -107,6 +113,7 @@ describe("ListingsTableEditable", () => {
 
   beforeEach(() => {
     abandonListingActionMock.mockReset();
+    deleteSandboxListingActionMock.mockReset();
     approveListingForExportMock.mockReset();
     enqueueGenerateListingMock.mockReset();
     saveListingEditsMock.mockReset();
@@ -476,7 +483,7 @@ describe("ListingsTableEditable", () => {
           ),
           buildListing(
             "LIST-EXPORTED",
-            "exported" as Listing["status"],
+            "exported",
             "2026-05-20T06:00:00.000Z",
             {
               ebay_listing_url: "https://www.ebay.com/itm/123456789",
@@ -493,7 +500,7 @@ describe("ListingsTableEditable", () => {
           }),
           buildListing(
             "LIST-ARCHIVE",
-            "exported" as Listing["status"],
+            "exported",
             "2026-05-20T08:00:00.000Z",
             {
               ebay_listing_url: "https://www.ebay.com/itm/987654321",
@@ -555,4 +562,80 @@ describe("ListingsTableEditable", () => {
     await user.click(exportedPanel.getByText("Exported listing"));
     expect(screen.queryByText("Edit listing")).toBeNull();
   });
+
+  it("shows sandbox-only actions and disables rows without a safe structured SKU", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsTableEditable
+        ebayEnvironment="sandbox"
+        listings={[
+          buildListing("Single-000005", "exported", "2026-07-30T18:43:17.000Z", {
+            sku: "BSKBL-Single-000005",
+            title: "Safe sandbox listing",
+          }),
+          buildListing("Lot-000006", "listed", "2026-07-30T18:44:17.000Z", {
+            sku: "legacy-sku",
+            title: "Unsafe SKU listing",
+          }),
+          buildListing("Single-000007", "exported", "2026-07-30T18:45:17.000Z", {
+            sku: "OTHER-Single-000007",
+            sold_at: "2026-07-30T19:00:00.000Z",
+            title: "Sold sandbox listing",
+          }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole("columnheader", {name: "Actions"})).not.toBeNull();
+    const buttons = screen.getAllByRole("button", {
+      name: "Delete Sandbox Listing",
+    });
+    expect(buttons).toHaveLength(3);
+
+    const validButton = within(
+      screen.getByText("Safe sandbox listing").closest("tr") as HTMLTableRowElement,
+    ).getByRole("button", {name: "Delete Sandbox Listing"});
+    expect(validButton).toHaveProperty("disabled", false);
+
+    const invalidSkuButton = within(
+      screen.getByText("Unsafe SKU listing").closest("tr") as HTMLTableRowElement,
+    ).getByRole("button", {name: "Delete Sandbox Listing"});
+    expect(invalidSkuButton).toHaveProperty("disabled", true);
+    expect(invalidSkuButton.getAttribute("title")).toContain("structured SKU");
+
+    const soldButton = within(
+      screen.getByText("Sold sandbox listing").closest("tr") as HTMLTableRowElement,
+    ).getByRole("button", {name: "Delete Sandbox Listing"});
+    expect(soldButton).toHaveProperty("disabled", true);
+
+    await user.click(validButton);
+    expect(
+      screen.getByRole("dialog", {name: "Confirm Sandbox Listing Deletion"}),
+    ).not.toBeNull();
+    expect(screen.queryByText("Edit listing")).toBeNull();
+  });
+
+  it.each(["production", null] as const)(
+    "fails closed when eBay environment is %s",
+    (ebayEnvironment) => {
+      render(
+        <ListingsTableEditable
+          ebayEnvironment={ebayEnvironment}
+          listings={[
+            buildListing(
+              "Single-000005",
+              "exported",
+              "2026-07-30T18:43:17.000Z",
+              {sku: "BSKBL-Single-000005"},
+            ),
+          ]}
+        />,
+      );
+
+      expect(screen.queryByRole("columnheader", {name: "Actions"})).toBeNull();
+      expect(
+        screen.queryByRole("button", {name: "Delete Sandbox Listing"}),
+      ).toBeNull();
+    },
+  );
 });
