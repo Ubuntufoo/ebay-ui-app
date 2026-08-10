@@ -488,6 +488,27 @@ describe("QueueErrorsPanel", () => {
     ).not.toBeNull();
   });
 
+  it("renders an eBay Seller Hub icon link immediately after the Active counter", () => {
+    render(
+      <QueueErrorsPanel
+        listings={[
+          buildListing("LIST-ACTIVE", "assets_ready", "ready_to_generate"),
+        ]}
+      />,
+    );
+
+    const link = screen.getByRole("link", {name: "Open eBay Seller Hub"});
+    expect(link.getAttribute("href")).toBe(
+      "https://www.ebay.com/sh/lst/active",
+    );
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noreferrer");
+    expect(link.getAttribute("rel")).toContain("noopener");
+
+    const activeCounter = screen.getByTestId("operational-counter-active");
+    expect(activeCounter.nextElementSibling).toBe(link);
+  });
+
   it("renders pricing analysis warnings section with summary and listing id", () => {
     render(
       <QueueErrorsPanel
