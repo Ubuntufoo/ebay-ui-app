@@ -245,7 +245,7 @@ describe("ListingsTableEditable", () => {
     expect(screen.getByText("Edit listing")).not.toBeNull();
   });
 
-  it("shows abandonment for every active row and enables only needs_review", () => {
+  it("shows abandonment for every active row and enables abandonable statuses", () => {
     const statuses = [
       "record_created",
       "image_processing_queued",
@@ -279,7 +279,10 @@ describe("ListingsTableEditable", () => {
       const button = within(row as HTMLTableRowElement).getByRole("button", {
         name: "Abandon Listing",
       });
-      expect(button).toHaveProperty("disabled", status !== "needs_review");
+      expect(button).toHaveProperty(
+        "disabled",
+        status !== "assets_ready" && status !== "needs_review",
+      );
     }
   });
 

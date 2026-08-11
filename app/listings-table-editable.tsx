@@ -456,11 +456,15 @@ export function ListingsTableEditable({
                               <button
                                 type="button"
                                 title={
+                                  listing.status === "assets_ready" ||
                                   listing.status === "needs_review"
                                     ? "Abandon this listing"
-                                    : "Only Needs review listings can be abandoned."
+                                    : "Only Assets ready or Needs review listings can be abandoned."
                                 }
-                                disabled={listing.status !== "needs_review"}
+                                disabled={
+                                  listing.status !== "assets_ready" &&
+                                  listing.status !== "needs_review"
+                                }
                                 onClick={() =>
                                   setAbandonListingId(listing.listing_id)
                                 }
