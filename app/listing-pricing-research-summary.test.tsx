@@ -65,6 +65,8 @@ function buildResearch(
     sold_count: 8,
     status: "succeeded",
     suggested_price: 42,
+    terapeak_max_price: null,
+    terapeak_min_price: null,
     updated_at: "2026-07-28T20:00:00.000Z",
   };
 }

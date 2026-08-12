@@ -10,7 +10,8 @@ const keyAliases = {
   brand: ["brand", "manufacturer", "publisher", "make"],
   cardName: ["card", "card name", "card title", "name", "subject"],
   cardNumber: ["card number", "card no", "card #", "#", "number"],
-  player: ["player", "athlete", "character"],
+  league: ["league"],
+  player: ["player", "athlete", "character", "player athlete"],
   series: ["series"],
   sport: ["sport"],
   set: ["set"],
@@ -83,6 +84,25 @@ function readSpecificValue(
     if (text) {
       return toDisplayCase(text);
     }
+  }
+
+  return null;
+}
+
+function readRawSpecificValue(
+  itemSpecifics: Json,
+  aliases: readonly string[],
+): string | null {
+  if (!isRecord(itemSpecifics)) {
+    return null;
+  }
+
+  for (const [key, value] of Object.entries(itemSpecifics)) {
+    if (!aliases.includes(normalizeKey(key))) {
+      continue;
+    }
+
+    return readPrimitiveText(value);
   }
 
   return null;
@@ -190,7 +210,12 @@ function buildSportsCardsProUrl(query: string, sport: string | null): string {
   return `https://www.sportscardspro.com/search-products?${params.toString()}`;
 }
 
-function buildTerapeakUrl(query: string, now = Date.now()): string {
+function buildTerapeakUrl(
+  query: string,
+  aspects: { league?: string | null; manufacturer?: string | null; player?: string | null },
+  priceBand: { min: number | null; max: number | null },
+  now = Date.now(),
+): string {
   const dayRange = 365;
   const endDate = now;
   const startDate = endDate - dayRange * 24 * 60 * 60 * 1000;
@@ -204,13 +229,36 @@ function buildTerapeakUrl(query: string, now = Date.now()): string {
   params.append("dayRange", String(dayRange));
   params.append("endDate", String(endDate));
   params.append("startDate", String(startDate));
-  params.append("categoryId", "0");
+  params.append("categoryId", "261328");
   params.append("format", "BEST_OFFER");
   params.append("format", "FIXED_PRICE");
   params.append("offset", "0");
   params.append("limit", "50");
   params.append("tabName", "SOLD");
   params.append("tz", "America/New_York");
+
+  if (
+    priceBand.min !== null &&
+    priceBand.max !== null &&
+    Number.isFinite(priceBand.min) &&
+    Number.isFinite(priceBand.max) &&
+    priceBand.min > 0 &&
+    priceBand.max > 0 &&
+    priceBand.max >= priceBand.min
+  ) {
+    params.append("minPrice", String(priceBand.min));
+    params.append("maxPrice", String(priceBand.max));
+  }
+
+  if (aspects.league) {
+    params.append("aspect", `League:::${aspects.league}`);
+  }
+  if (aspects.manufacturer) {
+    params.append("aspect", `Manufacturer:::${aspects.manufacturer}`);
+  }
+  if (aspects.player) {
+    params.append("aspect", `Player/Athlete:::${aspects.player}`);
+  }
 
   return `https://www.ebay.com/sh/research?${params.toString()}`;
 }
@@ -268,7 +316,14 @@ export function getListingPricingLinks(
       ? [
           {
             label: "eBay Terapeak",
-            href: buildTerapeakUrl(terapeakQuery, now),
+            href: buildTerapeakUrl(terapeakQuery, {
+              league: readRawSpecificValue(listing.item_specifics, keyAliases.league),
+              manufacturer: readRawSpecificValue(listing.item_specifics, keyAliases.brand),
+              player: readRawSpecificValue(listing.item_specifics, keyAliases.player),
+            }, {
+              min: listing.latest_pricing_research?.terapeak_min_price ?? null,
+              max: listing.latest_pricing_research?.terapeak_max_price ?? null,
+            }, now),
           },
         ]
       : []),
