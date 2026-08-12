@@ -410,9 +410,7 @@ describe("listing pricing links", () => {
       1789920000000,
     );
 
-    expect(links[1]?.href).toContain(
-      "aspect=Manufacturer%3A%3A%3AUpper+Deck",
-    );
+    expect(links[1]?.href).toContain("aspect=Manufacturer%3A%3A%3AUpper+Deck");
     expect(links[1]?.href).toContain(
       "aspect=Player%2FAthlete%3A%3A%3AWayne+Gretzky",
     );

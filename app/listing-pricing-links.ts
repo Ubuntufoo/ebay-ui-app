@@ -194,7 +194,10 @@ function readSportsCardsProSportSlug(listing: Listing): string | null {
   }
 
   const normalized = normalizeWhitespace(sport).toLowerCase();
-  return sportsCardsProSportMap[normalized as keyof typeof sportsCardsProSportMap] ?? null;
+  return (
+    sportsCardsProSportMap[normalized as keyof typeof sportsCardsProSportMap] ??
+    null
+  );
 }
 
 function buildSportsCardsProUrl(query: string, sport: string | null): string {
@@ -212,8 +215,12 @@ function buildSportsCardsProUrl(query: string, sport: string | null): string {
 
 function buildTerapeakUrl(
   query: string,
-  aspects: { league?: string | null; manufacturer?: string | null; player?: string | null },
-  priceBand: { min: number | null; max: number | null },
+  aspects: {
+    league?: string | null;
+    manufacturer?: string | null;
+    player?: string | null;
+  },
+  priceBand: {min: number | null; max: number | null},
   now = Date.now(),
 ): string {
   const dayRange = 365;
@@ -316,14 +323,30 @@ export function getListingPricingLinks(
       ? [
           {
             label: "eBay Terapeak",
-            href: buildTerapeakUrl(terapeakQuery, {
-              league: readRawSpecificValue(listing.item_specifics, keyAliases.league),
-              manufacturer: readRawSpecificValue(listing.item_specifics, keyAliases.brand),
-              player: readRawSpecificValue(listing.item_specifics, keyAliases.player),
-            }, {
-              min: listing.latest_pricing_research?.terapeak_min_price ?? null,
-              max: listing.latest_pricing_research?.terapeak_max_price ?? null,
-            }, now),
+            href: buildTerapeakUrl(
+              terapeakQuery,
+              {
+                league: readRawSpecificValue(
+                  listing.item_specifics,
+                  keyAliases.league,
+                ),
+                manufacturer: readRawSpecificValue(
+                  listing.item_specifics,
+                  keyAliases.brand,
+                ),
+                player: readRawSpecificValue(
+                  listing.item_specifics,
+                  keyAliases.player,
+                ),
+              },
+              {
+                min:
+                  listing.latest_pricing_research?.terapeak_min_price ?? null,
+                max:
+                  listing.latest_pricing_research?.terapeak_max_price ?? null,
+              },
+              now,
+            ),
           },
         ]
       : []),
