@@ -86,6 +86,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
       normalizeItemSpecificsTradingCardCondition(listing.item_specifics),
     ),
   );
+  const [titleLength, setTitleLength] = useState(
+    () => (listing.title ?? "").length,
+  );
   const itemSpecificsState = parseItemSpecificsText(itemSpecificsText);
   const cardConditionToken = getCardConditionTokenFromItemSpecifics(
     itemSpecificsState.value as Parameters<
@@ -145,18 +148,24 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           <fieldset disabled={isGenerating} className="grid gap-4">
             <input type="hidden" name="listing_id" value={listing.listing_id} />
 
-            <label className="block">
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                Title
-              </span>
+            <div className="block">
+              <div className="flex items-baseline justify-between text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                <label htmlFor="listing-title">Title</label>
+                <span className="font-mono text-xs font-semibold normal-case tracking-normal text-stone-400">
+                  {titleLength}/80
+                </span>
+              </div>
               <input
+                id="listing-title"
                 type="text"
                 name="title"
                 defaultValue={listing.title ?? ""}
+                maxLength={80}
+                onChange={(event) => setTitleLength(event.target.value.length)}
                 disabled={isGenerating}
                 className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
               />
-            </label>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
