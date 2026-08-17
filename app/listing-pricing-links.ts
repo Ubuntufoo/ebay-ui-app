@@ -271,10 +271,16 @@ function buildTerapeakUrl(
 }
 
 function buildTerapeakSearchText(listing: Listing): string | null {
-  const title = listing.title ? normalizeWhitespace(listing.title) : "";
+  const player = readRawSpecificValue(listing.item_specifics, keyAliases.player);
+  const year = readRawSpecificValue(listing.item_specifics, keyAliases.year);
+  const manufacturer = readRawSpecificValue(
+    listing.item_specifics,
+    keyAliases.brand,
+  );
+  const structured = joinUnique([player, year, manufacturer]);
 
-  if (title !== "") {
-    return title;
+  if (structured !== "") {
+    return structured;
   }
 
   return buildListingPricingSearchText(listing);

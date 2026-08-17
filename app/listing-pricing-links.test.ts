@@ -311,23 +311,48 @@ describe("listing pricing links", () => {
     expect(url.searchParams.has("maxPrice")).toBe(false);
   });
 
-  it("preserves card title casing for Terapeak even when structured fields are available", () => {
+  it("uses structured identity fields for Terapeak instead of title modifiers", () => {
     const links = getListingPricingLinks(
       buildListing({
         item_specifics: {
-          Manufacturer: "nba hoops",
-          Player: "michael jordan",
-          Year: "1990",
+          Manufacturer: "Topps",
+          "Player/Athlete": "Troy Stratford",
+          Year: "1988",
         },
-        title: "Michael Jordan 1990 NBA Hoops #65",
+        title: "Troy Stratford 1988 Topps #191 Rookie Card NM+",
       }),
       1789920000000,
     );
+    const url = new URL(links[1]!.href);
+    const keywords = url.searchParams.get("keywords");
 
-    expect(links[1]?.href).toContain(
-      "keywords=Michael+Jordan+1990+NBA+Hoops+%2365",
+    expect(keywords).toBe(
+      "Troy Stratford 1988 Topps -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
     );
-    expect(links[1]?.href).not.toContain("Nba");
+    expect(keywords).not.toContain("Rookie Card");
+    expect(keywords).not.toContain("NM");
+    expect(keywords).not.toContain("#191");
+    expect(links[0]?.href).toContain(
+      "q=Troy+Stratford+1988+Topps+%23191+Rookie+Card+NM%2B",
+    );
+  });
+
+  it("builds a clean Terapeak query from partial structured identity fields", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        item_specifics: {
+          Manufacturer: "Topps",
+          "Player/Athlete": "Troy Stratford",
+        },
+        title: "Troy Stratford Topps Rookie Card NM+",
+      }),
+      1789920000000,
+    );
+    const keywords = new URL(links[1]!.href).searchParams.get("keywords");
+
+    expect(keywords).toBe(
+      "Troy Stratford Topps -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
+    );
   });
 
   it("returns the title text normalized for whitespace when specifics are missing", () => {
