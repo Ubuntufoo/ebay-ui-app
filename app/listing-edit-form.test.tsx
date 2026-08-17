@@ -139,6 +139,9 @@ describe("ListingEditForm", () => {
       "disabled",
       true,
     );
+    expect(
+      screen.queryByRole("region", {name: "Listing image order"}),
+    ).toBeNull();
     expect(screen.queryByRole("button", {name: "Assets ready"})).toBeNull();
     expect(screen.queryByRole("button", {name: "Needs review"})).toBeNull();
     expect(
@@ -171,6 +174,9 @@ describe("ListingEditForm", () => {
       screen.getByRole("button", {name: "Generate AI Draft"}),
     ).not.toBeNull();
     expect(screen.getAllByLabelText("Seller hints").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("region", {name: "Listing image order"}),
+    ).not.toBeNull();
     expect(screen.queryByText("2 images")).toBeNull();
     expect(
       screen.queryByRole("link", {name: "Open LIST-001 image 1"}),
@@ -209,6 +215,21 @@ describe("ListingEditForm", () => {
       "Very good",
       "Poor",
     ]);
+  });
+
+  it("keeps image ordering unavailable after review workflow advances", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("approved_for_export", [
+          "https://example.com/approved-1.jpg",
+          "https://example.com/approved-2.jpg",
+        ])}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", {name: "Listing image order"}),
+    ).toBeNull();
   });
 
   it("shows saved supported card condition, helper label, condition notes, and item specifics JSON", () => {
@@ -603,6 +624,9 @@ describe("ListingEditForm", () => {
       ),
     ).toBeNull();
     expect(screen.getByText("Pricing research")).not.toBeNull();
+    expect(
+      screen.getByRole("region", {name: "Listing image order"}),
+    ).not.toBeNull();
 
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
     expect(

@@ -5,6 +5,7 @@ import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
 import {initialSaveListingEditsActionState} from "@/app/listing-edit-state";
+import {ListingImageOrderManager} from "@/app/listing-image-gallery";
 import {
   ListingPricingResearchPanel,
   ListingReviewGate,
@@ -425,6 +426,13 @@ export function ListingEditForm({listing}: {listing: Listing}) {
             ) : null}
           </fieldset>
         </form>
+
+        {listing.status === "assets_ready" || listing.status === "needs_review" ? (
+          <ListingImageOrderManager
+            imageUrls={listing.image_urls}
+            listingId={listing.listing_id}
+          />
+        ) : null}
 
         <ListingReviewGate
           key={`${listing.listing_id}:${listing.status}`}
