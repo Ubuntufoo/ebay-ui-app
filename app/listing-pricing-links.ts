@@ -272,12 +272,16 @@ function buildTerapeakUrl(
 
 function buildTerapeakSearchText(listing: Listing): string | null {
   const player = readRawSpecificValue(listing.item_specifics, keyAliases.player);
+  const cardNumber = readRawSpecificValue(
+    listing.item_specifics,
+    keyAliases.cardNumber,
+  );
   const year = readRawSpecificValue(listing.item_specifics, keyAliases.year);
   const manufacturer = readRawSpecificValue(
     listing.item_specifics,
     keyAliases.brand,
   );
-  const structured = joinUnique([player, year, manufacturer]);
+  const structured = joinUnique([player, cardNumber, year, manufacturer]);
 
   if (structured !== "") {
     return structured;

@@ -315,6 +315,7 @@ describe("listing pricing links", () => {
     const links = getListingPricingLinks(
       buildListing({
         item_specifics: {
+          "Card Number": "191",
           Manufacturer: "Topps",
           "Player/Athlete": "Troy Stratford",
           Year: "1988",
@@ -327,7 +328,7 @@ describe("listing pricing links", () => {
     const keywords = url.searchParams.get("keywords");
 
     expect(keywords).toBe(
-      "Troy Stratford 1988 Topps -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
+      "Troy Stratford 191 1988 Topps -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
     );
     expect(keywords).not.toContain("Rookie Card");
     expect(keywords).not.toContain("NM");
