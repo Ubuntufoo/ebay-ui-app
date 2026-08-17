@@ -59,6 +59,7 @@ describe("ListingAbandonControls", () => {
       name: "Confirm Listing Abandonment",
     });
     expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
     expect(dialog.textContent).toContain("⚠");
     expect(dialog.textContent).toContain("LIST-001");
     expect(dialog.textContent).toContain("cannot be undone");
