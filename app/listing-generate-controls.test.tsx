@@ -127,7 +127,9 @@ describe("ListingGenerateControls", () => {
     expect(submittedFormData).toBeInstanceOf(FormData);
 
     if (!(submittedFormData instanceof FormData)) {
-      throw new TypeError("Expected Generate AI Draft submission to use FormData.");
+      throw new TypeError(
+        "Expected Generate AI Draft submission to use FormData.",
+      );
     }
 
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
@@ -334,10 +336,16 @@ describe("ListingGenerateControls", () => {
     expect(screen.queryByRole("checkbox", {name: "+Variant"})).toBeNull();
   });
 
-  it("renders help text for graded/slabbed exclusions", () => {
+  it("renders the graded/slabbed exclusion copy in the tooltip", async () => {
+    const user = userEvent.setup();
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    expect(screen.getByText(/core provider negatives/)).not.toBeNull();
+    expect(screen.queryByText(/core provider negatives/)).toBeNull();
+
+    await user.hover(
+      screen.getByRole("button", {name: "Avoid autographs help"}),
+    );
+
     expect(
       screen.getByText(
         /always removed after results return, even when this toggle is off/,

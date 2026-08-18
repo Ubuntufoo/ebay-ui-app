@@ -46,6 +46,36 @@ function PricingModifierCheckbox({
   );
 }
 
+function PricingModifierTooltip() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        aria-label="Avoid autographs help"
+        aria-expanded={isOpen}
+        onBlur={() => setIsOpen(false)}
+        onFocus={() => setIsOpen(true)}
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => setIsOpen(false)}
+        className="inline-flex size-5 items-center justify-center rounded-full border border-stone-300 bg-white text-[10px] font-black text-stone-500 transition hover:border-stone-500 hover:text-stone-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400"
+      >
+        i
+      </button>
+      {isOpen ? (
+        <span
+          role="tooltip"
+          className="pointer-events-none absolute left-full top-1/2 ml-2 w-72 -translate-y-1/2 rounded-2xl border border-stone-200 bg-stone-950 px-3 py-2 text-[11px] leading-5 text-stone-50 shadow-lg transition duration-75 ease-out"
+        >
+          Uses core provider negatives. Graded/slabbed responses are always
+          removed after results return, even when this toggle is off.
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function getModifierStateResetKey(listing: Listing): string {
   const modifierState = getPricingModifierUiState(listing.item_specifics);
 
@@ -153,18 +183,17 @@ function PricingModifierControls({listing}: {listing: Listing}) {
             name="exclude_graded_control"
             onChange={(checked) => updateModifier("graded", checked)}
           />
-          <PricingModifierCheckbox
-            checked={modifierState.auto}
-            disabled={pending || isSavingModifiers}
-            label="Avoid autographs"
-            name="exclude_autographs_control"
-            onChange={(checked) => updateModifier("auto", checked)}
-          />
+          <div className="flex items-center gap-2">
+            <PricingModifierCheckbox
+              checked={modifierState.auto}
+              disabled={pending || isSavingModifiers}
+              label="Avoid autographs"
+              name="exclude_autographs_control"
+              onChange={(checked) => updateModifier("auto", checked)}
+            />
+            <PricingModifierTooltip />
+          </div>
         </div>
-        <p className="text-[11px] leading-relaxed text-stone-500">
-          Uses core provider negatives. Graded/slabbed responses are always
-          removed after results return, even when this toggle is off.
-        </p>
       </div>
       {modifierError ? (
         <p className="max-w-xl rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">

@@ -136,15 +136,15 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   return (
     <div className="rounded-2xl border border-stone-950/10 bg-white/75 p-5 shadow-[0_10px_28px_rgba(68,64,60,0.08)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="font-bold uppercase tracking-[0.2em] text-stone-500">
-          Edit listing
-        </p>
         <div className="flex flex-wrap items-center gap-3">
-          <ListingStatusControls listing={listing} inline />
+          <p className="font-bold uppercase tracking-[0.2em] text-stone-500">
+            Edit listing
+          </p>
           <span className="rounded-full border border-stone-950/10 bg-stone-100 px-3 py-1 font-mono text-stone-600">
             {listing.listing_id}
           </span>
         </div>
+        <ListingStatusControls listing={listing} inline />
       </div>
 
       <div className="mt-4 grid gap-5">
@@ -161,6 +161,17 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           }}
           className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
         >
+          <div className="flex items-center gap-3">
+            <SaveButton
+              disabled={isGenerating || itemSpecificsError !== null}
+              label="Save edits"
+              pendingLabel="Saving..."
+            />
+            {itemSpecificsError ? (
+              <span className="text-sm text-rose-700">Fix JSON to save.</span>
+            ) : null}
+          </div>
+
           {isGenerating ? (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">
               AI generation is in progress. Listing edits are locked until the
@@ -436,17 +447,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 </div>
               </section>
             ) : null}
-
-            <div className="flex items-center gap-3">
-              <SaveButton
-                disabled={isGenerating || itemSpecificsError !== null}
-                label="Save edits"
-                pendingLabel="Saving..."
-              />
-              {itemSpecificsError ? (
-                <span className="text-sm text-rose-700">Fix JSON to save.</span>
-              ) : null}
-            </div>
 
             {state.success ? (
               <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">

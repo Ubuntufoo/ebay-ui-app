@@ -112,7 +112,7 @@ function PublishedListingsPanel({
           Published Listings
         </h2>
       </div>
-      <div className="overflow-x-auto">
+      <div className="max-h-[22rem] overflow-y-auto overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead>
             <tr className="border-b border-stone-950/10 bg-stone-50/90 text-left">
@@ -186,7 +186,8 @@ function PublishedListingsPanel({
                     <button
                       type="button"
                       disabled={
-                        !isStructuredSku(listing.sku) || listing.sold_at !== null
+                        !isStructuredSku(listing.sku) ||
+                        listing.sold_at !== null
                       }
                       title={
                         !isStructuredSku(listing.sku)
