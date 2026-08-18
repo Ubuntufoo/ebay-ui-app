@@ -198,6 +198,58 @@ describe("ListingEditForm", () => {
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
 
+  it("adds quick title suffixes without submitting and respects the 80 character limit", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    const initialTitle = "A".repeat(55);
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/title.jpg"],
+          {
+            title: initialTitle,
+          },
+        )}
+      />,
+    );
+
+    const titleInput = screen.getByLabelText("Title") as HTMLInputElement;
+
+    expect(titleInput.value).toBe(initialTitle);
+    expect(screen.getByText("55/80")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", {name: 'Add "NM+"'}));
+
+    expect(titleInput.value).toBe(`${initialTitle} NM+`);
+    expect(screen.getByText("59/80")).not.toBeNull();
+    expect(saveListingEditsMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", {name: 'Add "Free Shipping"'}));
+
+    expect(titleInput.value).toBe(`${initialTitle} NM+ Free Shipping`);
+    expect(screen.getByText("73/80")).not.toBeNull();
+    expect(saveListingEditsMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", {name: 'Add "Rookie Card"'}));
+
+    expect(titleInput.value).toBe(`${initialTitle} NM+ Free Shipping`);
+    expect(screen.getByText("73/80")).not.toBeNull();
+    expect(saveListingEditsMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledTimes(1);
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+
+    expect(submittedFormData.get("title")).toBe(
+      `${initialTitle} NM+ Free Shipping`,
+    );
+  });
+
   it("renders exactly four supported card condition options", () => {
     render(<ListingEditForm listing={buildListing("needs_review")} />);
     const cardConditionSelect = screen.getByLabelText(
@@ -834,7 +886,9 @@ describe("ListingEditForm", () => {
 
     expect(screen.getByText("Card year is unverified.")).not.toBeNull();
     expect(
-      screen.getByText("Likely year: 1955. Advisory only; year is not confirmed."),
+      screen.getByText(
+        "Likely year: 1955. Advisory only; year is not confirmed.",
+      ),
     ).not.toBeNull();
     expect(
       screen.getByText(
@@ -1428,7 +1482,9 @@ describe("ListingEditForm", () => {
     expect(succeededSummaryCard).not.toBeNull();
     expect(succeededSummaryCard?.textContent).toContain("Accepted: 26");
     expect(succeededSummaryCard?.textContent).toContain("Rejected: 24");
-    expect(succeededSummaryCard?.textContent).toContain("Provider returned: 50");
+    expect(succeededSummaryCard?.textContent).toContain(
+      "Provider returned: 50",
+    );
     expect(succeededSummaryCard?.textContent).toContain(
       "Query: 2023 Topps Chrome Mike Trout",
     );
@@ -1436,9 +1492,7 @@ describe("ListingEditForm", () => {
       "Provider: soldcomps · Model: gemini-2.5-flash",
     );
     expect(succeededSummaryCard?.textContent).not.toContain("Price modifiers");
-    expect(
-      succeededSummaryCard?.contains(priceModifiersHeading),
-    ).toBe(false);
+    expect(succeededSummaryCard?.contains(priceModifiersHeading)).toBe(false);
     expect(screen.getByText("Raw -12.25% · Applied 0%")).not.toBeNull();
     expect(
       screen.getByText(
@@ -1517,9 +1571,7 @@ describe("ListingEditForm", () => {
 
     expect(screen.getByText("Pricing research")).not.toBeNull();
     expect(
-      screen.getByText(
-        /provider returned no matching sold comps/i,
-      ),
+      screen.getByText(/provider returned no matching sold comps/i),
     ).not.toBeNull();
     expect(screen.getByText("failed")).not.toBeNull();
     expect(screen.getByText("Requested comps: 25")).not.toBeNull();
@@ -1557,7 +1609,13 @@ describe("ListingEditForm", () => {
             latest_pricing_research: {
               comp_summary: {
                 rejected_comp_count: 5,
-                rejected_comp_ids: ["comp-1", "comp-2", "comp-3", "comp-4", "comp-5"],
+                rejected_comp_ids: [
+                  "comp-1",
+                  "comp-2",
+                  "comp-3",
+                  "comp-4",
+                  "comp-5",
+                ],
                 selected_comp_count: 0,
                 selected_comp_ids: [],
                 total_comp_count: 5,
@@ -1659,9 +1717,7 @@ describe("ListingEditForm", () => {
       />,
     );
 
-    expect(
-      screen.getByText(/provider call did not complete/i),
-    ).not.toBeNull();
+    expect(screen.getByText(/provider call did not complete/i)).not.toBeNull();
     expect(screen.getByText("Failure code: apify_timeout")).not.toBeNull();
     expect(
       screen.getByText("Failure category: retryable timeout"),

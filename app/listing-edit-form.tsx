@@ -1,6 +1,6 @@
 "use client";
 
-import {useActionState, useState} from "react";
+import {useActionState, useRef, useState} from "react";
 import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
@@ -76,11 +76,14 @@ function SaveButton({
   );
 }
 
+const titleQuickAdds = ["NM+", "Free Shipping", "Rookie Card"] as const;
+
 export function ListingEditForm({listing}: {listing: Listing}) {
   const [state, formAction] = useActionState(
     saveListingEdits,
     initialSaveListingEditsActionState,
   );
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   const [itemSpecificsText, setItemSpecificsText] = useState(() =>
     formatItemSpecifics(
@@ -110,6 +113,25 @@ export function ListingEditForm({listing}: {listing: Listing}) {
   );
 
   const itemSpecificsError = itemSpecificsState.error;
+
+  function appendTitleText(addition: string) {
+    const titleInput = titleInputRef.current;
+
+    if (titleInput === null) {
+      return;
+    }
+
+    const currentTitle = titleInput.value;
+    const nextTitle =
+      currentTitle === "" ? addition : `${currentTitle} ${addition}`;
+
+    if (nextTitle.length > 80) {
+      return;
+    }
+
+    titleInput.value = nextTitle;
+    setTitleLength(nextTitle.length);
+  }
 
   return (
     <div className="rounded-2xl border border-stone-950/10 bg-white/75 p-5 shadow-[0_10px_28px_rgba(68,64,60,0.08)]">
@@ -150,14 +172,27 @@ export function ListingEditForm({listing}: {listing: Listing}) {
             <input type="hidden" name="listing_id" value={listing.listing_id} />
 
             <div className="block">
-              <div className="flex items-baseline justify-between text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+              <div className="flex flex-wrap items-baseline justify-between gap-3 text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
                 <label htmlFor="listing-title">Title</label>
-                <span className="font-mono text-xs font-semibold normal-case tracking-normal text-stone-400">
-                  {titleLength}/80
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs font-semibold normal-case tracking-normal text-stone-400">
+                    {titleLength}/80
+                  </span>
+                  {titleQuickAdds.map((addition) => (
+                    <button
+                      key={addition}
+                      type="button"
+                      onClick={() => appendTitleText(addition)}
+                      className="rounded-full border border-stone-950/10 bg-white px-2.5 py-1 text-[11px] font-semibold normal-case tracking-normal text-stone-600 transition hover:border-stone-950 hover:text-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100 disabled:text-stone-400"
+                    >
+                      Add &quot;{addition}&quot;
+                    </button>
+                  ))}
+                </div>
               </div>
               <input
                 id="listing-title"
+                ref={titleInputRef}
                 type="text"
                 name="title"
                 defaultValue={listing.title ?? ""}
@@ -427,7 +462,8 @@ export function ListingEditForm({listing}: {listing: Listing}) {
           </fieldset>
         </form>
 
-        {listing.status === "assets_ready" || listing.status === "needs_review" ? (
+        {listing.status === "assets_ready" ||
+        listing.status === "needs_review" ? (
           <ListingImageOrderManager
             imageUrls={listing.image_urls}
             listingId={listing.listing_id}
