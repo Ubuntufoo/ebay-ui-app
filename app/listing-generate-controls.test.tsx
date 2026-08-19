@@ -193,6 +193,91 @@ describe("ListingGenerateControls", () => {
     expect(
       screen.getByRole("checkbox", {name: "Avoid autographs"}),
     ).toHaveProperty("checked", true);
+    expect(
+      screen.getByRole("checkbox", {name: "Skip Browse API"}),
+    ).toHaveProperty("checked", false);
+  });
+
+  it("hydrates a persisted Skip Browse API choice", () => {
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            browsePricingOptions: {
+              skipBrowse: true,
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("checkbox", {name: "Skip Browse API"}),
+    ).toHaveProperty("checked", true);
+  });
+
+  it("disables Skip Browse API and shows it as skipped when Auto Pricing is off", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          auto_pricing_enabled: false,
+        }}
+      />,
+    );
+
+    const skipBrowse = screen.getByRole("checkbox", {name: "Skip Browse API"});
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(skipBrowse).toHaveProperty("disabled", true);
+
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+
+    expect(skipBrowse).toHaveProperty("checked", false);
+    expect(skipBrowse).toHaveProperty("disabled", false);
+  });
+
+  it("preserves the explicit Skip Browse API choice across Auto Pricing changes", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            browsePricingOptions: {
+              skipBrowse: true,
+            },
+          },
+        }}
+      />,
+    );
+
+    const skipBrowse = screen.getByRole("checkbox", {name: "Skip Browse API"});
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(skipBrowse).toHaveProperty("disabled", true);
+
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(skipBrowse).toHaveProperty("disabled", false);
+  });
+
+  it("toggles Skip Browse API independently while Auto Pricing is enabled", async () => {
+    const user = userEvent.setup();
+
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    const skipBrowse = screen.getByRole("checkbox", {name: "Skip Browse API"});
+    await user.click(skipBrowse);
+
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(
+      screen.getByRole("checkbox", {name: "Auto Pricing?"}),
+    ).toHaveProperty("checked", true);
+    expect(saveListingPricingModifierOptionsMock).not.toHaveBeenCalled();
   });
 
   it("hydrates the persisted auto-pricing preference", () => {
@@ -316,6 +401,9 @@ describe("ListingGenerateControls", () => {
             pricingModifierOptions: {
               excludeGraded: false,
             },
+            browsePricingOptions: {
+              skipBrowse: true,
+            },
           },
         }}
       />,
@@ -324,6 +412,9 @@ describe("ListingGenerateControls", () => {
     expect(
       screen.getByRole("checkbox", {name: "Pre-filter graded comps"}),
     ).toHaveProperty("checked", false);
+    expect(
+      screen.getByRole("checkbox", {name: "Skip Browse API"}),
+    ).toHaveProperty("checked", true);
     expect(screen.getByLabelText("Seller hints")).toHaveProperty(
       "value",
       "Do not remount this field",
