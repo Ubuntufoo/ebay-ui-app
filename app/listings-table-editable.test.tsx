@@ -148,6 +148,35 @@ describe("ListingsTableEditable", () => {
     ]);
   });
 
+  it("keeps published listings newest-first", () => {
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("PUB-OLDER", "exported", "2026-05-20T00:00:00.000Z", {
+            created_at: "2026-05-19T00:00:00.000Z",
+          }),
+          buildListing("PUB-NEWER", "listed", "2026-05-22T00:00:00.000Z", {
+            created_at: "2026-05-18T00:00:00.000Z",
+          }),
+        ]}
+      />,
+    );
+
+    const publishedHeading = screen.getByText("Published Listings");
+    const publishedSection = publishedHeading.closest("section");
+
+    if (publishedSection === null) {
+      throw new Error("Published Listings section not found.");
+    }
+
+    const rows = within(publishedSection).getAllByRole("row").slice(1);
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("PUB-NEWER"),
+      expect.stringContaining("PUB-OLDER"),
+    ]);
+  });
+
   it("toggles expandable rows from non-interactive cells and switches selection", async () => {
     const user = userEvent.setup();
     render(

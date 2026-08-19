@@ -55,6 +55,22 @@ function sortOldestCreatedFirst(listings: Listing[]): Listing[] {
   );
 }
 
+function sortNewestFirst(listings: Listing[]): Listing[] {
+  return [...listings].sort((left, right) => {
+    const updatedDelta =
+      new Date(right.updated_at).getTime() -
+      new Date(left.updated_at).getTime();
+
+    if (updatedDelta !== 0) {
+      return updatedDelta;
+    }
+
+    return (
+      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+    );
+  });
+}
+
 function isIntakeListing(status: Listing["status"]): boolean {
   return status === "record_created";
 }
@@ -220,19 +236,19 @@ export function ListingsTableEditable({
   const [abandonListingId, setAbandonListingId] = useState<string | null>(null);
   const [sandboxDeleteListing, setSandboxDeleteListing] =
     useState<Listing | null>(null);
-  const sortedListings = useMemo(
-    () => sortOldestCreatedFirst(listings),
-    [listings],
-  );
   const activeListings = useMemo(
     () =>
-      sortedListings.filter((listing) => !isPublishedListing(listing.status)),
-    [sortedListings],
+      sortOldestCreatedFirst(
+        listings.filter((listing) => !isPublishedListing(listing.status)),
+      ),
+    [listings],
   );
   const publishedListings = useMemo(
     () =>
-      sortedListings.filter((listing) => isPublishedListing(listing.status)),
-    [sortedListings],
+      sortNewestFirst(
+        listings.filter((listing) => isPublishedListing(listing.status)),
+      ),
+    [listings],
   );
   const selectedListing = useMemo(
     () =>
