@@ -122,6 +122,32 @@ describe("ListingsTableEditable", () => {
     saveListingPricingModifierOptionsMock.mockResolvedValue({error: null});
   });
 
+  it("renders active listings oldest-created first so new listings append at the bottom", () => {
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("LIST-NEWEST", "needs_review", "2026-05-23T00:00:00.000Z", {
+            created_at: "2026-05-22T00:00:00.000Z",
+          }),
+          buildListing("LIST-OLDEST", "needs_review", "2026-05-30T00:00:00.000Z", {
+            created_at: "2026-05-20T00:00:00.000Z",
+          }),
+          buildListing("LIST-MIDDLE", "needs_review", "2026-05-21T00:00:00.000Z", {
+            created_at: "2026-05-21T00:00:00.000Z",
+          }),
+        ]}
+      />,
+    );
+
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("LIST-OLDEST"),
+      expect.stringContaining("LIST-MIDDLE"),
+      expect.stringContaining("LIST-NEWEST"),
+    ]);
+  });
+
   it("toggles expandable rows from non-interactive cells and switches selection", async () => {
     const user = userEvent.setup();
     render(

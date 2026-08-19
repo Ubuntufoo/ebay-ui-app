@@ -48,20 +48,11 @@ function formatExportedAt(exportedAt: string | null): string {
   return formatUpdatedAt(exportedAt);
 }
 
-function sortNewestFirst(listings: Listing[]): Listing[] {
-  return [...listings].sort((left, right) => {
-    const updatedDelta =
-      new Date(right.updated_at).getTime() -
-      new Date(left.updated_at).getTime();
-
-    if (updatedDelta !== 0) {
-      return updatedDelta;
-    }
-
-    return (
-      new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-    );
-  });
+function sortOldestCreatedFirst(listings: Listing[]): Listing[] {
+  return [...listings].sort(
+    (left, right) =>
+      new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
+  );
 }
 
 function isIntakeListing(status: Listing["status"]): boolean {
@@ -229,7 +220,10 @@ export function ListingsTableEditable({
   const [abandonListingId, setAbandonListingId] = useState<string | null>(null);
   const [sandboxDeleteListing, setSandboxDeleteListing] =
     useState<Listing | null>(null);
-  const sortedListings = useMemo(() => sortNewestFirst(listings), [listings]);
+  const sortedListings = useMemo(
+    () => sortOldestCreatedFirst(listings),
+    [listings],
+  );
   const activeListings = useMemo(
     () =>
       sortedListings.filter((listing) => !isPublishedListing(listing.status)),

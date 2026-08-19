@@ -221,22 +221,22 @@ describe("ListingEditForm", () => {
     expect(titleInput.value).toBe(initialTitle);
     expect(screen.getByText("55/80")).not.toBeNull();
 
-    await user.click(screen.getByRole("button", {name: 'Add "NM+"'}));
+    await user.click(screen.getByRole("button", {name: 'Add "EX/NM+"'}));
 
-    expect(titleInput.value).toBe(`${initialTitle} NM+`);
-    expect(screen.getByText("59/80")).not.toBeNull();
+    expect(titleInput.value).toBe(`${initialTitle} EX/NM+`);
+    expect(screen.getByText("62/80")).not.toBeNull();
     expect(saveListingEditsMock).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", {name: 'Add "Free Shipping"'}));
+    await user.click(screen.getByRole("button", {name: 'Add "FREE SHIPPING"'}));
 
-    expect(titleInput.value).toBe(`${initialTitle} NM+ Free Shipping`);
-    expect(screen.getByText("73/80")).not.toBeNull();
+    expect(titleInput.value).toBe(`${initialTitle} EX/NM+ FREE SHIPPING`);
+    expect(screen.getByText("76/80")).not.toBeNull();
     expect(saveListingEditsMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", {name: 'Add "Rookie Card"'}));
 
-    expect(titleInput.value).toBe(`${initialTitle} NM+ Free Shipping`);
-    expect(screen.getByText("73/80")).not.toBeNull();
+    expect(titleInput.value).toBe(`${initialTitle} EX/NM+ FREE SHIPPING`);
+    expect(screen.getByText("76/80")).not.toBeNull();
     expect(saveListingEditsMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", {name: "Save edits"}));
@@ -246,7 +246,7 @@ describe("ListingEditForm", () => {
     const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
 
     expect(submittedFormData.get("title")).toBe(
-      `${initialTitle} NM+ Free Shipping`,
+      `${initialTitle} EX/NM+ FREE SHIPPING`,
     );
   });
 

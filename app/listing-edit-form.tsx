@@ -76,7 +76,7 @@ function SaveButton({
   );
 }
 
-const titleQuickAdds = ["NM+", "Free Shipping", "Rookie Card"] as const;
+const titleQuickAdds = ["EX/NM+", "FREE SHIPPING", "Rookie Card"] as const;
 
 export function ListingEditForm({listing}: {listing: Listing}) {
   const [state, formAction] = useActionState(
