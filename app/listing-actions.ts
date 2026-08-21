@@ -6,6 +6,7 @@ import {readTrimmedFormField, getActionErrorMessage} from "@/app/action-utils";
 import type {Json, UpdateListingInput} from "@/lib/sidecar-api/types";
 import {updateListing} from "@/lib/sidecar-api";
 import type {SaveListingEditsActionState} from "@/app/listing-edit-state";
+import {getListingPriceError} from "@/app/listing-price-validation";
 
 function readNumericField(value: FormDataEntryValue | null): {
   value: number | null;
@@ -23,6 +24,11 @@ function readNumericField(value: FormDataEntryValue | null): {
   const numeric = Number(trimmed);
   if (!Number.isFinite(numeric)) {
     return {value: null, error: "Price must be a valid number."};
+  }
+
+  const priceError = getListingPriceError(numeric);
+  if (priceError) {
+    return {value: null, error: priceError};
   }
 
   return {value: numeric, error: null};

@@ -5,6 +5,10 @@ import {useFormStatus} from "react-dom";
 
 import {saveListingEdits} from "@/app/listing-actions";
 import {initialSaveListingEditsActionState} from "@/app/listing-edit-state";
+import {
+  getListingPriceError,
+  MIN_LISTING_PRICE,
+} from "@/app/listing-price-validation";
 import {ListingImageOrderManager} from "@/app/listing-image-gallery";
 import {
   ListingPricingResearchPanel,
@@ -76,7 +80,7 @@ function SaveButton({
   );
 }
 
-const titleQuickAdds = ["EX/NM+", "FREE SHIPPING", "Rookie Card"] as const;
+const titleQuickAdds = ["EX/NM+", "DISCOUNT SHIPPING", "Rookie Card"] as const;
 
 export function ListingEditForm({listing}: {listing: Listing}) {
   const [state, formAction] = useActionState(
@@ -90,6 +94,7 @@ export function ListingEditForm({listing}: {listing: Listing}) {
       normalizeItemSpecificsTradingCardCondition(listing.item_specifics),
     ),
   );
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [titleLength, setTitleLength] = useState(
     () => (listing.title ?? "").length,
   );
@@ -154,10 +159,37 @@ export function ListingEditForm({listing}: {listing: Listing}) {
 
         <form
           action={formAction}
+          noValidate
           onSubmit={(event) => {
             if (itemSpecificsError) {
               event.preventDefault();
+              return;
             }
+
+            const priceInput = event.currentTarget.elements.namedItem(
+              "price",
+            );
+            if (!(priceInput instanceof HTMLInputElement)) {
+              return;
+            }
+
+            const trimmedPrice = priceInput.value.trim();
+            if (trimmedPrice === "") {
+              setPriceError(null);
+              return;
+            }
+
+            const price = Number(trimmedPrice);
+            const nextPriceError = Number.isFinite(price)
+              ? getListingPriceError(price)
+              : "Price must be a valid number.";
+            if (nextPriceError) {
+              event.preventDefault();
+              setPriceError(nextPriceError);
+              return;
+            }
+
+            setPriceError(null);
           }}
           className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4"
         >
@@ -248,8 +280,10 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                   Price
                 </span>
                 <input
-                  type="text"
+                  type="number"
                   inputMode="decimal"
+                  min={MIN_LISTING_PRICE}
+                  step="0.01"
                   name="price"
                   defaultValue={
                     listing.price === null ? "" : String(listing.price)
@@ -257,6 +291,9 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                   disabled={isGenerating}
                   className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950"
                 />
+                {priceError ? (
+                  <p className="mt-2 text-sm text-rose-700">{priceError}</p>
+                ) : null}
               </label>
 
               <div className="grid gap-2">

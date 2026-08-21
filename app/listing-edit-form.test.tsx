@@ -1896,6 +1896,43 @@ describe("ListingEditForm", () => {
     expect(submittedFormData.get("price")).toBe("29.99");
   });
 
+  it("rejects a sub-minimum price in the form before submitting", async () => {
+    const user = userEvent.setup();
+
+    render(<ListingEditForm listing={buildListing("needs_review")} />);
+
+    const priceInput = screen.getByLabelText("Price") as HTMLInputElement;
+    expect(priceInput.min).toBe("0.99");
+
+    await user.clear(priceInput);
+    await user.type(priceInput, "0.95");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(
+      screen.getByText("Price must be at least $0.99."),
+    ).not.toBeNull();
+    expect(saveListingEditsMock).not.toHaveBeenCalled();
+  });
+
+  it("submits the exact $0.99 minimum price", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(<ListingEditForm listing={buildListing("needs_review")} />);
+
+    const priceInput = screen.getByLabelText("Price");
+    await user.clear(priceInput);
+    await user.type(priceInput, "0.99");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(FormData),
+    );
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    expect(submittedFormData.get("price")).toBe("0.99");
+  });
+
   it("does not auto-trigger pricing re-run when saving edits", async () => {
     const user = userEvent.setup();
     saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
