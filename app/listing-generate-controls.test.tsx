@@ -15,7 +15,10 @@ vi.mock("@/app/listing-generate-actions", () => ({
   saveListingPricingModifierOptions: saveListingPricingModifierOptionsMock,
 }));
 
-import {ListingGenerateControls} from "@/app/listing-generate-controls";
+import {
+  ListingGenerateControls,
+  ListingGenerateQuickAction,
+} from "@/app/listing-generate-controls";
 
 function buildListing(status: Listing["status"]): Listing {
   return {
@@ -89,6 +92,30 @@ describe("ListingGenerateControls", () => {
     expect(screen.getByLabelText("Seller hints")).not.toBeNull();
   });
 
+  it("immediately disables the quick action without changing its label", async () => {
+    const deferred = createDeferred<{
+      error: string | null;
+      info: string | null;
+      success: string | null;
+    }>();
+    enqueueGenerateListingMock.mockReturnValueOnce(deferred.promise);
+    const user = userEvent.setup();
+
+    render(<ListingGenerateQuickAction listing={buildListing("assets_ready")} />);
+
+    const button = screen.getByRole("button", {name: "Generate AI Draft"});
+    await user.click(button);
+
+    expect(button).toHaveProperty("disabled", true);
+    expect(button.textContent).toBe("Generate AI Draft");
+
+    deferred.resolve({error: null, info: null, success: "Queued."});
+
+    await waitFor(() => {
+      expect(button).toHaveProperty("disabled", false);
+    });
+  });
+
   it.each([
     "record_created",
     "image_processing_queued",
@@ -119,8 +146,13 @@ describe("ListingGenerateControls", () => {
 
     const sellerHints = screen.getByLabelText("Seller hints");
     await user.type(sellerHints, "Use padded envelope");
-    await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
+    const generateButton = screen.getByRole("button", {
+      name: "Generate AI Draft",
+    });
+    await user.click(generateButton);
 
+    expect(generateButton).toHaveProperty("disabled", true);
+    expect(generateButton.textContent).toBe("Generate AI Draft");
     expect(enqueueGenerateListingMock).toHaveBeenCalled();
     const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
 
@@ -139,11 +171,9 @@ describe("ListingGenerateControls", () => {
     expect(submittedFormData.get("exclude_autographs")).toBe("true");
     expect(submittedFormData.get("exclude_variants")).toBe("false");
 
-    await waitFor(() => {
-      const button = screen.getByRole("button", {name: "Generating..."});
-      expect(button).not.toBeNull();
-      expect(button).toHaveProperty("disabled", true);
-    });
+    expect(
+      screen.queryByRole("button", {name: "Generating..."}),
+    ).toBeNull();
 
     expect(screen.getByLabelText("Seller hints")).toHaveProperty(
       "disabled",

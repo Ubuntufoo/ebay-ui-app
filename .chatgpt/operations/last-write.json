@@ -1,32 +1,29 @@
 {
   "schema_version": 1,
-  "operation_id": "write-2026-08-23T01-19-15-896Z-67f10b03",
+  "operation_id": "write-2026-08-23T14-29-23-177Z-5e26248e",
   "tool": "repo_write_changes",
   "repo_id": "ebay-ui-app",
-  "timestamp": "2026-08-23T01:19:15.896Z",
-  "head_sha_before": "324fbe65bb365a1c10eab87b1a0244d5090da867",
-  "head_sha_after": "324fbe65bb365a1c10eab87b1a0244d5090da867",
+  "timestamp": "2026-08-23T14:29:23.177Z",
+  "head_sha_before": "00bd23b1c0fbf9b0291510a62ec18af54fdc80d6",
+  "head_sha_after": "00bd23b1c0fbf9b0291510a62ec18af54fdc80d6",
   "touched_paths": [
     "app/listing-generate-controls.tsx",
-    "app/listings-table-editable.tsx",
-    "app/listings-table-editable.test.tsx"
+    "app/listing-generate-controls.test.tsx"
   ],
   "changed_paths": [
     "app/listing-generate-controls.tsx",
-    "app/listings-table-editable.tsx",
-    "app/listings-table-editable.test.tsx"
+    "app/listing-generate-controls.test.tsx"
   ],
   "created_paths": [],
   "modified_paths": [
     "app/listing-generate-controls.tsx",
-    "app/listings-table-editable.tsx",
-    "app/listings-table-editable.test.tsx"
+    "app/listing-generate-controls.test.tsx"
   ],
   "counts": {
-    "requested": 3,
-    "changed": 3,
+    "requested": 2,
+    "changed": 2,
     "created": 0,
     "unchanged": 0
   },
-  "summary": "Applied 3 changes across 3 files."
+  "summary": "Applied 2 changes across 2 files."
 }

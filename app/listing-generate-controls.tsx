@@ -1,6 +1,11 @@
 "use client";
 
-import {startTransition, useActionState, useState} from "react";
+import {
+  startTransition,
+  useActionState,
+  useState,
+  type FormEvent,
+} from "react";
 import {useFormStatus} from "react-dom";
 
 import {
@@ -16,6 +21,14 @@ import {
   type GenerateListingActionState,
 } from "@/app/listing-generate-state";
 import type {Listing} from "@/lib/sidecar-api";
+
+function disableSubmittedButton(event: FormEvent<HTMLFormElement>) {
+  const submitter = (event.nativeEvent as SubmitEvent).submitter;
+
+  if (submitter instanceof HTMLButtonElement) {
+    submitter.disabled = true;
+  }
+}
 
 function PricingModifierCheckbox({
   checked,
@@ -193,7 +206,7 @@ function PricingModifierControls({listing}: {listing: Listing}) {
           disabled={pending || isSavingModifiers}
           className="inline-flex min-w-44 items-center justify-center rounded-full border border-stone-950/15 bg-stone-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
         >
-          {pending ? "Generating..." : "Generate AI Draft"}
+          Generate AI Draft
         </button>
         <PricingModifierCheckbox
           checked={autoPricingEnabled}
@@ -248,7 +261,7 @@ function QuickGenerateSubmitButton() {
       title="Generate AI Draft using the saved listing settings"
       className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950 bg-stone-950 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
     >
-      {pending ? "Generating..." : "Generate AI Draft"}
+      Generate AI Draft
     </button>
   );
 }
@@ -264,7 +277,11 @@ export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
   }
 
   return (
-    <form action={formAction} className="grid gap-1">
+    <form
+      action={formAction}
+      className="grid gap-1"
+      onSubmit={disableSubmittedButton}
+    >
       <input type="hidden" name="listing_id" value={listing.listing_id} />
       <input
         type="hidden"
@@ -307,7 +324,11 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
           </p>
         </div>
       </div>
-      <form action={formAction} className="mt-4 grid gap-4">
+      <form
+        action={formAction}
+        className="mt-4 grid gap-4"
+        onSubmit={disableSubmittedButton}
+      >
         <input type="hidden" name="listing_id" value={listing.listing_id} />
         <SellerHintsField sellerHints={listing.seller_hints} />
         <PricingModifierControls
