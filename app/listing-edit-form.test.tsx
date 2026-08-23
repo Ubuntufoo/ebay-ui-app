@@ -198,7 +198,7 @@ describe("ListingEditForm", () => {
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
 
-  it("adds quick title suffixes without submitting and respects the 80 character limit", async () => {
+  it("omits removed quick title suffixes and still appends Rookie Card", async () => {
     const user = userEvent.setup();
     saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
 
@@ -220,23 +220,15 @@ describe("ListingEditForm", () => {
 
     expect(titleInput.value).toBe(initialTitle);
     expect(screen.getByText("55/80")).not.toBeNull();
-
-    await user.click(screen.getByRole("button", {name: 'Add "EX/NM+"'}));
-
-    expect(titleInput.value).toBe(`${initialTitle} EX/NM+`);
-    expect(screen.getByText("62/80")).not.toBeNull();
-    expect(saveListingEditsMock).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole("button", {name: 'Add "FREE SHIPPING"'}));
-
-    expect(titleInput.value).toBe(`${initialTitle} EX/NM+ FREE SHIPPING`);
-    expect(screen.getByText("76/80")).not.toBeNull();
-    expect(saveListingEditsMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", {name: 'Add "EX/NM+"'})).toBeNull();
+    expect(
+      screen.queryByRole("button", {name: 'Add "DISCOUNT SHIPPING"'}),
+    ).toBeNull();
 
     await user.click(screen.getByRole("button", {name: 'Add "Rookie Card"'}));
 
-    expect(titleInput.value).toBe(`${initialTitle} EX/NM+ FREE SHIPPING`);
-    expect(screen.getByText("76/80")).not.toBeNull();
+    expect(titleInput.value).toBe(`${initialTitle} Rookie Card`);
+    expect(screen.getByText("67/80")).not.toBeNull();
     expect(saveListingEditsMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", {name: "Save edits"}));
@@ -245,9 +237,7 @@ describe("ListingEditForm", () => {
 
     const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
 
-    expect(submittedFormData.get("title")).toBe(
-      `${initialTitle} EX/NM+ FREE SHIPPING`,
-    );
+    expect(submittedFormData.get("title")).toBe(`${initialTitle} Rookie Card`);
   });
 
   it("renders exactly four supported card condition options", () => {
@@ -1908,9 +1898,7 @@ describe("ListingEditForm", () => {
     await user.type(priceInput, "0.95");
     await user.click(screen.getByRole("button", {name: "Save edits"}));
 
-    expect(
-      screen.getByText("Price must be at least $0.99."),
-    ).not.toBeNull();
+    expect(screen.getByText("Price must be at least $0.99.")).not.toBeNull();
     expect(saveListingEditsMock).not.toHaveBeenCalled();
   });
 

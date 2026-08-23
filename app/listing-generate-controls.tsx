@@ -238,6 +238,52 @@ function PricingModifierControls({listing}: {listing: Listing}) {
   );
 }
 
+function QuickGenerateSubmitButton() {
+  const {pending} = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      title="Generate AI Draft using the saved listing settings"
+      className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950 bg-stone-950 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
+    >
+      {pending ? "Generating..." : "Generate AI Draft"}
+    </button>
+  );
+}
+
+export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
+  const [state, formAction] = useActionState<
+    GenerateListingActionState,
+    FormData
+  >(enqueueGenerateListing, initialGenerateListingActionState);
+
+  if (listing.status !== "assets_ready") {
+    return null;
+  }
+
+  return (
+    <form action={formAction} className="grid gap-1">
+      <input type="hidden" name="listing_id" value={listing.listing_id} />
+      <input
+        type="hidden"
+        name="seller_hints"
+        value={listing.seller_hints ?? ""}
+      />
+      <input
+        type="hidden"
+        name="auto_pricing_enabled"
+        value={String(listing.auto_pricing_enabled)}
+      />
+      <QuickGenerateSubmitButton />
+      <span aria-live="polite" className="sr-only">
+        {state.error ?? state.info ?? state.success}
+      </span>
+    </form>
+  );
+}
+
 export function ListingGenerateControls({listing}: {listing: Listing}) {
   const [state, formAction] = useActionState<
     GenerateListingActionState,

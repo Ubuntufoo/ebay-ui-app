@@ -11,6 +11,7 @@ import {
 
 import {ListingAbandonControls} from "@/app/listing-abandon-controls";
 import {ListingEditForm} from "@/app/listing-edit-form";
+import {ListingGenerateQuickAction} from "@/app/listing-generate-controls";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
 import {ListingSandboxDeleteControls} from "@/app/listing-sandbox-delete-controls";
 import {hasPersistedListingError} from "@/app/listing-error-utils";
@@ -448,8 +449,9 @@ export function ListingsTableEditable({
                           </td>
                           <td className="px-4 py-3 text-sm text-stone-600">
                             <div className="inline-flex flex-col items-stretch gap-1.5">
+                              <ListingGenerateQuickAction listing={listing} />
                               {intakeOnly ? (
-                                <span className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">
+                                <span className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-300 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
                                   Read only
                                 </span>
                               ) : (
@@ -459,7 +461,7 @@ export function ListingsTableEditable({
                                   onClick={() =>
                                     toggleSelectedListing(listing.listing_id)
                                   }
-                                  className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950/15 bg-white px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                                  className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950/15 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
                                 >
                                   {actionLabel}
                                 </button>
@@ -479,7 +481,7 @@ export function ListingsTableEditable({
                                 onClick={() =>
                                   setAbandonListingId(listing.listing_id)
                                 }
-                                className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-800 bg-rose-700 px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
+                                className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-800 bg-rose-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
                               >
                                 Abandon Listing
                               </button>
