@@ -108,6 +108,8 @@ describe("ListingGenerateControls", () => {
 
     expect(button).toHaveProperty("disabled", true);
     expect(button.textContent).toBe("Generate AI Draft");
+    await Promise.resolve();
+    expect(button).toHaveProperty("disabled", true);
 
     deferred.resolve({error: null, info: null, success: "Queued."});
 
@@ -153,6 +155,8 @@ describe("ListingGenerateControls", () => {
 
     expect(generateButton).toHaveProperty("disabled", true);
     expect(generateButton.textContent).toBe("Generate AI Draft");
+    await Promise.resolve();
+    expect(generateButton).toHaveProperty("disabled", true);
     expect(enqueueGenerateListingMock).toHaveBeenCalled();
     const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
 

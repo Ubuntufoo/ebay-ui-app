@@ -4,7 +4,6 @@ import {
   startTransition,
   useActionState,
   useState,
-  type FormEvent,
 } from "react";
 import {useFormStatus} from "react-dom";
 
@@ -22,12 +21,28 @@ import {
 } from "@/app/listing-generate-state";
 import type {Listing} from "@/lib/sidecar-api";
 
-function disableSubmittedButton(event: FormEvent<HTMLFormElement>) {
-  const submitter = (event.nativeEvent as SubmitEvent).submitter;
+function useImmediateGenerateActionState() {
+  const [immediatePending, setImmediatePending] = useState(false);
+  const [state, formAction] = useActionState<
+    GenerateListingActionState,
+    FormData
+  >(
+    async (previousState, formData) => {
+      try {
+        return await enqueueGenerateListing(previousState, formData);
+      } finally {
+        setImmediatePending(false);
+      }
+    },
+    initialGenerateListingActionState,
+  );
 
-  if (submitter instanceof HTMLButtonElement) {
-    submitter.disabled = true;
-  }
+  return {
+    state,
+    formAction,
+    immediatePending,
+    onSubmit: () => setImmediatePending(true),
+  };
 }
 
 function PricingModifierCheckbox({
@@ -139,7 +154,13 @@ function SellerHintsField({sellerHints}: {sellerHints: string | null}) {
   );
 }
 
-function PricingModifierControls({listing}: {listing: Listing}) {
+function PricingModifierControls({
+  listing,
+  immediatePending,
+}: {
+  listing: Listing;
+  immediatePending: boolean;
+}) {
   const {pending} = useFormStatus();
   const [autoPricingEnabled, setAutoPricingEnabled] = useState(
     listing.auto_pricing_enabled,
@@ -203,7 +224,7 @@ function PricingModifierControls({listing}: {listing: Listing}) {
       <div className="flex flex-wrap items-center gap-3 lg:gap-2">
         <button
           type="submit"
-          disabled={pending || isSavingModifiers}
+          disabled={immediatePending || pending || isSavingModifiers}
           className="inline-flex min-w-44 items-center justify-center rounded-full border border-stone-950/15 bg-stone-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
         >
           Generate AI Draft
@@ -251,13 +272,17 @@ function PricingModifierControls({listing}: {listing: Listing}) {
   );
 }
 
-function QuickGenerateSubmitButton() {
+function QuickGenerateSubmitButton({
+  immediatePending,
+}: {
+  immediatePending: boolean;
+}) {
   const {pending} = useFormStatus();
 
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={immediatePending || pending}
       title="Generate AI Draft using the saved listing settings"
       className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950 bg-stone-950 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-50 transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-300 disabled:bg-stone-300"
     >
@@ -267,10 +292,8 @@ function QuickGenerateSubmitButton() {
 }
 
 export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
-  const [state, formAction] = useActionState<
-    GenerateListingActionState,
-    FormData
-  >(enqueueGenerateListing, initialGenerateListingActionState);
+  const {state, formAction, immediatePending, onSubmit} =
+    useImmediateGenerateActionState();
 
   if (listing.status !== "assets_ready") {
     return null;
@@ -280,7 +303,7 @@ export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
     <form
       action={formAction}
       className="grid gap-1"
-      onSubmit={disableSubmittedButton}
+      onSubmit={onSubmit}
     >
       <input type="hidden" name="listing_id" value={listing.listing_id} />
       <input
@@ -293,7 +316,7 @@ export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
         name="auto_pricing_enabled"
         value={String(listing.auto_pricing_enabled)}
       />
-      <QuickGenerateSubmitButton />
+      <QuickGenerateSubmitButton immediatePending={immediatePending} />
       <span aria-live="polite" className="sr-only">
         {state.error ?? state.info ?? state.success}
       </span>
@@ -302,10 +325,8 @@ export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
 }
 
 export function ListingGenerateControls({listing}: {listing: Listing}) {
-  const [state, formAction] = useActionState<
-    GenerateListingActionState,
-    FormData
-  >(enqueueGenerateListing, initialGenerateListingActionState);
+  const {state, formAction, immediatePending, onSubmit} =
+    useImmediateGenerateActionState();
 
   if (listing.status !== "assets_ready") {
     return null;
@@ -327,13 +348,14 @@ export function ListingGenerateControls({listing}: {listing: Listing}) {
       <form
         action={formAction}
         className="mt-4 grid gap-4"
-        onSubmit={disableSubmittedButton}
+        onSubmit={onSubmit}
       >
         <input type="hidden" name="listing_id" value={listing.listing_id} />
         <SellerHintsField sellerHints={listing.seller_hints} />
         <PricingModifierControls
           key={getModifierStateResetKey(listing)}
           listing={listing}
+          immediatePending={immediatePending}
         />
       </form>
       {state.error ? (
