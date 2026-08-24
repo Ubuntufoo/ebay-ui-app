@@ -108,8 +108,10 @@ describe("listing pricing links", () => {
       buildListing({
         title: "1995-96 SkyBox NBA Hoops #379 Jim McIlvaine Rookie Card",
         item_specifics: {
-          Manufacturer: "nba hoops",
-          Player: "jim mcilvaine",
+          "Card Number": "379",
+          Manufacturer: "NBA Hoops",
+          Player: "Jim McIlvaine",
+          Set: "SkyBox NBA Hoops",
           Sport: "Basketball",
           Year: "1995-96",
         },
@@ -121,9 +123,47 @@ describe("listing pricing links", () => {
       "eBay Terapeak",
     ]);
     expect(links[0]?.href).toBe(
-      "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+%23379+Jim+McIlvaine+Rookie+Card&type=prices&sport=basketball-cards",
+      "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+Jim+McIlvaine+%23379&type=prices&sport=basketball-cards",
     );
     expect(links[1]?.label).toBe("eBay Terapeak");
+  });
+
+  it("uses only year, canonical base set, player, and card number for pricing-link keywords", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        title:
+          "1999 Topps Chrome Expansion Draft Insert Jim Pyne #132 Cleveland Browns",
+        item_specifics: {
+          "Card Number": "132",
+          Franchise: "Cleveland Browns",
+          "Insert Set": "Expansion Draft",
+          League: "NFL",
+          Manufacturer: "Topps",
+          "Player/Athlete": "Jim Pyne",
+          Set: "Topps Chrome Expansion Draft",
+          Sport: "Football",
+          Year: "1999",
+        },
+      }),
+      1787588480433,
+    );
+    const sportsCardsPro = links.find((link) => link.label === "SportsCardsPro");
+    const terapeak = links.find((link) => link.label === "eBay Terapeak");
+
+    expect(new URL(sportsCardsPro!.href).searchParams.get("q")).toBe(
+      "1999 Topps Chrome Jim Pyne #132",
+    );
+    expect(sportsCardsPro!.href).not.toContain("Expansion+Draft");
+    expect(sportsCardsPro!.href).not.toContain("Insert");
+    expect(sportsCardsPro!.href).not.toContain("Cleveland+Browns");
+
+    const terapeakKeywords = new URL(terapeak!.href).searchParams.get("keywords");
+    expect(terapeakKeywords).toBe(
+      "Jim Pyne 132 1999 Topps Chrome -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
+    );
+    expect(terapeakKeywords).not.toContain("Expansion Draft");
+    expect(terapeakKeywords).not.toContain("Cleveland Browns");
+    expect(terapeak!.href).toContain("aspect=Manufacturer%3A%3A%3ATopps");
   });
 
   it("maps supported SportsCardsPro sports case-insensitively", () => {
@@ -131,7 +171,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: " baseball ",
+            Year: "1999",
           },
           title: "Baseball card",
         }),
@@ -141,7 +185,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: "BASKETBALL",
+            Year: "1999",
           },
           title: "Basketball card",
         }),
@@ -151,7 +199,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: "Football",
+            Year: "1999",
           },
           title: "Football card",
         }),
@@ -161,7 +213,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: "hOcKeY",
+            Year: "1999",
           },
           title: "Hockey card",
         }),
@@ -318,6 +374,7 @@ describe("listing pricing links", () => {
           "Card Number": "191",
           Manufacturer: "Topps",
           "Player/Athlete": "Troy Stratford",
+          Set: "Topps",
           Year: "1988",
         },
         title: "Troy Stratford 1988 Topps #191 Rookie Card NM+",
@@ -334,8 +391,10 @@ describe("listing pricing links", () => {
     expect(keywords).not.toContain("NM");
     expect(keywords).not.toContain("#191");
     expect(links[0]?.href).toContain(
-      "q=Troy+Stratford+1988+Topps+%23191+Rookie+Card+NM%2B",
+      "q=1988+Topps+Troy+Stratford+%23191",
     );
+    expect(links[0]?.href).not.toContain("Rookie+Card");
+    expect(links[0]?.href).not.toContain("NM%2B");
   });
 
   it("builds a clean Terapeak query from partial structured identity fields", () => {

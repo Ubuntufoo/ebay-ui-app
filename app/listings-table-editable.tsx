@@ -14,6 +14,7 @@ import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingGenerateQuickAction} from "@/app/listing-generate-controls";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
 import {ListingSandboxDeleteControls} from "@/app/listing-sandbox-delete-controls";
+import {ListingSportsCardSpecificsEditor} from "@/app/listing-sports-card-specifics-editor";
 import {hasPersistedListingError} from "@/app/listing-error-utils";
 import {
   getListingStatusBadgeClassName,
@@ -494,6 +495,10 @@ export function ListingsTableEditable({
                             <td colSpan={8} className="px-4 py-4">
                               <ListingEditForm
                                 key={`${listing.listing_id}:${listing.status}:${listing.sub_status}:${listing.updated_at}`}
+                                listing={listing}
+                              />
+                              <ListingSportsCardSpecificsEditor
+                                key={`sports-specifics:${listing.listing_id}:${listing.updated_at}`}
                                 listing={listing}
                               />
                             </td>
