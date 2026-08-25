@@ -277,11 +277,6 @@ function buildSportsCardsProUrl(query: string, sport: string | null): string {
 
 function buildTerapeakUrl(
   query: string,
-  aspects: {
-    league?: string | null;
-    manufacturer?: string | null;
-    player?: string | null;
-  },
   priceBand: {min: number | null; max: number | null},
   now = Date.now(),
 ): string {
@@ -317,16 +312,6 @@ function buildTerapeakUrl(
   ) {
     params.append("minPrice", String(priceBand.min));
     params.append("maxPrice", String(priceBand.max));
-  }
-
-  if (aspects.league) {
-    params.append("aspect", `League:::${aspects.league}`);
-  }
-  if (aspects.manufacturer) {
-    params.append("aspect", `Manufacturer:::${aspects.manufacturer}`);
-  }
-  if (aspects.player) {
-    params.append("aspect", `Player/Athlete:::${aspects.player}`);
   }
 
   return `https://www.ebay.com/sh/research?${params.toString()}`;
@@ -403,20 +388,6 @@ export function getListingPricingLinks(
             label: "eBay Terapeak",
             href: buildTerapeakUrl(
               terapeakQuery,
-              {
-                league: readRawSpecificValue(
-                  listing.item_specifics,
-                  keyAliases.league,
-                ),
-                manufacturer: readRawSpecificValue(
-                  listing.item_specifics,
-                  keyAliases.brand,
-                ),
-                player: readRawSpecificValue(
-                  listing.item_specifics,
-                  keyAliases.player,
-                ),
-              },
               {
                 min:
                   listing.latest_pricing_research?.terapeak_min_price ?? null,

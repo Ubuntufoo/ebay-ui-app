@@ -1,26 +1,29 @@
 {
   "schema_version": 1,
-  "operation_id": "write-2026-08-24T17-49-17-774Z-2cfa8e5d",
-  "tool": "repo_write_file",
+  "operation_id": "write-2026-08-25T20-54-57-904Z-86e8ff4a",
+  "tool": "repo_write_changes",
   "repo_id": "ebay-ui-app",
-  "timestamp": "2026-08-24T17:49:17.774Z",
-  "head_sha_before": "9276497370e2bcb9a8047a0ea0a536e12b367c6e",
-  "head_sha_after": "9276497370e2bcb9a8047a0ea0a536e12b367c6e",
+  "timestamp": "2026-08-25T20:54:57.904Z",
+  "head_sha_before": "b304fc7b8f338fe486694742cda1dc6c5cefe873",
+  "head_sha_after": "b304fc7b8f338fe486694742cda1dc6c5cefe873",
   "touched_paths": [
-    "app/sports-card-item-specifics.test.ts"
+    "app/listing-pricing-links.ts",
+    "app/listing-pricing-links.test.ts"
   ],
   "changed_paths": [
-    "app/sports-card-item-specifics.test.ts"
+    "app/listing-pricing-links.ts",
+    "app/listing-pricing-links.test.ts"
   ],
-  "created_paths": [
-    "app/sports-card-item-specifics.test.ts"
+  "created_paths": [],
+  "modified_paths": [
+    "app/listing-pricing-links.ts",
+    "app/listing-pricing-links.test.ts"
   ],
-  "modified_paths": [],
   "counts": {
-    "requested": 1,
-    "changed": 1,
-    "created": 1,
+    "requested": 2,
+    "changed": 2,
+    "created": 0,
     "unchanged": 0
   },
-  "summary": "Created app/sports-card-item-specifics.test.ts."
+  "summary": "Applied 2 changes across 2 files."
 }

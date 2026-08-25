@@ -163,7 +163,7 @@ describe("listing pricing links", () => {
     );
     expect(terapeakKeywords).not.toContain("Expansion Draft");
     expect(terapeakKeywords).not.toContain("Cleveland Browns");
-    expect(terapeak!.href).toContain("aspect=Manufacturer%3A%3A%3ATopps");
+    expect(terapeak!.href).not.toContain("aspect=");
   });
 
   it("maps supported SportsCardsPro sports case-insensitively", () => {
@@ -426,7 +426,7 @@ describe("listing pricing links", () => {
     expect(query).toBe("1990 nba hoops michael jordan");
   });
 
-  it("appends Terapeak aspect filters from item specifics", () => {
+  it("never appends Terapeak aspect filters", () => {
     const links = getListingPricingLinks(
       buildListing({
         item_specifics: {
@@ -443,62 +443,7 @@ describe("listing pricing links", () => {
     expect(links[1]?.href).toContain("categoryId=261328");
     expect(links[1]?.href).toContain("format=BEST_OFFER");
     expect(links[1]?.href).toContain("format=FIXED_PRICE");
-    expect(links[1]?.href).toContain(
-      "aspect=League%3A%3A%3AMajor+League+Baseball+%28MLB%29",
-    );
-    expect(links[1]?.href).toContain("aspect=Manufacturer%3A%3A%3ATopps");
-    expect(links[1]?.href).toContain(
-      "aspect=Player%2FAthlete%3A%3A%3AWillie+Stargell",
-    );
-  });
-
-  it("omits Terapeak aspect params when item specifics are missing", () => {
-    const links = getListingPricingLinks(
-      buildListing({
-        item_specifics: {},
-        title: "Some card",
-      }),
-      1789920000000,
-    );
-
-    expect(links[1]?.label).toBe("eBay Terapeak");
-    expect(links[1]?.href).toContain("categoryId=261328");
     expect(links[1]?.href).not.toContain("aspect=");
-  });
-
-  it("handles partial Terapeak aspect filters safely", () => {
-    const links = getListingPricingLinks(
-      buildListing({
-        item_specifics: {
-          League: "NFL",
-        },
-        title: "Football card",
-      }),
-      1789920000000,
-    );
-
-    expect(links[1]?.label).toBe("eBay Terapeak");
-    expect(links[1]?.href).toContain("aspect=League%3A%3A%3ANFL");
-    expect(links[1]?.href).not.toContain("Manufacturer");
-    expect(links[1]?.href).not.toContain("Player%2FAthlete");
-  });
-
-  it("recognizes canonical Player/Athlete and Manufacturer keys for Terapeak aspects", () => {
-    const links = getListingPricingLinks(
-      buildListing({
-        item_specifics: {
-          Manufacturer: "Upper Deck",
-          "Player/Athlete": "Wayne Gretzky",
-        },
-        title: "Wayne Gretzky Upper Deck RC",
-      }),
-      1789920000000,
-    );
-
-    expect(links[1]?.href).toContain("aspect=Manufacturer%3A%3A%3AUpper+Deck");
-    expect(links[1]?.href).toContain(
-      "aspect=Player%2FAthlete%3A%3A%3AWayne+Gretzky",
-    );
   });
 
   it("returns no links without usable query text", () => {
