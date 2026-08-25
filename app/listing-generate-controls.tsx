@@ -21,6 +21,9 @@ import {
 } from "@/app/listing-generate-state";
 import type {Listing} from "@/lib/sidecar-api";
 
+const DEFAULT_BROWSE_MIN_MULTIPLIER = 0.33;
+const DEFAULT_BROWSE_MAX_MULTIPLIER = 3;
+
 function useImmediateGenerateActionState() {
   const [immediatePending, setImmediatePending] = useState(false);
   const [state, formAction] = useActionState<
@@ -106,18 +109,24 @@ function PricingModifierTooltip() {
 
 function getModifierStateResetKey(listing: Listing): string {
   const modifierState = getPricingModifierUiState(listing.item_specifics);
-  const skipBrowse = getBrowseSkipState(listing.item_specifics);
+  const browseState = getBrowsePricingUiState(listing.item_specifics);
 
-  return `${listing.listing_id}:${listing.auto_pricing_enabled}:${modifierState.graded}:${modifierState.auto}:${modifierState.variant}:${skipBrowse}`;
+  return `${listing.listing_id}:${listing.auto_pricing_enabled}:${modifierState.graded}:${modifierState.auto}:${modifierState.variant}:${browseState.skipBrowse}:${browseState.minPriceMultiplier}:${browseState.maxPriceMultiplier}`;
 }
 
-function getBrowseSkipState(itemSpecifics: Listing["item_specifics"]): boolean {
+function getBrowsePricingUiState(
+  itemSpecifics: Listing["item_specifics"],
+) {
   if (
     itemSpecifics === null ||
     Array.isArray(itemSpecifics) ||
     typeof itemSpecifics !== "object"
   ) {
-    return false;
+    return {
+      skipBrowse: false,
+      minPriceMultiplier: DEFAULT_BROWSE_MIN_MULTIPLIER,
+      maxPriceMultiplier: DEFAULT_BROWSE_MAX_MULTIPLIER,
+    };
   }
 
   const browseOptions = itemSpecifics["browsePricingOptions"];
@@ -126,12 +135,34 @@ function getBrowseSkipState(itemSpecifics: Listing["item_specifics"]): boolean {
     Array.isArray(browseOptions) ||
     typeof browseOptions !== "object"
   ) {
-    return false;
+    return {
+      skipBrowse: false,
+      minPriceMultiplier: DEFAULT_BROWSE_MIN_MULTIPLIER,
+      maxPriceMultiplier: DEFAULT_BROWSE_MAX_MULTIPLIER,
+    };
   }
 
-  return typeof browseOptions["skipBrowse"] === "boolean"
-    ? browseOptions["skipBrowse"]
-    : false;
+  const minPriceMultiplier = browseOptions["minPriceMultiplier"];
+  const maxPriceMultiplier = browseOptions["maxPriceMultiplier"];
+
+  return {
+    skipBrowse:
+      typeof browseOptions["skipBrowse"] === "boolean"
+        ? browseOptions["skipBrowse"]
+        : false,
+    minPriceMultiplier:
+      typeof minPriceMultiplier === "number" &&
+      Number.isFinite(minPriceMultiplier) &&
+      minPriceMultiplier > 0
+        ? minPriceMultiplier
+        : DEFAULT_BROWSE_MIN_MULTIPLIER,
+    maxPriceMultiplier:
+      typeof maxPriceMultiplier === "number" &&
+      Number.isFinite(maxPriceMultiplier) &&
+      maxPriceMultiplier > 0
+        ? maxPriceMultiplier
+        : DEFAULT_BROWSE_MAX_MULTIPLIER,
+  };
 }
 
 function SellerHintsField({sellerHints}: {sellerHints: string | null}) {
@@ -162,12 +193,19 @@ function PricingModifierControls({
   immediatePending: boolean;
 }) {
   const {pending} = useFormStatus();
+  const browseControlsDisabled = pending || immediatePending;
+  const browseState = getBrowsePricingUiState(listing.item_specifics);
   const [autoPricingEnabled, setAutoPricingEnabled] = useState(
     listing.auto_pricing_enabled,
   );
-  const [skipBrowse, setSkipBrowse] = useState(() =>
-    getBrowseSkipState(listing.item_specifics),
-  );
+  const [skipBrowse, setSkipBrowse] = useState(browseState.skipBrowse);
+  const [browseMultipliers, setBrowseMultipliers] = useState({
+    min: String(browseState.minPriceMultiplier),
+    max:
+      browseState.maxPriceMultiplier === DEFAULT_BROWSE_MAX_MULTIPLIER
+        ? "3.00"
+        : String(browseState.maxPriceMultiplier),
+  });
   const [modifierState, setModifierState] =
     useState<ListingPricingModifierUiState>(() =>
       getPricingModifierUiState(listing.item_specifics),
@@ -238,11 +276,74 @@ function PricingModifierControls({
         />
         <PricingModifierCheckbox
           checked={autoPricingEnabled ? skipBrowse : true}
-          disabled={pending || !autoPricingEnabled}
+          disabled={browseControlsDisabled || !autoPricingEnabled}
           label="Skip Browse API"
           name="skip_browse"
           onChange={setSkipBrowse}
         />
+        <input
+          type="hidden"
+          name="skip_browse"
+          value={String(skipBrowse)}
+        />
+        <div className="flex items-center gap-2 rounded-full border border-stone-950/10 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-stone-600">
+          <label className="flex items-center gap-1.5">
+            <span>Browse Min</span>
+            <input
+              aria-label="Browse Min multiplier"
+              type="number"
+              name="min_price_multiplier"
+              value={browseMultipliers.min}
+              min="0"
+              step="any"
+              disabled={
+                browseControlsDisabled || !autoPricingEnabled || skipBrowse
+              }
+              onChange={(event) =>
+                setBrowseMultipliers((previous) => ({
+                  ...previous,
+                  min: event.target.value,
+                }))
+              }
+              className="w-16 rounded border border-stone-300 bg-stone-50 px-1.5 py-1 text-right text-xs font-semibold normal-case tracking-normal text-stone-900 outline-none focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+            />
+          </label>
+          <label className="flex items-center gap-1.5">
+            <span>Browse Max</span>
+            <input
+              aria-label="Browse Max multiplier"
+              type="number"
+              name="max_price_multiplier"
+              value={browseMultipliers.max}
+              min="0"
+              step="any"
+              disabled={
+                browseControlsDisabled || !autoPricingEnabled || skipBrowse
+              }
+              onChange={(event) =>
+                setBrowseMultipliers((previous) => ({
+                  ...previous,
+                  max: event.target.value,
+                }))
+              }
+              className="w-16 rounded border border-stone-300 bg-stone-50 px-1.5 py-1 text-right text-xs font-semibold normal-case tracking-normal text-stone-900 outline-none focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+            />
+          </label>
+        </div>
+        {skipBrowse || !autoPricingEnabled || browseControlsDisabled ? (
+          <>
+            <input
+              type="hidden"
+              name="min_price_multiplier"
+              value={browseMultipliers.min}
+            />
+            <input
+              type="hidden"
+              name="max_price_multiplier"
+              value={browseMultipliers.max}
+            />
+          </>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <PricingModifierCheckbox
             checked={modifierState.graded}
@@ -299,6 +400,8 @@ export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
     return null;
   }
 
+  const browseState = getBrowsePricingUiState(listing.item_specifics);
+
   return (
     <form
       action={formAction}
@@ -315,6 +418,25 @@ export function ListingGenerateQuickAction({listing}: {listing: Listing}) {
         type="hidden"
         name="auto_pricing_enabled"
         value={String(listing.auto_pricing_enabled)}
+      />
+      <input
+        type="hidden"
+        name="skip_browse"
+        value={String(browseState.skipBrowse)}
+      />
+      <input
+        type="hidden"
+        name="min_price_multiplier"
+        value={String(browseState.minPriceMultiplier)}
+      />
+      <input
+        type="hidden"
+        name="max_price_multiplier"
+        value={
+          browseState.maxPriceMultiplier === DEFAULT_BROWSE_MAX_MULTIPLIER
+            ? "3.00"
+            : String(browseState.maxPriceMultiplier)
+        }
       />
       <QuickGenerateSubmitButton immediatePending={immediatePending} />
       <span aria-live="polite" className="sr-only">

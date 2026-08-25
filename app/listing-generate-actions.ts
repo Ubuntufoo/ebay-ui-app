@@ -10,7 +10,10 @@ import type {
   RetryPricingActionState,
 } from "@/app/listing-generate-state";
 import type {ListingPricingModifierUiState} from "@/app/listing-pricing-modifier-options";
-import type {PricingModifierOptions} from "@/lib/sidecar-api";
+import type {
+  BrowsePricingOptions,
+  PricingModifierOptions,
+} from "@/lib/sidecar-api";
 import {
   enqueueGenerateAi,
   retryPricing,
@@ -58,6 +61,52 @@ function readPricingModifierOptions(
   };
 }
 
+function readBrowseMultiplier(
+  formData: FormData,
+  fieldName: string,
+): number {
+  const rawValue = formData.get(fieldName);
+
+  if (typeof rawValue !== "string") {
+    return Number.NaN;
+  }
+
+  return Number(rawValue.trim());
+}
+
+function readBrowsePricingOptions(
+  formData: FormData,
+): BrowsePricingOptions | {error: string} {
+  const skipBrowse = formData.get("skip_browse") === "true";
+  const minPriceMultiplier = readBrowseMultiplier(
+    formData,
+    "min_price_multiplier",
+  );
+  const maxPriceMultiplier = readBrowseMultiplier(
+    formData,
+    "max_price_multiplier",
+  );
+
+  if (
+    !Number.isFinite(minPriceMultiplier) ||
+    minPriceMultiplier <= 0 ||
+    !Number.isFinite(maxPriceMultiplier) ||
+    maxPriceMultiplier <= 0 ||
+    minPriceMultiplier >= maxPriceMultiplier
+  ) {
+    return {
+      error:
+        "Browse multipliers must be finite positive numbers with Min less than Max.",
+    };
+  }
+
+  return {
+    skipBrowse,
+    minPriceMultiplier,
+    maxPriceMultiplier,
+  };
+}
+
 export async function saveListingPricingModifierOptions(
   listingId: string,
   state: ListingPricingModifierUiState,
@@ -98,9 +147,27 @@ export async function enqueueGenerateListing(
     const autoPricingEnabled =
       formData.get("auto_pricing_enabled") === "true";
     const pricingModifierOptions = readPricingModifierOptions(formData);
+    let browsePricingOptions: BrowsePricingOptions | undefined;
 
-    if (pricingModifierOptions) {
-      await updateListing(listingId, {pricingModifierOptions});
+    if (autoPricingEnabled) {
+      const browseResult = readBrowsePricingOptions(formData);
+
+      if ("error" in browseResult) {
+        return {
+          error: browseResult.error,
+          info: null,
+          success: null,
+        };
+      }
+
+      browsePricingOptions = browseResult;
+    }
+
+    if (pricingModifierOptions || browsePricingOptions) {
+      await updateListing(listingId, {
+        ...(pricingModifierOptions ? {pricingModifierOptions} : {}),
+        ...(browsePricingOptions ? {browsePricingOptions} : {}),
+      });
     }
 
     const result = await enqueueGenerateAi(listingId, {
