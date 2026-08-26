@@ -10,11 +10,11 @@ import {
 } from "react";
 
 import {ListingAbandonControls} from "@/app/listing-abandon-controls";
+import {ListingApproveForExportQuickAction} from "@/app/listing-approve-export-quick-action";
 import {ListingEditForm} from "@/app/listing-edit-form";
 import {ListingGenerateQuickAction} from "@/app/listing-generate-controls";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
 import {ListingSandboxDeleteControls} from "@/app/listing-sandbox-delete-controls";
-import {ListingSportsCardSpecificsEditor} from "@/app/listing-sports-card-specifics-editor";
 import {hasPersistedListingError} from "@/app/listing-error-utils";
 import {
   getListingStatusBadgeClassName,
@@ -53,7 +53,8 @@ function formatExportedAt(exportedAt: string | null): string {
 function sortOldestCreatedFirst(listings: Listing[]): Listing[] {
   return [...listings].sort(
     (left, right) =>
-      new Date(left.created_at).getTime() - new Date(right.created_at).getTime(),
+      new Date(left.created_at).getTime() -
+      new Date(right.created_at).getTime(),
   );
 }
 
@@ -451,6 +452,12 @@ export function ListingsTableEditable({
                           <td className="px-4 py-3 text-sm text-stone-600">
                             <div className="inline-flex flex-col items-stretch gap-1.5">
                               <ListingGenerateQuickAction listing={listing} />
+                              <ListingApproveForExportQuickAction
+                                listing={listing}
+                                onApproveForExport={() =>
+                                  setSelectedListingId(null)
+                                }
+                              />
                               {intakeOnly ? (
                                 <span className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-300 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
                                   Read only
@@ -492,13 +499,23 @@ export function ListingsTableEditable({
 
                         {!intakeOnly && isSelected ? (
                           <tr className="border-b border-stone-950/10 last:border-b-0">
-                            <td colSpan={8} className="px-4 py-4">
+                            <td
+                              colSpan={8}
+                              className="px-4 py-4"
+                              onSubmitCapture={(event) => {
+                                const submittedForm = event.target;
+                                if (
+                                  submittedForm instanceof HTMLFormElement &&
+                                  new FormData(submittedForm).has(
+                                    "current_status",
+                                  )
+                                ) {
+                                  setSelectedListingId(null);
+                                }
+                              }}
+                            >
                               <ListingEditForm
                                 key={`${listing.listing_id}:${listing.status}:${listing.sub_status}:${listing.updated_at}`}
-                                listing={listing}
-                              />
-                              <ListingSportsCardSpecificsEditor
-                                key={`sports-specifics:${listing.listing_id}:${listing.updated_at}`}
                                 listing={listing}
                               />
                             </td>

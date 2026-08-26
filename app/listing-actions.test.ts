@@ -56,4 +56,37 @@ describe("saveListingEdits price validation", () => {
     });
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
   });
+
+  it("merges changed structured specifics into the main item specifics payload", async () => {
+    updateListingMock.mockResolvedValueOnce(undefined);
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+    formData.set(
+      "item_specifics",
+      JSON.stringify({
+        Manufacturer: "Topps",
+        Player: "Mike Trout",
+        customField: "preserved",
+      }),
+    );
+    formData.set(
+      "sports_card_specific_changes",
+      JSON.stringify({Manufacturer: "Panini", Franchise: "Boston Red Sox"}),
+    );
+
+    const result = await saveListingEdits(
+      {error: null, success: false},
+      formData,
+    );
+
+    expect(result).toEqual({error: null, success: true});
+    expect(updateListingMock).toHaveBeenCalledWith("LIST-001", {
+      itemSpecifics: {
+        Manufacturer: "Panini",
+        Player: "Mike Trout",
+        Franchise: "Boston Red Sox",
+        customField: "preserved",
+      },
+    });
+  });
 });

@@ -7,6 +7,10 @@ import type {Json, UpdateListingInput} from "@/lib/sidecar-api/types";
 import {updateListing} from "@/lib/sidecar-api";
 import type {SaveListingEditsActionState} from "@/app/listing-edit-state";
 import {getListingPriceError} from "@/app/listing-price-validation";
+import {
+  sportsCardSpecificFields,
+  updateSportsCardSpecific,
+} from "@/app/sports-card-item-specifics";
 
 function readNumericField(value: FormDataEntryValue | null): {
   value: number | null;
@@ -54,6 +58,41 @@ function readItemSpecificsField(value: FormDataEntryValue | null): {
       value: null,
       error: "Item specifics must be valid JSON.",
     };
+  }
+}
+
+function readSportsCardSpecificChanges(
+  value: FormDataEntryValue | null,
+): {
+  value: Record<string, string> | null;
+  error: string | null;
+} {
+  if (typeof value !== "string") {
+    return {value: null, error: null};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return {value: null, error: "Item specific changes are invalid."};
+    }
+
+    const entries = Object.entries(parsed);
+    const isValid = entries.every(
+      ([key, entry]) =>
+        typeof entry === "string" &&
+        sportsCardSpecificFields.some((field) => field.persistKey === key),
+    );
+
+    return isValid
+      ? {value: Object.fromEntries(entries), error: null}
+      : {value: null, error: "Item specific changes are invalid."};
+  } catch {
+    return {value: null, error: "Item specific changes are invalid."};
   }
 }
 
@@ -117,7 +156,37 @@ export async function saveListingEdits(
         success: false,
       };
     }
-    patch.itemSpecifics = itemSpecificsResult.value;
+
+    let updatedItemSpecifics = itemSpecificsResult.value;
+    if (formData.has("sports_card_specific_changes")) {
+      const changesResult = readSportsCardSpecificChanges(
+        formData.get("sports_card_specific_changes"),
+      );
+      if (changesResult.error) {
+        return {
+          error: changesResult.error,
+          success: false,
+        };
+      }
+
+      for (const field of sportsCardSpecificFields) {
+        if (
+          changesResult.value !== null &&
+          Object.prototype.hasOwnProperty.call(
+            changesResult.value,
+            field.persistKey,
+          )
+        ) {
+          updatedItemSpecifics = updateSportsCardSpecific(
+            updatedItemSpecifics,
+            field,
+            changesResult.value[field.persistKey] ?? "",
+          );
+        }
+      }
+    }
+
+    patch.itemSpecifics = updatedItemSpecifics;
   }
 
   try {

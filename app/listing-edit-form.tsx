@@ -9,6 +9,7 @@ import {
   MIN_LISTING_PRICE,
 } from "@/app/listing-price-validation";
 import {ListingImageOrderManager} from "@/app/listing-image-gallery";
+import {ListingSportsCardSpecificsEditor} from "@/app/listing-sports-card-specifics-editor";
 import {
   ListingPricingResearchPanel,
   ListingReviewGate,
@@ -435,79 +436,6 @@ export function ListingEditForm({listing}: {listing: Listing}) {
                 </p>
               ) : null}
 
-              {isNeedsReview ? (
-                <section className="grid gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-900">
-                        Inventory / SKU
-                      </p>
-                      <p className="mt-1 text-sm text-sky-900/80">
-                        Backend finalizes this SKU on approval.
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-sky-200 bg-white px-3 py-1 font-mono text-sm text-sky-900">
-                      {listing.listing_id}
-                    </span>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                        SKU category prefix
-                      </span>
-                      <select
-                        aria-label="SKU category prefix"
-                        name="sku_category_prefix"
-                        value={selectedStructuredSkuPrefix}
-                        onChange={(event) => {
-                          if (itemSpecificsState.error !== null) {
-                            return;
-                          }
-
-                          const updatedItemSpecifics =
-                            setStructuredSkuPrefixInItemSpecifics(
-                              itemSpecificsState.value as Listing["item_specifics"],
-                              event.target
-                                .value as (typeof structuredSkuPrefixes)[number],
-                            );
-
-                          setItemSpecificsText(
-                            JSON.stringify(updatedItemSpecifics, null, 2),
-                          );
-                        }}
-                        disabled={isGenerating || itemSpecificsError !== null}
-                        className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-white px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
-                      >
-                        {structuredSkuPrefixes.map((prefix) => (
-                          <option key={prefix} value={prefix}>
-                            {prefix} - {structuredSkuPrefixLabels[prefix]}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <div className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
-                        Preview final SKU
-                      </span>
-                      <div className="mt-2 rounded-2xl border border-stone-950/10 bg-white px-4 py-3">
-                        {structuredSkuPreview ? (
-                          <p className="font-mono text-sm text-stone-900">
-                            {structuredSkuPreview}
-                          </p>
-                        ) : (
-                          <p className="text-sm text-amber-900">
-                            Listing ID is not in base Single/Lot format. Backend
-                            SKU preview unavailable.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </section>
-              ) : null}
-
               {state.success ? (
                 <p className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                   Listing edits saved.
@@ -522,10 +450,87 @@ export function ListingEditForm({listing}: {listing: Listing}) {
             </fieldset>
           </form>
         </div>
+      </div>
+
+      <ListingSportsCardSpecificsEditor listing={listing} />
+
+      <div className="mt-5 flex flex-col gap-5 lg:flex-row lg:items-start">
+        {isNeedsReview ? (
+          <section className="grid w-full gap-4 rounded-2xl border border-sky-200 bg-sky-50/80 p-4 lg:min-w-0 lg:flex-1">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-sky-900">
+                  Inventory / SKU
+                </p>
+                <p className="mt-1 text-sm text-sky-900/80">
+                  Backend finalizes this SKU on approval.
+                </p>
+              </div>
+              <span className="rounded-full border border-sky-200 bg-white px-3 py-1 font-mono text-sm text-sky-900">
+                {listing.listing_id}
+              </span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  SKU category prefix
+                </span>
+                <select
+                  aria-label="SKU category prefix"
+                  name="sku_category_prefix"
+                  value={selectedStructuredSkuPrefix}
+                  onChange={(event) => {
+                    if (itemSpecificsState.error !== null) {
+                      return;
+                    }
+
+                    const updatedItemSpecifics =
+                      setStructuredSkuPrefixInItemSpecifics(
+                        itemSpecificsState.value as Listing["item_specifics"],
+                        event.target
+                          .value as (typeof structuredSkuPrefixes)[number],
+                      );
+
+                    setItemSpecificsText(
+                      JSON.stringify(updatedItemSpecifics, null, 2),
+                    );
+                  }}
+                  disabled={isGenerating || itemSpecificsError !== null}
+                  className="mt-2 w-full rounded-2xl border border-stone-950/10 bg-white px-4 py-3 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+                >
+                  {structuredSkuPrefixes.map((prefix) => (
+                    <option key={prefix} value={prefix}>
+                      {prefix} - {structuredSkuPrefixLabels[prefix]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="block">
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-500">
+                  Preview final SKU
+                </span>
+                <div className="mt-2 rounded-2xl border border-stone-950/10 bg-white px-4 py-3">
+                  {structuredSkuPreview ? (
+                    <p className="font-mono text-sm text-stone-900">
+                      {structuredSkuPreview}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-amber-900">
+                      Listing ID is not in base Single/Lot format. Backend SKU
+                      preview unavailable.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {listing.status === "assets_ready" ||
         listing.status === "needs_review" ? (
-          <div className="w-full">
+          <div className="w-full lg:w-fit lg:shrink-0">
             <ListingImageOrderManager
               imageUrls={listing.image_urls}
               listingId={listing.listing_id}

@@ -285,6 +285,152 @@ describe("ListingsTableEditable", () => {
     );
   });
 
+  it("duplicates export into Actions and collapses the editor from either export button", async () => {
+    approveListingForExportMock.mockResolvedValue({
+      error: null,
+      success: "approved",
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-REVIEW",
+            "needs_review",
+            "2026-05-20T01:00:00.000Z",
+            {title: "Valid listing title"},
+          ),
+        ]}
+      />,
+    );
+
+    const row = screen
+      .getByText("LIST-REVIEW")
+      .closest("tr") as HTMLTableRowElement;
+    expect(
+      within(row).getByRole("button", {name: "Approve For Export"}),
+    ).not.toBeNull();
+
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+    expect(
+      screen.getAllByRole("button", {name: "Approve For Export"}),
+    ).toHaveLength(2);
+
+    await user.click(
+      within(row).getByRole("button", {name: "Approve For Export"}),
+    );
+
+    await waitFor(() => {
+      expect(approveListingForExportMock).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+    const exportButtons = screen.getAllByRole("button", {
+      name: "Approve For Export",
+    });
+    await user.click(exportButtons[1]);
+
+    await waitFor(() => {
+      expect(approveListingForExportMock).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    const submittedFormData = approveListingForExportMock.mock.calls[1]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+    expect((submittedFormData as FormData).get("listing_id")).toBe(
+      "LIST-REVIEW",
+    );
+    expect((submittedFormData as FormData).get("current_status")).toBe(
+      "needs_review",
+    );
+  });
+
+  it("hides the Actions export button until export validation passes", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-INVALID",
+            "needs_review",
+            "2026-05-20T01:00:00.000Z",
+            {title: "X".repeat(81)},
+          ),
+        ]}
+      />,
+    );
+
+    const row = screen
+      .getByText("LIST-INVALID")
+      .closest("tr") as HTMLTableRowElement;
+    expect(
+      within(row).queryByRole("button", {name: "Approve For Export"}),
+    ).toBeNull();
+
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+
+    const expandedExportButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+    expect(expandedExportButton).toHaveProperty("disabled", true);
+  });
+
+  it("saves structured item specifics through the single Save edits action", async () => {
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+    const user = userEvent.setup();
+
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-SPECIFICS",
+            "needs_review",
+            "2026-05-20T01:00:00.000Z",
+            {
+              category_id: "261328",
+              item_specifics: {
+                Manufacturer: "Topps",
+                Player: "Mike Trout",
+              },
+              title: "Valid listing title",
+            },
+          ),
+        ]}
+      />,
+    );
+
+    const row = screen
+      .getByText("LIST-SPECIFICS")
+      .closest("tr") as HTMLTableRowElement;
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+
+    expect(
+      screen.queryByRole("button", {name: "Save item specifics"}),
+    ).toBeNull();
+
+    const manufacturerInput = screen.getByRole("textbox", {
+      name: /^Manufacturer\b/i,
+    });
+    await user.clear(manufacturerInput);
+    await user.type(manufacturerInput, "Panini");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledTimes(1);
+    const submittedFormData = saveListingEditsMock.mock.calls[0]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+    expect(
+      JSON.parse(
+        String(
+          (submittedFormData as FormData).get(
+            "sports_card_specific_changes",
+          ),
+        ),
+      ),
+    ).toEqual({Manufacturer: "Panini"});
+  });
+
   it("keeps intake rows read-only and active row actions vertically stacked", async () => {
     const user = userEvent.setup();
     render(

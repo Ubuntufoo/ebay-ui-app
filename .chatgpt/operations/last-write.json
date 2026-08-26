@@ -1,29 +1,26 @@
 {
   "schema_version": 1,
-  "operation_id": "write-2026-08-25T20-54-57-904Z-86e8ff4a",
+  "operation_id": "write-2026-08-26T16-46-13-702Z-8f536cac",
   "tool": "repo_write_changes",
   "repo_id": "ebay-ui-app",
-  "timestamp": "2026-08-25T20:54:57.904Z",
-  "head_sha_before": "b304fc7b8f338fe486694742cda1dc6c5cefe873",
-  "head_sha_after": "b304fc7b8f338fe486694742cda1dc6c5cefe873",
+  "timestamp": "2026-08-26T16:46:13.702Z",
+  "head_sha_before": "80ff55e2e510a56701faa9417ea799607d6fe8fa",
+  "head_sha_after": "80ff55e2e510a56701faa9417ea799607d6fe8fa",
   "touched_paths": [
-    "app/listing-pricing-links.ts",
-    "app/listing-pricing-links.test.ts"
+    "app/listings-table-editable.test.tsx"
   ],
   "changed_paths": [
-    "app/listing-pricing-links.ts",
-    "app/listing-pricing-links.test.ts"
+    "app/listings-table-editable.test.tsx"
   ],
   "created_paths": [],
   "modified_paths": [
-    "app/listing-pricing-links.ts",
-    "app/listing-pricing-links.test.ts"
+    "app/listings-table-editable.test.tsx"
   ],
   "counts": {
-    "requested": 2,
-    "changed": 2,
+    "requested": 1,
+    "changed": 1,
     "created": 0,
     "unchanged": 0
   },
-  "summary": "Applied 2 changes across 2 files."
+  "summary": "Applied 1 change across 1 file."
 }

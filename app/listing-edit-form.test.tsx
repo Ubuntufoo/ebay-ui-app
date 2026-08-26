@@ -826,6 +826,103 @@ describe("ListingEditForm", () => {
     ).not.toBe(0);
   });
 
+  it("places inventory and image ordering below item specifics and keeps SKU inline", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          [
+            "https://example.com/review-1.jpg",
+            "https://example.com/review-2.jpg",
+          ],
+          {listing_id: "Single-000010"},
+        )}
+      />,
+    );
+
+    const itemSpecificsInput = screen.getByLabelText("Item specifics (JSON)");
+    const inventorySectionHeading = screen.getByText("Inventory / SKU");
+    const imageOrderRegion = screen.getByRole("region", {
+      name: "Listing image order",
+    });
+    const inventorySection = inventorySectionHeading.closest("section");
+    const skuSelect = screen.getByLabelText(
+      "SKU category prefix",
+    ) as HTMLSelectElement;
+    const skuPreview = screen.getByText("OTHER-Single-000010");
+
+    expect(
+      itemSpecificsInput.compareDocumentPosition(inventorySectionHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      itemSpecificsInput.compareDocumentPosition(imageOrderRegion) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      inventorySectionHeading.compareDocumentPosition(imageOrderRegion) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+
+    expect(inventorySection?.className ?? "").toContain("lg:flex-1");
+    expect(inventorySection?.parentElement?.className ?? "").toContain(
+      "lg:flex-row",
+    );
+    expect(imageOrderRegion.parentElement?.className ?? "").toContain(
+      "lg:w-fit",
+    );
+    expect(imageOrderRegion.parentElement?.className ?? "").toContain(
+      "lg:shrink-0",
+    );
+    expect(skuSelect.closest(".grid")?.className ?? "").toContain(
+      "md:grid-cols-2",
+    );
+    expect(skuSelect.className).not.toContain("max-w-xs");
+    expect(skuPreview.parentElement?.className ?? "").not.toContain(
+      "max-w-xs",
+    );
+  });
+
+  it("renders sports-card item specifics before inventory and image ordering", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          [
+            "https://example.com/review-1.jpg",
+            "https://example.com/review-2.jpg",
+          ],
+          {
+            category_id: "261328",
+            listing_id: "Single-000011",
+            item_specifics: {
+              Manufacturer: "Topps",
+              Player: "Mike Trout",
+              skuCategoryCode: "BSKBL",
+            },
+          },
+        )}
+      />,
+    );
+
+    const sportsSection = screen.getByRole("region", {
+      name: "Sports card item specifics",
+    });
+    const inventorySectionHeading = screen.getByText("Inventory / SKU");
+    const imageOrderRegion = screen.getByRole("region", {
+      name: "Listing image order",
+    });
+
+    expect(
+      sportsSection.compareDocumentPosition(inventorySectionHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      inventorySectionHeading.compareDocumentPosition(imageOrderRegion) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
   it("renders a per-listing uncertain-year notice with advisory likely year details", () => {
     render(
       <ListingEditForm
