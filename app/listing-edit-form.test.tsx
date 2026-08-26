@@ -878,9 +878,7 @@ describe("ListingEditForm", () => {
       "md:grid-cols-2",
     );
     expect(skuSelect.className).not.toContain("max-w-xs");
-    expect(skuPreview.parentElement?.className ?? "").not.toContain(
-      "max-w-xs",
-    );
+    expect(skuPreview.parentElement?.className ?? "").not.toContain("max-w-xs");
   });
 
   it("renders sports-card item specifics before inventory and image ordering", () => {
