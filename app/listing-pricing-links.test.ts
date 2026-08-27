@@ -1,6 +1,7 @@
 import {describe, expect, it} from "vitest";
 
 import type {Listing} from "@/lib/sidecar-api";
+import type {ListingLatestPricingResearchSummary} from "@/lib/sidecar-api/types";
 
 import {
   buildListingPricingSearchText,
@@ -51,6 +52,39 @@ function buildListing(overrides: Partial<Listing> = {}): Listing {
   };
 }
 
+function buildPricingResearch(
+  overrides: Partial<ListingLatestPricingResearchSummary> = {},
+): ListingLatestPricingResearchSummary {
+  return {
+    comp_summary: {
+      rejected_comp_count: 0,
+      rejected_comp_ids: [],
+      selected_comp_count: 0,
+      selected_comp_ids: [],
+      total_comp_count: 0,
+    },
+    confidence: null,
+    created_at: "2026-08-12T00:00:00.000Z",
+    error_code: null,
+    error_message: null,
+    listing_id: "LIST-001",
+    llm_price_explanation: null,
+    median_sold_price: null,
+    price_adjustment: null,
+    pricing_model_name: null,
+    provider: "soldcomps",
+    query: null,
+    research_id: "research-id",
+    sold_count: null,
+    status: "success",
+    suggested_price: null,
+    terapeak_max_price: null,
+    terapeak_min_price: null,
+    updated_at: "2026-08-12T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 describe("listing pricing links", () => {
   it("uses the exact listing title for pricing searches", () => {
     const query = buildListingPricingSearchText(
@@ -74,8 +108,10 @@ describe("listing pricing links", () => {
       buildListing({
         title: "1995-96 SkyBox NBA Hoops #379 Jim McIlvaine Rookie Card",
         item_specifics: {
-          Manufacturer: "nba hoops",
-          Player: "jim mcilvaine",
+          "Card Number": "379",
+          Manufacturer: "NBA Hoops",
+          Player: "Jim McIlvaine",
+          Set: "SkyBox NBA Hoops",
           Sport: "Basketball",
           Year: "1995-96",
         },
@@ -87,9 +123,47 @@ describe("listing pricing links", () => {
       "eBay Terapeak",
     ]);
     expect(links[0]?.href).toBe(
-      "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+%23379+Jim+McIlvaine+Rookie+Card&type=prices&sport=basketball-cards",
+      "https://www.sportscardspro.com/search-products?q=1995-96+SkyBox+NBA+Hoops+Jim+McIlvaine+%23379&type=prices&sport=basketball-cards",
     );
     expect(links[1]?.label).toBe("eBay Terapeak");
+  });
+
+  it("uses only year, canonical base set, player, and card number for pricing-link keywords", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        title:
+          "1999 Topps Chrome Expansion Draft Insert Jim Pyne #132 Cleveland Browns",
+        item_specifics: {
+          "Card Number": "132",
+          Franchise: "Cleveland Browns",
+          "Insert Set": "Expansion Draft",
+          League: "NFL",
+          Manufacturer: "Topps",
+          "Player/Athlete": "Jim Pyne",
+          Set: "Topps Chrome Expansion Draft",
+          Sport: "Football",
+          Year: "1999",
+        },
+      }),
+      1787588480433,
+    );
+    const sportsCardsPro = links.find((link) => link.label === "SportsCardsPro");
+    const terapeak = links.find((link) => link.label === "eBay Terapeak");
+
+    expect(new URL(sportsCardsPro!.href).searchParams.get("q")).toBe(
+      "1999 Topps Chrome Jim Pyne #132",
+    );
+    expect(sportsCardsPro!.href).not.toContain("Expansion+Draft");
+    expect(sportsCardsPro!.href).not.toContain("Insert");
+    expect(sportsCardsPro!.href).not.toContain("Cleveland+Browns");
+
+    const terapeakKeywords = new URL(terapeak!.href).searchParams.get("keywords");
+    expect(terapeakKeywords).toBe(
+      "Jim Pyne 132 1999 Topps Chrome -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
+    );
+    expect(terapeakKeywords).not.toContain("Expansion Draft");
+    expect(terapeakKeywords).not.toContain("Cleveland Browns");
+    expect(terapeak!.href).not.toContain("aspect=");
   });
 
   it("maps supported SportsCardsPro sports case-insensitively", () => {
@@ -97,7 +171,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: " baseball ",
+            Year: "1999",
           },
           title: "Baseball card",
         }),
@@ -107,7 +185,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: "BASKETBALL",
+            Year: "1999",
           },
           title: "Basketball card",
         }),
@@ -117,7 +199,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: "Football",
+            Year: "1999",
           },
           title: "Football card",
         }),
@@ -127,7 +213,11 @@ describe("listing pricing links", () => {
       getListingPricingLinks(
         buildListing({
           item_specifics: {
+            "Card Number": "1",
+            Player: "Player",
+            Set: "Topps",
             Sport: "hOcKeY",
+            Year: "1999",
           },
           title: "Hockey card",
         }),
@@ -223,27 +313,106 @@ describe("listing pricing links", () => {
 
     expect(links[1]?.label).toBe("eBay Terapeak");
     expect(links[1]?.href).toBe(
-      "https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=Michael+Jordan+1990+NBA+Hoops+%2365+-psa+-bgs+-sgc+-cgc+-signature+-sig+-autograph+-autographed+-graded+-lot&dayRange=365&endDate=1789920000000&startDate=1758384000000&categoryId=0&format=BEST_OFFER&format=FIXED_PRICE&offset=0&limit=50&tabName=SOLD&tz=America%2FNew_York",
+      "https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=Michael+Jordan+1990+NBA+Hoops+%2365+-psa+-bgs+-sgc+-cgc+-signature+-sig+-autograph+-autographed+-graded+-lot&dayRange=365&endDate=1789920000000&startDate=1758384000000&categoryId=261328&format=BEST_OFFER&format=FIXED_PRICE&offset=0&limit=50&tabName=SOLD&tz=America%2FNew_York",
     );
   });
 
-  it("preserves card title casing for Terapeak even when structured fields are available", () => {
+  it.each([
+    [1, 12],
+    [4, 38],
+  ])("appends the backend Terapeak price band %s-%s", (min, max) => {
     const links = getListingPricingLinks(
       buildListing({
-        item_specifics: {
-          Manufacturer: "nba hoops",
-          Player: "michael jordan",
-          Year: "1990",
-        },
-        title: "Michael Jordan 1990 NBA Hoops #65",
+        latest_pricing_research: buildPricingResearch({
+          terapeak_max_price: max,
+          terapeak_min_price: min,
+        }),
       }),
       1789920000000,
     );
+    const url = new URL(links[1]!.href);
 
-    expect(links[1]?.href).toContain(
-      "keywords=Michael+Jordan+1990+NBA+Hoops+%2365",
+    expect(url.searchParams.get("minPrice")).toBe(String(min));
+    expect(url.searchParams.get("maxPrice")).toBe(String(max));
+  });
+
+  it.each([
+    [null, null],
+    [1, null],
+    [null, 12],
+    [0, 12],
+    [1, Number.POSITIVE_INFINITY],
+    [12, 1],
+  ])("omits both Terapeak price params for invalid band %s-%s", (min, max) => {
+    const links = getListingPricingLinks(
+      buildListing({
+        latest_pricing_research: buildPricingResearch({
+          terapeak_max_price: max,
+          terapeak_min_price: min,
+        }),
+      }),
+      1789920000000,
     );
-    expect(links[1]?.href).not.toContain("Nba");
+    const url = new URL(links[1]!.href);
+
+    expect(url.searchParams.has("minPrice")).toBe(false);
+    expect(url.searchParams.has("maxPrice")).toBe(false);
+  });
+
+  it("omits both Terapeak price params without latest pricing research", () => {
+    const links = getListingPricingLinks(buildListing(), 1789920000000);
+    const url = new URL(links[1]!.href);
+
+    expect(url.searchParams.has("minPrice")).toBe(false);
+    expect(url.searchParams.has("maxPrice")).toBe(false);
+  });
+
+  it("uses structured identity fields for Terapeak instead of title modifiers", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        item_specifics: {
+          "Card Number": "191",
+          Manufacturer: "Topps",
+          "Player/Athlete": "Troy Stratford",
+          Set: "Topps",
+          Year: "1988",
+        },
+        title: "Troy Stratford 1988 Topps #191 Rookie Card NM+",
+      }),
+      1789920000000,
+    );
+    const url = new URL(links[1]!.href);
+    const keywords = url.searchParams.get("keywords");
+
+    expect(keywords).toBe(
+      "Troy Stratford 191 1988 Topps -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
+    );
+    expect(keywords).not.toContain("Rookie Card");
+    expect(keywords).not.toContain("NM");
+    expect(keywords).not.toContain("#191");
+    expect(links[0]?.href).toContain(
+      "q=1988+Topps+Troy+Stratford+%23191",
+    );
+    expect(links[0]?.href).not.toContain("Rookie+Card");
+    expect(links[0]?.href).not.toContain("NM%2B");
+  });
+
+  it("builds a clean Terapeak query from partial structured identity fields", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        item_specifics: {
+          Manufacturer: "Topps",
+          "Player/Athlete": "Troy Stratford",
+        },
+        title: "Troy Stratford Topps Rookie Card NM+",
+      }),
+      1789920000000,
+    );
+    const keywords = new URL(links[1]!.href).searchParams.get("keywords");
+
+    expect(keywords).toBe(
+      "Troy Stratford Topps -psa -bgs -sgc -cgc -signature -sig -autograph -autographed -graded -lot",
+    );
   });
 
   it("returns the title text normalized for whitespace when specifics are missing", () => {
@@ -255,6 +424,26 @@ describe("listing pricing links", () => {
     );
 
     expect(query).toBe("1990 nba hoops michael jordan");
+  });
+
+  it("never appends Terapeak aspect filters", () => {
+    const links = getListingPricingLinks(
+      buildListing({
+        item_specifics: {
+          League: "Major League Baseball (MLB)",
+          Manufacturer: "Topps",
+          "Player/Athlete": "Willie Stargell",
+        },
+        title: "Willie Stargell 1975 Topps",
+      }),
+      1789920000000,
+    );
+
+    expect(links[1]?.label).toBe("eBay Terapeak");
+    expect(links[1]?.href).toContain("categoryId=261328");
+    expect(links[1]?.href).toContain("format=BEST_OFFER");
+    expect(links[1]?.href).toContain("format=FIXED_PRICE");
+    expect(links[1]?.href).not.toContain("aspect=");
   });
 
   it("returns no links without usable query text", () => {

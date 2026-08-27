@@ -56,6 +56,9 @@ describe("enqueueGenerateListing", () => {
     formData.set("listing_id", "LIST-001");
     formData.set("seller_hints", "  Use padded envelope  ");
     formData.set("auto_pricing_enabled", "true");
+    formData.set("skip_browse", "false");
+    formData.set("min_price_multiplier", "0.33");
+    formData.set("max_price_multiplier", "3.00");
 
     const result = await enqueueGenerateListing(
       {error: null, info: null, success: null},
@@ -66,7 +69,13 @@ describe("enqueueGenerateListing", () => {
       autoPricingEnabled: true,
       sellerHints: "Use padded envelope",
     });
-    expect(updateListingMock).not.toHaveBeenCalled();
+    expect(updateListingMock).toHaveBeenCalledWith("LIST-001", {
+      browsePricingOptions: {
+        skipBrowse: false,
+        minPriceMultiplier: 0.33,
+        maxPriceMultiplier: 3,
+      },
+    });
     expect(revalidatePathMock).toHaveBeenCalledWith("/");
     expect(result).toEqual({
       error: null,
@@ -125,6 +134,98 @@ describe("enqueueGenerateListing", () => {
         excludeVariants: true,
       },
     });
+    expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
+      autoPricingEnabled: false,
+      sellerHints: null,
+    });
+  });
+
+  it("persists complete Browse options and modifiers in one PATCH", async () => {
+    updateListingMock.mockResolvedValueOnce({});
+    enqueueGenerateAiMock.mockResolvedValueOnce({
+      alreadyQueued: false,
+      job: {id: "job-1"},
+      listing: {
+        status: "generating",
+      },
+    });
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+    formData.set("auto_pricing_enabled", "true");
+    formData.set("skip_browse", "true");
+    formData.set("min_price_multiplier", "0.5");
+    formData.set("max_price_multiplier", "2");
+    formData.set("exclude_graded", "false");
+    formData.set("exclude_autographs", "true");
+    formData.set("exclude_variants", "true");
+
+    await enqueueGenerateListing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(updateListingMock).toHaveBeenCalledTimes(1);
+    expect(updateListingMock).toHaveBeenCalledWith("LIST-001", {
+      browsePricingOptions: {
+        skipBrowse: true,
+        minPriceMultiplier: 0.5,
+        maxPriceMultiplier: 2,
+      },
+      pricingModifierOptions: {
+        excludeAutographs: true,
+        excludeGraded: false,
+        excludeVariants: true,
+      },
+    });
+    expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
+      autoPricingEnabled: true,
+      sellerHints: null,
+    });
+  });
+
+  it.each([
+    ["0", "3"],
+    ["0.33", "0.33"],
+    ["Infinity", "3"],
+    ["0.33", "NaN"],
+  ])("rejects invalid Browse multipliers %s/%s before queueing", async (min, max) => {
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+    formData.set("auto_pricing_enabled", "true");
+    formData.set("skip_browse", "false");
+    formData.set("min_price_multiplier", min);
+    formData.set("max_price_multiplier", max);
+
+    const result = await enqueueGenerateListing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(result.error).toContain("Browse multipliers");
+    expect(updateListingMock).not.toHaveBeenCalled();
+    expect(enqueueGenerateAiMock).not.toHaveBeenCalled();
+  });
+
+  it("does not validate or overwrite Browse options when Auto Pricing is off", async () => {
+    enqueueGenerateAiMock.mockResolvedValueOnce({
+      alreadyQueued: false,
+      job: {id: "job-1"},
+      listing: {
+        status: "generating",
+      },
+    });
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+    formData.set("min_price_multiplier", "not-a-number");
+    formData.set("max_price_multiplier", "0");
+
+    const result = await enqueueGenerateListing(
+      {error: null, info: null, success: null},
+      formData,
+    );
+
+    expect(result.error).toBeNull();
+    expect(updateListingMock).not.toHaveBeenCalled();
     expect(enqueueGenerateAiMock).toHaveBeenCalledWith("LIST-001", {
       autoPricingEnabled: false,
       sellerHints: null,

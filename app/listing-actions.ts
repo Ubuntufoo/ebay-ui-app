@@ -6,6 +6,14 @@ import {readTrimmedFormField, getActionErrorMessage} from "@/app/action-utils";
 import type {Json, UpdateListingInput} from "@/lib/sidecar-api/types";
 import {updateListing} from "@/lib/sidecar-api";
 import type {SaveListingEditsActionState} from "@/app/listing-edit-state";
+import {getListingPriceError} from "@/app/listing-price-validation";
+import {
+  applySportsCardSpecificDefaults,
+  hasValidSportsCardSpecificValue,
+  sanitizeSportsCardItemSpecifics,
+  sportsCardSpecificFields,
+  updateSportsCardSpecific,
+} from "@/app/sports-card-item-specifics";
 
 function readNumericField(value: FormDataEntryValue | null): {
   value: number | null;
@@ -23,6 +31,11 @@ function readNumericField(value: FormDataEntryValue | null): {
   const numeric = Number(trimmed);
   if (!Number.isFinite(numeric)) {
     return {value: null, error: "Price must be a valid number."};
+  }
+
+  const priceError = getListingPriceError(numeric);
+  if (priceError) {
+    return {value: null, error: priceError};
   }
 
   return {value: numeric, error: null};
@@ -48,6 +61,41 @@ function readItemSpecificsField(value: FormDataEntryValue | null): {
       value: null,
       error: "Item specifics must be valid JSON.",
     };
+  }
+}
+
+function readSportsCardSpecificChanges(
+  value: FormDataEntryValue | null,
+): {
+  value: Record<string, string> | null;
+  error: string | null;
+} {
+  if (typeof value !== "string") {
+    return {value: null, error: null};
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      return {value: null, error: "Item specific changes are invalid."};
+    }
+
+    const entries = Object.entries(parsed);
+    const isValid = entries.every(
+      ([key, entry]) =>
+        typeof entry === "string" &&
+        sportsCardSpecificFields.some((field) => field.persistKey === key),
+    );
+
+    return isValid
+      ? {value: Object.fromEntries(entries), error: null}
+      : {value: null, error: "Item specific changes are invalid."};
+  } catch {
+    return {value: null, error: "Item specific changes are invalid."};
   }
 }
 
@@ -111,7 +159,68 @@ export async function saveListingEdits(
         success: false,
       };
     }
-    patch.itemSpecifics = itemSpecificsResult.value;
+
+    let updatedItemSpecifics = itemSpecificsResult.value;
+    const categoryId = formData.has("category_id")
+      ? readTrimmedFormField(formData.get("category_id"))
+      : null;
+    if (categoryId === "261328") {
+      const defaultChangesResult = formData.has("sports_card_specific_default_changes")
+        ? readSportsCardSpecificChanges(formData.get("sports_card_specific_default_changes"))
+        : {value: null, error: null};
+      if (defaultChangesResult.error) {
+        return {
+          error: defaultChangesResult.error,
+          success: false,
+        };
+      }
+
+      if (defaultChangesResult.value === null) {
+        updatedItemSpecifics = applySportsCardSpecificDefaults(updatedItemSpecifics);
+      }
+
+      if (formData.has("sports_card_specific_changes")) {
+        const changesResult = readSportsCardSpecificChanges(
+          formData.get("sports_card_specific_changes"),
+        );
+        if (changesResult.error) {
+          return {
+            error: changesResult.error,
+            success: false,
+          };
+        }
+
+        const defaultChanges = defaultChangesResult.value ?? {};
+        for (const field of sportsCardSpecificFields) {
+          if (
+            changesResult.value !== null &&
+            Object.prototype.hasOwnProperty.call(
+              changesResult.value,
+              field.persistKey,
+            )
+          ) {
+            if (
+              Object.prototype.hasOwnProperty.call(defaultChanges, field.persistKey)
+            ) {
+              if (hasValidSportsCardSpecificValue(updatedItemSpecifics, field)) {
+                continue;
+              }
+            }
+
+            updatedItemSpecifics = updateSportsCardSpecific(
+              updatedItemSpecifics,
+              field,
+              changesResult.value[field.persistKey] ?? "",
+            );
+          }
+        }
+      }
+    }
+
+    patch.itemSpecifics = sanitizeSportsCardItemSpecifics(
+      updatedItemSpecifics,
+      categoryId,
+    );
   }
 
   try {

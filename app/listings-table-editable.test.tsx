@@ -122,6 +122,76 @@ describe("ListingsTableEditable", () => {
     saveListingPricingModifierOptionsMock.mockResolvedValue({error: null});
   });
 
+  it("renders active listings oldest-created first so new listings append at the bottom", () => {
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-NEWEST",
+            "needs_review",
+            "2026-05-23T00:00:00.000Z",
+            {
+              created_at: "2026-05-22T00:00:00.000Z",
+            },
+          ),
+          buildListing(
+            "LIST-OLDEST",
+            "needs_review",
+            "2026-05-30T00:00:00.000Z",
+            {
+              created_at: "2026-05-20T00:00:00.000Z",
+            },
+          ),
+          buildListing(
+            "LIST-MIDDLE",
+            "needs_review",
+            "2026-05-21T00:00:00.000Z",
+            {
+              created_at: "2026-05-21T00:00:00.000Z",
+            },
+          ),
+        ]}
+      />,
+    );
+
+    const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("LIST-OLDEST"),
+      expect.stringContaining("LIST-MIDDLE"),
+      expect.stringContaining("LIST-NEWEST"),
+    ]);
+  });
+
+  it("keeps published listings newest-first", () => {
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing("PUB-OLDER", "exported", "2026-05-20T00:00:00.000Z", {
+            created_at: "2026-05-19T00:00:00.000Z",
+          }),
+          buildListing("PUB-NEWER", "listed", "2026-05-22T00:00:00.000Z", {
+            created_at: "2026-05-18T00:00:00.000Z",
+          }),
+        ]}
+      />,
+    );
+
+    const publishedHeading = screen.getByText("Published Listings");
+    const publishedSection = publishedHeading.closest("section");
+
+    if (publishedSection === null) {
+      throw new Error("Published Listings section not found.");
+    }
+
+    const rows = within(publishedSection).getAllByRole("row").slice(1);
+
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining("PUB-NEWER"),
+      expect.stringContaining("PUB-OLDER"),
+    ]);
+  });
+
   it("toggles expandable rows from non-interactive cells and switches selection", async () => {
     const user = userEvent.setup();
     render(
@@ -137,8 +207,12 @@ describe("ListingsTableEditable", () => {
       />,
     );
 
-    const firstRow = screen.getByText("LIST-ONE").closest("tr") as HTMLTableRowElement;
-    const secondRow = screen.getByText("LIST-TWO").closest("tr") as HTMLTableRowElement;
+    const firstRow = screen
+      .getByText("LIST-ONE")
+      .closest("tr") as HTMLTableRowElement;
+    const secondRow = screen
+      .getByText("LIST-TWO")
+      .closest("tr") as HTMLTableRowElement;
 
     await user.click(within(firstRow).getByText("LIST-ONE"));
     expect(screen.getByText("Edit listing")).not.toBeNull();
@@ -162,21 +236,235 @@ describe("ListingsTableEditable", () => {
     );
   });
 
+  it("generates an assets-ready draft from the Actions column without expanding", async () => {
+    enqueueGenerateListingMock.mockResolvedValueOnce({
+      error: null,
+      info: null,
+      success: "queued",
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-READY",
+            "assets_ready",
+            "2026-05-20T01:00:00.000Z",
+            {
+              auto_pricing_enabled: false,
+              seller_hints: "Use saved hints",
+            },
+          ),
+        ]}
+      />,
+    );
+
+    const row = screen
+      .getByText("LIST-READY")
+      .closest("tr") as HTMLTableRowElement;
+    await user.click(
+      within(row).getByRole("button", {name: "Generate AI Draft"}),
+    );
+
+    await waitFor(() => {
+      expect(enqueueGenerateListingMock).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+    expect((submittedFormData as FormData).get("listing_id")).toBe(
+      "LIST-READY",
+    );
+    expect((submittedFormData as FormData).get("seller_hints")).toBe(
+      "Use saved hints",
+    );
+    expect((submittedFormData as FormData).get("auto_pricing_enabled")).toBe(
+      "false",
+    );
+  });
+
+  it("duplicates export into Actions and collapses the editor from either export button", async () => {
+    approveListingForExportMock.mockResolvedValue({
+      error: null,
+      success: "approved",
+    });
+    const user = userEvent.setup();
+
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-REVIEW",
+            "needs_review",
+            "2026-05-20T01:00:00.000Z",
+            {title: "Valid listing title"},
+          ),
+        ]}
+      />,
+    );
+
+    const row = screen
+      .getByText("LIST-REVIEW")
+      .closest("tr") as HTMLTableRowElement;
+    expect(
+      within(row).getByRole("button", {name: "Approve For Export"}),
+    ).not.toBeNull();
+
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+    expect(
+      screen.getAllByRole("button", {name: "Approve For Export"}),
+    ).toHaveLength(2);
+
+    await user.click(
+      within(row).getByRole("button", {name: "Approve For Export"}),
+    );
+
+    await waitFor(() => {
+      expect(approveListingForExportMock).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+    const exportButtons = screen.getAllByRole("button", {
+      name: "Approve For Export",
+    });
+    await user.click(exportButtons[1]);
+
+    await waitFor(() => {
+      expect(approveListingForExportMock).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.queryByText("Edit listing")).toBeNull();
+
+    const submittedFormData = approveListingForExportMock.mock.calls[1]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+    expect((submittedFormData as FormData).get("listing_id")).toBe(
+      "LIST-REVIEW",
+    );
+    expect((submittedFormData as FormData).get("current_status")).toBe(
+      "needs_review",
+    );
+  });
+
+  it("hides the Actions export button until export validation passes", async () => {
+    const user = userEvent.setup();
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-INVALID",
+            "needs_review",
+            "2026-05-20T01:00:00.000Z",
+            {title: "X".repeat(81)},
+          ),
+        ]}
+      />,
+    );
+
+    const row = screen
+      .getByText("LIST-INVALID")
+      .closest("tr") as HTMLTableRowElement;
+    expect(
+      within(row).queryByRole("button", {name: "Approve For Export"}),
+    ).toBeNull();
+
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+
+    const expandedExportButton = screen.getByRole("button", {
+      name: "Approve For Export",
+    });
+    expect(expandedExportButton).toHaveProperty("disabled", true);
+  });
+
+  it("saves structured item specifics through the single Save edits action", async () => {
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+    const user = userEvent.setup();
+
+    render(
+      <ListingsTableEditable
+        listings={[
+          buildListing(
+            "LIST-SPECIFICS",
+            "needs_review",
+            "2026-05-20T01:00:00.000Z",
+            {
+              category_id: "261328",
+              item_specifics: {
+                Manufacturer: "Topps",
+                Player: "Mike Trout",
+              },
+              title: "Valid listing title",
+            },
+          ),
+        ]}
+      />,
+    );
+
+    const row = screen
+      .getByText("LIST-SPECIFICS")
+      .closest("tr") as HTMLTableRowElement;
+    await user.click(within(row).getByRole("button", {name: "Review"}));
+
+    expect(
+      screen.queryByRole("button", {name: "Save item specifics"}),
+    ).toBeNull();
+
+    const manufacturerInput = screen.getByRole("textbox", {
+      name: /^Manufacturer\b/i,
+    });
+    await user.clear(manufacturerInput);
+    await user.type(manufacturerInput, "Panini");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledTimes(1);
+    const submittedFormData = saveListingEditsMock.mock.calls[0]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+    expect(
+      JSON.parse(
+        String(
+          (submittedFormData as FormData).get(
+            "sports_card_specific_changes",
+          ),
+        ),
+      ),
+    ).toMatchObject({
+      Manufacturer: "Panini",
+      Material: "Card Stock",
+      "Card Thickness": "20 Pt.",
+      "Card Size": "Standard",
+      Language: "English",
+      "Original/Licensed Reprint": "Original",
+      Vintage: "Yes",
+    });
+  });
+
   it("keeps intake rows read-only and active row actions vertically stacked", async () => {
     const user = userEvent.setup();
     render(
       <ListingsTableEditable
         listings={[
-          buildListing("LIST-INTAKE", "record_created", "2026-05-20T02:00:00.000Z"),
+          buildListing(
+            "LIST-INTAKE",
+            "record_created",
+            "2026-05-20T02:00:00.000Z",
+          ),
           buildListing("LIST-REV", "needs_review", "2026-05-20T01:00:00.000Z"),
         ]}
       />,
     );
 
-    const intakeRow = screen.getByText("LIST-INTAKE").closest("tr") as HTMLTableRowElement;
-    const reviewRow = screen.getByText("LIST-REV").closest("tr") as HTMLTableRowElement;
-    const intakeActions = within(intakeRow).getByText("Read only").parentElement;
-    const reviewButton = within(reviewRow).getByRole("button", {name: "Review"});
+    const intakeRow = screen
+      .getByText("LIST-INTAKE")
+      .closest("tr") as HTMLTableRowElement;
+    const reviewRow = screen
+      .getByText("LIST-REV")
+      .closest("tr") as HTMLTableRowElement;
+    const intakeActions =
+      within(intakeRow).getByText("Read only").parentElement;
+    const reviewButton = within(reviewRow).getByRole("button", {
+      name: "Review",
+    });
     const abandonButton = within(reviewRow).getByRole("button", {
       name: "Abandon Listing",
     });
@@ -245,7 +533,7 @@ describe("ListingsTableEditable", () => {
     expect(screen.getByText("Edit listing")).not.toBeNull();
   });
 
-  it("shows abandonment for every active row and enables only needs_review", () => {
+  it("shows abandonment for every active row and enables abandonable statuses", () => {
     const statuses = [
       "record_created",
       "image_processing_queued",
@@ -279,7 +567,10 @@ describe("ListingsTableEditable", () => {
       const button = within(row as HTMLTableRowElement).getByRole("button", {
         name: "Abandon Listing",
       });
-      expect(button).toHaveProperty("disabled", status !== "needs_review");
+      expect(button).toHaveProperty(
+        "disabled",
+        status !== "assets_ready" && status !== "needs_review",
+      );
     }
   });
 
@@ -293,9 +584,7 @@ describe("ListingsTableEditable", () => {
       />,
     );
 
-    await user.click(
-      screen.getByRole("button", {name: "Abandon Listing"}),
-    );
+    await user.click(screen.getByRole("button", {name: "Abandon Listing"}));
 
     expect(
       screen.getByRole("dialog", {name: "Confirm Listing Abandonment"}),
@@ -331,9 +620,7 @@ describe("ListingsTableEditable", () => {
     await user.click(screen.getByRole("button", {name: "Review"}));
     expect(screen.getByText("Edit listing")).not.toBeNull();
 
-    await user.click(
-      screen.getByRole("button", {name: "Abandon Listing"}),
-    );
+    await user.click(screen.getByRole("button", {name: "Abandon Listing"}));
     await user.click(screen.getByRole("button", {name: "Confirm"}));
 
     await waitFor(() => {
@@ -454,9 +741,11 @@ describe("ListingsTableEditable", () => {
     await user.click(openEditButton);
 
     expect(screen.getByText("Edit listing")).not.toBeNull();
+    // One quick-action button per assets_ready row (LIST-FALSE, LIST-READY)
+    // plus the inline Generate AI Draft control in the opened edit panel.
     expect(
-      screen.getByRole("button", {name: "Generate AI Draft"}),
-    ).not.toBeNull();
+      screen.getAllByRole("button", {name: "Generate AI Draft"}),
+    ).toHaveLength(3);
     expect(
       screen.getByRole("checkbox", {name: "Pre-filter graded comps"}),
     ).toHaveProperty("checked", true);
@@ -498,16 +787,11 @@ describe("ListingsTableEditable", () => {
             exported_at: "2026-05-20T06:30:00.000Z",
             title: "Listed listing",
           }),
-          buildListing(
-            "LIST-ARCHIVE",
-            "exported",
-            "2026-05-20T08:00:00.000Z",
-            {
-              ebay_listing_url: "https://www.ebay.com/itm/987654321",
-              exported_at: "2026-05-20T07:45:00.000Z",
-              title: "Archived exported listing",
-            },
-          ),
+          buildListing("LIST-ARCHIVE", "exported", "2026-05-20T08:00:00.000Z", {
+            ebay_listing_url: "https://www.ebay.com/itm/987654321",
+            exported_at: "2026-05-20T07:45:00.000Z",
+            title: "Archived exported listing",
+          }),
         ]}
       />,
     );
@@ -569,19 +853,29 @@ describe("ListingsTableEditable", () => {
       <ListingsTableEditable
         ebayEnvironment="sandbox"
         listings={[
-          buildListing("Single-000005", "exported", "2026-07-30T18:43:17.000Z", {
-            sku: "BSKBL-Single-000005",
-            title: "Safe sandbox listing",
-          }),
+          buildListing(
+            "Single-000005",
+            "exported",
+            "2026-07-30T18:43:17.000Z",
+            {
+              sku: "BSKBL-Single-000005",
+              title: "Safe sandbox listing",
+            },
+          ),
           buildListing("Lot-000006", "listed", "2026-07-30T18:44:17.000Z", {
             sku: "legacy-sku",
             title: "Unsafe SKU listing",
           }),
-          buildListing("Single-000007", "exported", "2026-07-30T18:45:17.000Z", {
-            sku: "OTHER-Single-000007",
-            sold_at: "2026-07-30T19:00:00.000Z",
-            title: "Sold sandbox listing",
-          }),
+          buildListing(
+            "Single-000007",
+            "exported",
+            "2026-07-30T18:45:17.000Z",
+            {
+              sku: "OTHER-Single-000007",
+              sold_at: "2026-07-30T19:00:00.000Z",
+              title: "Sold sandbox listing",
+            },
+          ),
         ]}
       />,
     );
@@ -593,18 +887,24 @@ describe("ListingsTableEditable", () => {
     expect(buttons).toHaveLength(3);
 
     const validButton = within(
-      screen.getByText("Safe sandbox listing").closest("tr") as HTMLTableRowElement,
+      screen
+        .getByText("Safe sandbox listing")
+        .closest("tr") as HTMLTableRowElement,
     ).getByRole("button", {name: "Delete Sandbox Listing"});
     expect(validButton).toHaveProperty("disabled", false);
 
     const invalidSkuButton = within(
-      screen.getByText("Unsafe SKU listing").closest("tr") as HTMLTableRowElement,
+      screen
+        .getByText("Unsafe SKU listing")
+        .closest("tr") as HTMLTableRowElement,
     ).getByRole("button", {name: "Delete Sandbox Listing"});
     expect(invalidSkuButton).toHaveProperty("disabled", true);
     expect(invalidSkuButton.getAttribute("title")).toContain("structured SKU");
 
     const soldButton = within(
-      screen.getByText("Sold sandbox listing").closest("tr") as HTMLTableRowElement,
+      screen
+        .getByText("Sold sandbox listing")
+        .closest("tr") as HTMLTableRowElement,
     ).getByRole("button", {name: "Delete Sandbox Listing"});
     expect(soldButton).toHaveProperty("disabled", true);
 

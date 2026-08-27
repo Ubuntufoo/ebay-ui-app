@@ -82,6 +82,8 @@ function buildListing(overrides: Partial<Listing> = {}): Listing {
       sold_count: null,
       status: "failed",
       suggested_price: null,
+      terapeak_max_price: null,
+      terapeak_min_price: null,
       updated_at: "2026-06-19T00:00:00.000Z",
     },
     r2_delete_after: null,

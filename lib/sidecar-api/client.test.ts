@@ -15,6 +15,7 @@ import {
   retryPricing,
   retryPricingAnalysis,
   updateAppSettings,
+  updateListing,
 } from "@/lib/sidecar-api/client";
 
 describe("abandonListing", () => {
@@ -252,6 +253,72 @@ describe("sidecar app settings updates", () => {
       }),
     );
     expect(result.pricing_provider_mode).toBe("apify");
+  });
+});
+
+describe("updateListing", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("serializes browse pricing options while preserving existing patch fields", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({listing_id: "Single/000005"}), {
+        headers: {"content-type": "application/json"},
+        status: 200,
+      }),
+    );
+
+    await updateListing("Single/000005", {
+      categoryId: "CAT-1",
+      conditionId: "COND-1",
+      conditionNotes: "Minor corner wear",
+      title: "Updated title",
+      description: "Updated description",
+      itemSpecifics: {brand: "Example"},
+      price: 42,
+      browsePricingOptions: {
+        skipBrowse: true,
+        minPriceMultiplier: 0.5,
+        maxPriceMultiplier: 2,
+      },
+      pricingModifierOptions: {excludeGraded: true},
+      sellerHints: "Use padded envelope",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/listings/Single%2F000005",
+      expect.objectContaining({
+        body: JSON.stringify({
+          categoryId: "CAT-1",
+          conditionId: "COND-1",
+          conditionNotes: "Minor corner wear",
+          description: "Updated description",
+          itemSpecifics: {brand: "Example"},
+          price: 42,
+          browsePricingOptions: {
+            skipBrowse: true,
+            minPriceMultiplier: 0.5,
+            maxPriceMultiplier: 2,
+          },
+          pricingModifierOptions: {excludeGraded: true},
+          sellerHints: "Use padded envelope",
+          title: "Updated title",
+        }),
+        cache: "no-store",
+        method: "PATCH",
+      }),
+    );
   });
 });
 

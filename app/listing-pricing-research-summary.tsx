@@ -1,6 +1,9 @@
 "use client";
 
 import type {
+  ListingLatestPricingResearchActiveMarket,
+  ListingActiveMarketCompetitor,
+  ListingActiveMarketMoney,
   ListingLatestPricingResearchPriceAdjustment,
   ListingLatestPricingResearchSummary,
   ListingPriceAdjustmentConditionReason,
@@ -15,6 +18,37 @@ function formatPrice(price: number | null): string {
     currency: "USD",
     style: "currency",
   }).format(price);
+}
+
+function formatActiveMoney(money: ListingActiveMarketMoney): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      currency: money.currency,
+      style: "currency",
+    }).format(money.value);
+  } catch {
+    return formatPrice(money.value);
+  }
+}
+
+function formatActiveStatus(status: ListingLatestPricingResearchActiveMarket["status"]): string {
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function getActiveMarketReason(
+  activeMarket: ListingLatestPricingResearchActiveMarket,
+): string | null {
+  if (activeMarket.status === "skipped") {
+    return activeMarket.skip_reason;
+  }
+  if (activeMarket.status === "unavailable") {
+    return activeMarket.unavailable_reason;
+  }
+  return activeMarket.complete ? null : activeMarket.incomplete_reason;
+}
+
+function formatCapturedAt(capturedAt: string): string {
+  return `Captured: ${capturedAt}`;
 }
 
 function formatCount(count: number): string {
@@ -313,6 +347,132 @@ function FailedSummary({
   );
 }
 
+function ActiveMarketCompetitorRow({
+  competitor,
+}: {
+  competitor: ListingActiveMarketCompetitor;
+}) {
+  return (
+    <li className="grid gap-1 border-t border-stone-200 py-2 first:border-t-0 first:pt-0 last:pb-0">
+      <a
+        className="truncate text-xs font-semibold text-sky-800 underline decoration-sky-300 underline-offset-2 hover:text-sky-950"
+        href={competitor.item_url}
+        rel="noreferrer"
+        target="_blank"
+      >
+        {competitor.title}
+      </a>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-600">
+        <span>Condition: {competitor.condition ?? "Unknown"}</span>
+        <span>Item price: {formatActiveMoney(competitor.item_price)}</span>
+        <span>
+          Shipping: {competitor.shipping_cost === null
+            ? "Unavailable"
+            : formatActiveMoney(competitor.shipping_cost)}
+        </span>
+        <span>
+          Total: {competitor.total_price === null
+            ? "Unavailable"
+            : formatActiveMoney(competitor.total_price)}
+        </span>
+      </div>
+    </li>
+  );
+}
+
+function ActiveMarketSummary({
+  activeMarket,
+}: {
+  activeMarket: ListingLatestPricingResearchActiveMarket;
+}) {
+  const reason = getActiveMarketReason(activeMarket);
+  const itemPriceWindow = activeMarket.item_price_window;
+  const multipliers = activeMarket.multipliers;
+  const showCompetitors =
+    activeMarket.status === "available" && activeMarket.competitors.length > 0;
+
+  return (
+    <section
+      aria-labelledby="active-market-heading"
+      className="grid gap-2 rounded-xl border border-sky-200 bg-sky-50/60 px-3 py-3 text-xs text-stone-600"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3
+          id="active-market-heading"
+          className="text-[11px] font-bold uppercase tracking-[0.14em] text-sky-900"
+        >
+          Active Market
+        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-full border border-sky-300 bg-sky-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-sky-800">
+            {formatActiveStatus(activeMarket.status)}
+          </span>
+          {activeMarket.status === "available" && !activeMarket.complete ? (
+            <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-amber-800">
+              Incomplete
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {reason ? (
+        <p>
+          {activeMarket.status === "available" && !activeMarket.complete
+            ? `Incomplete: ${formatLabel(reason)}`
+            : `Reason: ${formatLabel(reason)}`}
+        </p>
+      ) : null}
+
+      {itemPriceWindow ? (
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-sky-200 pt-2">
+          <span>Browse item-price range</span>
+          <span className="font-semibold text-stone-900">
+            {formatActiveMoney({
+              value: itemPriceWindow.min,
+              currency: itemPriceWindow.currency,
+            })} – {formatActiveMoney({
+              value: itemPriceWindow.max,
+              currency: itemPriceWindow.currency,
+            })}
+          </span>
+        </div>
+      ) : null}
+
+      {multipliers ? (
+        <p className="border-t border-sky-200 pt-2">
+          Browse multipliers: {formatNumber(multipliers.min_price_multiplier)}× min · {formatNumber(multipliers.max_price_multiplier)}× max
+        </p>
+      ) : null}
+
+      <p
+        className="leading-5 text-stone-500"
+        title="Browse range is derived from the condition-aware pricing anchor before competitive and velocity adjustments. eBay filters item price in this range; shipping is evaluated separately."
+      >
+        Derived from the condition-aware anchor before competitive and velocity adjustments; eBay filters item price, while shipping is evaluated separately.
+      </p>
+
+      <p className="text-[11px] text-stone-500">{formatCapturedAt(activeMarket.captured_at)}</p>
+
+      {showCompetitors ? (
+        <div className="grid gap-1 border-t border-sky-200 pt-2">
+          <p className="font-semibold text-stone-700">Accepted competitors</p>
+          <ul
+            aria-label="Active market competitors"
+            className="max-h-56 overflow-y-auto overflow-x-hidden pr-1"
+          >
+            {activeMarket.competitors.map((competitor) => (
+              <ActiveMarketCompetitorRow
+                key={competitor.legacy_item_id}
+                competitor={competitor}
+              />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function SucceededSummaryStats({
   research,
 }: {
@@ -321,13 +481,34 @@ function SucceededSummaryStats({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div>
-        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">
+        <span
+          className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400"
+          title="Suggested is the normal sold-comps and condition result."
+        >
           Suggested
         </span>
         <p className="mt-0.5 text-lg font-semibold tracking-[-0.02em] text-stone-900">
           {formatPrice(research.suggested_price)}
         </p>
       </div>
+
+      {research.active_market ? (
+        <div>
+          <span
+            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400"
+            title="Tactical is supplemental current fixed-price competition evidence. It never automatically replaces Suggested and appears only when backend evidence gates pass."
+          >
+            Tactical sell price
+          </span>
+          <p
+            className="mt-0.5 text-lg font-semibold tracking-[-0.02em] text-stone-900"
+          >
+            {research.active_market.tactical_sell_price === null
+              ? "Unavailable — not enough exact evidence"
+              : formatPrice(research.active_market.tactical_sell_price)}
+          </p>
+        </div>
+      ) : null}
 
       {research.confidence ? (
         <span
@@ -435,6 +616,10 @@ function SucceededSummaryDetails({
 
       {showPriceAdjustment ? (
         <SucceededPriceAdjustment research={research} />
+      ) : null}
+
+      {research.active_market ? (
+        <ActiveMarketSummary activeMarket={research.active_market} />
       ) : null}
 
       <p className="text-[10px] uppercase tracking-[0.1em] text-stone-400">

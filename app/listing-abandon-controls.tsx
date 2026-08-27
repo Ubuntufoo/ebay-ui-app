@@ -1,6 +1,7 @@
 "use client";
 
 import {useActionState, useEffect, useId, useRef} from "react";
+import {createPortal} from "react-dom";
 
 import {abandonListingAction} from "@/app/listing-abandon-actions";
 import {
@@ -34,7 +35,11 @@ export function ListingAbandonControls({
     }
   }, [onAbandoned, state.abandonedListingId]);
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/45 p-4">
       <section
         role="dialog"
@@ -91,6 +96,7 @@ export function ListingAbandonControls({
           </div>
         </form>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -194,6 +194,7 @@ function mapUpdateListingInput(
     description: input.description,
     itemSpecifics: input.itemSpecifics,
     price: input.price,
+    browsePricingOptions: input.browsePricingOptions,
     pricingModifierOptions: input.pricingModifierOptions,
     sellerHints: input.sellerHints,
     title: input.title,

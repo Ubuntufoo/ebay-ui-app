@@ -414,11 +414,13 @@ export function ListingStatusControls({
 }
 
 export function ListingReviewGate({
+  bare = false,
   cardConditionToken = null,
   listing,
   showPricingResearchPanel = true,
   showRetryPricingForm = true,
 }: {
+  bare?: boolean;
   cardConditionToken?: string | null;
   listing: Listing;
   showPricingResearchPanel?: boolean;
@@ -441,8 +443,8 @@ export function ListingReviewGate({
     return null;
   }
 
-  return (
-    <section className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4">
+  const reviewContent = (
+    <>
       {showPricingResearchPanel ? (
         <ListingPricingResearchPanel listing={listing} />
       ) : null}
@@ -484,6 +486,16 @@ export function ListingReviewGate({
           </p>
         ) : null}
       </form>
+    </>
+  );
+
+  if (bare) {
+    return reviewContent;
+  }
+
+  return (
+    <section className="grid gap-4 rounded-[1.5rem] border border-stone-950/10 bg-stone-50/60 p-4">
+      {reviewContent}
     </section>
   );
 }

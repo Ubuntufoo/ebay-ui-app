@@ -10,7 +10,9 @@ import {
 } from "react";
 
 import {ListingAbandonControls} from "@/app/listing-abandon-controls";
+import {ListingApproveForExportQuickAction} from "@/app/listing-approve-export-quick-action";
 import {ListingEditForm} from "@/app/listing-edit-form";
+import {ListingGenerateQuickAction} from "@/app/listing-generate-controls";
 import {ListingImageGallery} from "@/app/listing-image-gallery";
 import {ListingSandboxDeleteControls} from "@/app/listing-sandbox-delete-controls";
 import {hasPersistedListingError} from "@/app/listing-error-utils";
@@ -46,6 +48,14 @@ function formatExportedAt(exportedAt: string | null): string {
   }
 
   return formatUpdatedAt(exportedAt);
+}
+
+function sortOldestCreatedFirst(listings: Listing[]): Listing[] {
+  return [...listings].sort(
+    (left, right) =>
+      new Date(left.created_at).getTime() -
+      new Date(right.created_at).getTime(),
+  );
 }
 
 function sortNewestFirst(listings: Listing[]): Listing[] {
@@ -112,7 +122,7 @@ function PublishedListingsPanel({
           Published Listings
         </h2>
       </div>
-      <div className="overflow-x-auto">
+      <div className="max-h-[22rem] overflow-y-auto overflow-x-auto">
         <table className="min-w-full border-collapse">
           <thead>
             <tr className="border-b border-stone-950/10 bg-stone-50/90 text-left">
@@ -186,7 +196,8 @@ function PublishedListingsPanel({
                     <button
                       type="button"
                       disabled={
-                        !isStructuredSku(listing.sku) || listing.sold_at !== null
+                        !isStructuredSku(listing.sku) ||
+                        listing.sold_at !== null
                       }
                       title={
                         !isStructuredSku(listing.sku)
@@ -228,16 +239,19 @@ export function ListingsTableEditable({
   const [abandonListingId, setAbandonListingId] = useState<string | null>(null);
   const [sandboxDeleteListing, setSandboxDeleteListing] =
     useState<Listing | null>(null);
-  const sortedListings = useMemo(() => sortNewestFirst(listings), [listings]);
   const activeListings = useMemo(
     () =>
-      sortedListings.filter((listing) => !isPublishedListing(listing.status)),
-    [sortedListings],
+      sortOldestCreatedFirst(
+        listings.filter((listing) => !isPublishedListing(listing.status)),
+      ),
+    [listings],
   );
   const publishedListings = useMemo(
     () =>
-      sortedListings.filter((listing) => isPublishedListing(listing.status)),
-    [sortedListings],
+      sortNewestFirst(
+        listings.filter((listing) => isPublishedListing(listing.status)),
+      ),
+    [listings],
   );
   const selectedListing = useMemo(
     () =>
@@ -437,8 +451,15 @@ export function ListingsTableEditable({
                           </td>
                           <td className="px-4 py-3 text-sm text-stone-600">
                             <div className="inline-flex flex-col items-stretch gap-1.5">
+                              <ListingGenerateQuickAction listing={listing} />
+                              <ListingApproveForExportQuickAction
+                                listing={listing}
+                                onApproveForExport={() =>
+                                  setSelectedListingId(null)
+                                }
+                              />
                               {intakeOnly ? (
-                                <span className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-500">
+                                <span className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-300 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">
                                   Read only
                                 </span>
                               ) : (
@@ -448,7 +469,7 @@ export function ListingsTableEditable({
                                   onClick={() =>
                                     toggleSelectedListing(listing.listing_id)
                                   }
-                                  className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950/15 bg-white px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
+                                  className="inline-flex justify-center whitespace-nowrap rounded-full border border-stone-950/15 bg-white px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
                                 >
                                   {actionLabel}
                                 </button>
@@ -456,15 +477,19 @@ export function ListingsTableEditable({
                               <button
                                 type="button"
                                 title={
+                                  listing.status === "assets_ready" ||
                                   listing.status === "needs_review"
                                     ? "Abandon this listing"
-                                    : "Only Needs review listings can be abandoned."
+                                    : "Only Assets ready or Needs review listings can be abandoned."
                                 }
-                                disabled={listing.status !== "needs_review"}
+                                disabled={
+                                  listing.status !== "assets_ready" &&
+                                  listing.status !== "needs_review"
+                                }
                                 onClick={() =>
                                   setAbandonListingId(listing.listing_id)
                                 }
-                                className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-800 bg-rose-700 px-2.5 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
+                                className="inline-flex justify-center whitespace-nowrap rounded-full border border-rose-800 bg-rose-700 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:border-rose-300 disabled:bg-rose-100 disabled:text-rose-500 disabled:opacity-60"
                               >
                                 Abandon Listing
                               </button>
@@ -474,7 +499,21 @@ export function ListingsTableEditable({
 
                         {!intakeOnly && isSelected ? (
                           <tr className="border-b border-stone-950/10 last:border-b-0">
-                            <td colSpan={8} className="px-4 py-4">
+                            <td
+                              colSpan={8}
+                              className="px-4 py-4"
+                              onSubmitCapture={(event) => {
+                                const submittedForm = event.target;
+                                if (
+                                  submittedForm instanceof HTMLFormElement &&
+                                  new FormData(submittedForm).has(
+                                    "current_status",
+                                  )
+                                ) {
+                                  setSelectedListingId(null);
+                                }
+                              }}
+                            >
                               <ListingEditForm
                                 key={`${listing.listing_id}:${listing.status}:${listing.sub_status}:${listing.updated_at}`}
                                 listing={listing}

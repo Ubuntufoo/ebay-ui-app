@@ -139,6 +139,9 @@ describe("ListingEditForm", () => {
       "disabled",
       true,
     );
+    expect(
+      screen.queryByRole("region", {name: "Listing image order"}),
+    ).toBeNull();
     expect(screen.queryByRole("button", {name: "Assets ready"})).toBeNull();
     expect(screen.queryByRole("button", {name: "Needs review"})).toBeNull();
     expect(
@@ -171,6 +174,9 @@ describe("ListingEditForm", () => {
       screen.getByRole("button", {name: "Generate AI Draft"}),
     ).not.toBeNull();
     expect(screen.getAllByLabelText("Seller hints").length).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("region", {name: "Listing image order"}),
+    ).not.toBeNull();
     expect(screen.queryByText("2 images")).toBeNull();
     expect(
       screen.queryByRole("link", {name: "Open LIST-001 image 1"}),
@@ -192,6 +198,48 @@ describe("ListingEditForm", () => {
     expect(screen.queryByRole("button", {name: "Retry Publish"})).toBeNull();
   });
 
+  it("omits removed quick title suffixes and still appends Rookie Card", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    const initialTitle = "A".repeat(55);
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/title.jpg"],
+          {
+            title: initialTitle,
+          },
+        )}
+      />,
+    );
+
+    const titleInput = screen.getByLabelText("Title") as HTMLInputElement;
+
+    expect(titleInput.value).toBe(initialTitle);
+    expect(screen.getByText("55/80")).not.toBeNull();
+    expect(screen.queryByRole("button", {name: 'Add "EX/NM+"'})).toBeNull();
+    expect(
+      screen.queryByRole("button", {name: 'Add "DISCOUNT SHIPPING"'}),
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", {name: 'Add "Rookie Card"'}));
+
+    expect(titleInput.value).toBe(`${initialTitle} Rookie Card`);
+    expect(screen.getByText("67/80")).not.toBeNull();
+    expect(saveListingEditsMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledTimes(1);
+
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+
+    expect(submittedFormData.get("title")).toBe(`${initialTitle} Rookie Card`);
+  });
+
   it("renders exactly four supported card condition options", () => {
     render(<ListingEditForm listing={buildListing("needs_review")} />);
     const cardConditionSelect = screen.getByLabelText(
@@ -209,6 +257,21 @@ describe("ListingEditForm", () => {
       "Very good",
       "Poor",
     ]);
+  });
+
+  it("keeps image ordering unavailable after review workflow advances", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing("approved_for_export", [
+          "https://example.com/approved-1.jpg",
+          "https://example.com/approved-2.jpg",
+        ])}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", {name: "Listing image order"}),
+    ).toBeNull();
   });
 
   it("shows saved supported card condition, helper label, condition notes, and item specifics JSON", () => {
@@ -603,6 +666,9 @@ describe("ListingEditForm", () => {
       ),
     ).toBeNull();
     expect(screen.getByText("Pricing research")).not.toBeNull();
+    expect(
+      screen.getByRole("region", {name: "Listing image order"}),
+    ).not.toBeNull();
 
     expect(screen.getByLabelText("Title")).toHaveProperty("disabled", false);
     expect(
@@ -700,6 +766,8 @@ describe("ListingEditForm", () => {
               sold_count: 12,
               status: "succeeded",
               suggested_price: 42,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -758,6 +826,199 @@ describe("ListingEditForm", () => {
     ).not.toBe(0);
   });
 
+  it("places inventory and image ordering below item specifics and keeps SKU inline", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          [
+            "https://example.com/review-1.jpg",
+            "https://example.com/review-2.jpg",
+          ],
+          {listing_id: "Single-000010"},
+        )}
+      />,
+    );
+
+    const itemSpecificsInput = screen.getByLabelText("Item specifics (JSON)");
+    const inventorySectionHeading = screen.getByText("Inventory / SKU");
+    const imageOrderRegion = screen.getByRole("region", {
+      name: "Listing image order",
+    });
+    const inventorySection = inventorySectionHeading.closest("section");
+    const skuSelect = screen.getByLabelText(
+      "SKU category prefix",
+    ) as HTMLSelectElement;
+    const skuPreview = screen.getByText("OTHER-Single-000010");
+
+    expect(
+      itemSpecificsInput.compareDocumentPosition(inventorySectionHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      itemSpecificsInput.compareDocumentPosition(imageOrderRegion) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      inventorySectionHeading.compareDocumentPosition(imageOrderRegion) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+
+    expect(inventorySection?.className ?? "").toContain("lg:flex-1");
+    expect(inventorySection?.parentElement?.className ?? "").toContain(
+      "lg:flex-row",
+    );
+    expect(imageOrderRegion.parentElement?.className ?? "").toContain(
+      "lg:w-fit",
+    );
+    expect(imageOrderRegion.parentElement?.className ?? "").toContain(
+      "lg:shrink-0",
+    );
+    expect(skuSelect.closest(".grid")?.className ?? "").toContain(
+      "md:grid-cols-2",
+    );
+    expect(skuSelect.className).not.toContain("max-w-xs");
+    expect(skuPreview.parentElement?.className ?? "").not.toContain("max-w-xs");
+  });
+
+  it("renders sports-card item specifics before inventory and image ordering", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          [
+            "https://example.com/review-1.jpg",
+            "https://example.com/review-2.jpg",
+          ],
+          {
+            category_id: "261328",
+            listing_id: "Single-000011",
+            item_specifics: {
+              Manufacturer: "Topps",
+              Player: "Mike Trout",
+              skuCategoryCode: "BSKBL",
+            },
+          },
+        )}
+      />,
+    );
+
+    const sportsSection = screen.getByRole("region", {
+      name: "Sports card item specifics",
+    });
+    const inventorySectionHeading = screen.getByText("Inventory / SKU");
+    const imageOrderRegion = screen.getByRole("region", {
+      name: "Listing image order",
+    });
+
+    expect(
+      sportsSection.compareDocumentPosition(inventorySectionHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+    expect(
+      inventorySectionHeading.compareDocumentPosition(imageOrderRegion) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).not.toBe(0);
+  });
+
+  it("shows taxonomy defaults and includes untouched defaults in one Save edits submission", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/defaults.jpg"],
+          {
+            category_id: "261328",
+            item_specifics: {
+              Player: "Mike Trout",
+              Sport: "Baseball",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect((screen.getByLabelText(/^Material/i) as HTMLInputElement).value).toBe(
+      "Card Stock",
+    );
+    expect(
+      (screen.getByLabelText(/^Card Thickness/i) as HTMLInputElement).value,
+    ).toBe("20 Pt.");
+    expect((screen.getByLabelText(/^Card Size/i) as HTMLInputElement).value).toBe(
+      "Standard",
+    );
+    expect((screen.getByLabelText(/^Language/i) as HTMLInputElement).value).toBe(
+      "English",
+    );
+    expect(
+      (screen.getByLabelText(/^Original\/Licensed Reprint/i) as HTMLSelectElement)
+        .value,
+    ).toBe("Original");
+    expect((screen.getByLabelText(/^Vintage/i) as HTMLSelectElement).value).toBe(
+      "Yes",
+    );
+    expect(
+      (screen.getByLabelText(/^Autographed/i) as HTMLSelectElement).value,
+    ).toBe("No");
+    expect(screen.getByLabelText(/^Material/i).getAttribute("list")).not.toBeNull();
+    expect((screen.getByLabelText(/^Card Name/i) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/^Features/i) as HTMLInputElement).value).toBe("");
+
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const changes = JSON.parse(
+      String(submittedFormData.get("sports_card_specific_changes")),
+    ) as Record<string, string>;
+
+    expect(changes).toMatchObject({
+      Material: "Card Stock",
+      "Card Thickness": "20 Pt.",
+      "Card Size": "Standard",
+      Language: "English",
+      "Original/Licensed Reprint": "Original",
+      Vintage: "Yes",
+      Autographed: "No",
+    });
+    expect(changes).not.toHaveProperty("Card Name");
+    expect(changes).not.toHaveProperty("Features");
+  });
+
+  it("preserves saved sports-card values while still defaulting missing fields", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/saved-specifics.jpg"],
+          {
+            category_id: "261328",
+            item_specifics: {
+              Features: ["Insert", "Short Print"],
+              Material: ["Paper"],
+              Autographed: "Yes",
+              Vintage: "No",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect((screen.getByLabelText(/^Material/i) as HTMLInputElement).value).toBe(
+      "Paper",
+    );
+    expect((screen.getByLabelText(/^Features/i) as HTMLInputElement).value).toBe(
+      "Insert, Short Print",
+    );
+    expect((screen.getByLabelText(/^Vintage/i) as HTMLSelectElement).value).toBe(
+      "No",
+    );
+    expect(
+      (screen.getByLabelText(/^Autographed/i) as HTMLSelectElement).value,
+    ).toBe("Yes");
+  });
+
   it("renders a per-listing uncertain-year notice with advisory likely year details", () => {
     render(
       <ListingEditForm
@@ -797,6 +1058,8 @@ describe("ListingEditForm", () => {
               sold_count: 12,
               status: "succeeded",
               suggested_price: 42,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -806,7 +1069,9 @@ describe("ListingEditForm", () => {
 
     expect(screen.getByText("Card year is unverified.")).not.toBeNull();
     expect(
-      screen.getByText("Likely year: 1955. Advisory only; year is not confirmed."),
+      screen.getByText(
+        "Likely year: 1955. Advisory only; year is not confirmed.",
+      ),
     ).not.toBeNull();
     expect(
       screen.getByText(
@@ -1374,6 +1639,8 @@ describe("ListingEditForm", () => {
               sold_count: 12,
               status: "succeeded",
               suggested_price: 42.0,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -1398,7 +1665,9 @@ describe("ListingEditForm", () => {
     expect(succeededSummaryCard).not.toBeNull();
     expect(succeededSummaryCard?.textContent).toContain("Accepted: 26");
     expect(succeededSummaryCard?.textContent).toContain("Rejected: 24");
-    expect(succeededSummaryCard?.textContent).toContain("Provider returned: 50");
+    expect(succeededSummaryCard?.textContent).toContain(
+      "Provider returned: 50",
+    );
     expect(succeededSummaryCard?.textContent).toContain(
       "Query: 2023 Topps Chrome Mike Trout",
     );
@@ -1406,9 +1675,7 @@ describe("ListingEditForm", () => {
       "Provider: soldcomps · Model: gemini-2.5-flash",
     );
     expect(succeededSummaryCard?.textContent).not.toContain("Price modifiers");
-    expect(
-      succeededSummaryCard?.contains(priceModifiersHeading),
-    ).toBe(false);
+    expect(succeededSummaryCard?.contains(priceModifiersHeading)).toBe(false);
     expect(screen.getByText("Raw -12.25% · Applied 0%")).not.toBeNull();
     expect(
       screen.getByText(
@@ -1476,6 +1743,8 @@ describe("ListingEditForm", () => {
               sold_count: null,
               status: "failed",
               suggested_price: null,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -1485,9 +1754,7 @@ describe("ListingEditForm", () => {
 
     expect(screen.getByText("Pricing research")).not.toBeNull();
     expect(
-      screen.getByText(
-        /provider returned no matching sold comps/i,
-      ),
+      screen.getByText(/provider returned no matching sold comps/i),
     ).not.toBeNull();
     expect(screen.getByText("failed")).not.toBeNull();
     expect(screen.getByText("Requested comps: 25")).not.toBeNull();
@@ -1525,7 +1792,13 @@ describe("ListingEditForm", () => {
             latest_pricing_research: {
               comp_summary: {
                 rejected_comp_count: 5,
-                rejected_comp_ids: ["comp-1", "comp-2", "comp-3", "comp-4", "comp-5"],
+                rejected_comp_ids: [
+                  "comp-1",
+                  "comp-2",
+                  "comp-3",
+                  "comp-4",
+                  "comp-5",
+                ],
                 selected_comp_count: 0,
                 selected_comp_ids: [],
                 total_comp_count: 5,
@@ -1556,6 +1829,8 @@ describe("ListingEditForm", () => {
               sold_count: null,
               status: "failed",
               suggested_price: null,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -1616,6 +1891,8 @@ describe("ListingEditForm", () => {
               sold_count: null,
               status: "failed",
               suggested_price: null,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -1623,9 +1900,7 @@ describe("ListingEditForm", () => {
       />,
     );
 
-    expect(
-      screen.getByText(/provider call did not complete/i),
-    ).not.toBeNull();
+    expect(screen.getByText(/provider call did not complete/i)).not.toBeNull();
     expect(screen.getByText("Failure code: apify_timeout")).not.toBeNull();
     expect(
       screen.getByText("Failure category: retryable timeout"),
@@ -1670,6 +1945,8 @@ describe("ListingEditForm", () => {
               sold_count: null,
               status: "failed",
               suggested_price: null,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -1720,6 +1997,8 @@ describe("ListingEditForm", () => {
               sold_count: null,
               status: "failed",
               suggested_price: null,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -1774,6 +2053,8 @@ describe("ListingEditForm", () => {
               sold_count: null,
               status: "failed",
               suggested_price: null,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
           },
@@ -1796,6 +2077,41 @@ describe("ListingEditForm", () => {
 
     const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
     expect(submittedFormData.get("price")).toBe("29.99");
+  });
+
+  it("rejects a sub-minimum price in the form before submitting", async () => {
+    const user = userEvent.setup();
+
+    render(<ListingEditForm listing={buildListing("needs_review")} />);
+
+    const priceInput = screen.getByLabelText("Price") as HTMLInputElement;
+    expect(priceInput.min).toBe("0.99");
+
+    await user.clear(priceInput);
+    await user.type(priceInput, "0.95");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(screen.getByText("Price must be at least $0.99.")).not.toBeNull();
+    expect(saveListingEditsMock).not.toHaveBeenCalled();
+  });
+
+  it("submits the exact $0.99 minimum price", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(<ListingEditForm listing={buildListing("needs_review")} />);
+
+    const priceInput = screen.getByLabelText("Price");
+    await user.clear(priceInput);
+    await user.type(priceInput, "0.99");
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+
+    expect(saveListingEditsMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(FormData),
+    );
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    expect(submittedFormData.get("price")).toBe("0.99");
   });
 
   it("does not auto-trigger pricing re-run when saving edits", async () => {
@@ -1831,6 +2147,8 @@ describe("ListingEditForm", () => {
               sold_count: null,
               status: "failed",
               suggested_price: null,
+              terapeak_max_price: null,
+              terapeak_min_price: null,
               updated_at: "2026-06-19T00:00:00.000Z",
             },
             listing_type: "single",

@@ -15,7 +15,10 @@ vi.mock("@/app/listing-generate-actions", () => ({
   saveListingPricingModifierOptions: saveListingPricingModifierOptionsMock,
 }));
 
-import {ListingGenerateControls} from "@/app/listing-generate-controls";
+import {
+  ListingGenerateControls,
+  ListingGenerateQuickAction,
+} from "@/app/listing-generate-controls";
 
 function buildListing(status: Listing["status"]): Listing {
   return {
@@ -89,6 +92,40 @@ describe("ListingGenerateControls", () => {
     expect(screen.getByLabelText("Seller hints")).not.toBeNull();
   });
 
+  it("immediately disables the quick action without changing its label", async () => {
+    const deferred = createDeferred<{
+      error: string | null;
+      info: string | null;
+      success: string | null;
+    }>();
+    enqueueGenerateListingMock.mockReturnValueOnce(deferred.promise);
+    const user = userEvent.setup();
+
+    render(<ListingGenerateQuickAction listing={buildListing("assets_ready")} />);
+
+    const button = screen.getByRole("button", {name: "Generate AI Draft"});
+    await user.click(button);
+
+    expect(button).toHaveProperty("disabled", true);
+    expect(button.textContent).toBe("Generate AI Draft");
+    const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+    expect(
+      (submittedFormData as FormData).get("min_price_multiplier"),
+    ).toBe("0.33");
+    expect(
+      (submittedFormData as FormData).get("max_price_multiplier"),
+    ).toBe("3.00");
+    await Promise.resolve();
+    expect(button).toHaveProperty("disabled", true);
+
+    deferred.resolve({error: null, info: null, success: "Queued."});
+
+    await waitFor(() => {
+      expect(button).toHaveProperty("disabled", false);
+    });
+  });
+
   it.each([
     "record_created",
     "image_processing_queued",
@@ -119,15 +156,24 @@ describe("ListingGenerateControls", () => {
 
     const sellerHints = screen.getByLabelText("Seller hints");
     await user.type(sellerHints, "Use padded envelope");
-    await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
+    const generateButton = screen.getByRole("button", {
+      name: "Generate AI Draft",
+    });
+    await user.click(generateButton);
 
+    expect(generateButton).toHaveProperty("disabled", true);
+    expect(generateButton.textContent).toBe("Generate AI Draft");
+    await Promise.resolve();
+    expect(generateButton).toHaveProperty("disabled", true);
     expect(enqueueGenerateListingMock).toHaveBeenCalled();
     const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
 
     expect(submittedFormData).toBeInstanceOf(FormData);
 
     if (!(submittedFormData instanceof FormData)) {
-      throw new TypeError("Expected Generate AI Draft submission to use FormData.");
+      throw new TypeError(
+        "Expected Generate AI Draft submission to use FormData.",
+      );
     }
 
     expect(submittedFormData.get("listing_id")).toBe("LIST-001");
@@ -136,12 +182,13 @@ describe("ListingGenerateControls", () => {
     expect(submittedFormData.get("exclude_graded")).toBe("true");
     expect(submittedFormData.get("exclude_autographs")).toBe("true");
     expect(submittedFormData.get("exclude_variants")).toBe("false");
+    expect(submittedFormData.get("skip_browse")).toBe("false");
+    expect(submittedFormData.get("min_price_multiplier")).toBe("0.33");
+    expect(submittedFormData.get("max_price_multiplier")).toBe("3.00");
 
-    await waitFor(() => {
-      const button = screen.getByRole("button", {name: "Generating..."});
-      expect(button).not.toBeNull();
-      expect(button).toHaveProperty("disabled", true);
-    });
+    expect(
+      screen.queryByRole("button", {name: "Generating..."}),
+    ).toBeNull();
 
     expect(screen.getByLabelText("Seller hints")).toHaveProperty(
       "disabled",
@@ -182,6 +229,39 @@ describe("ListingGenerateControls", () => {
     expect(error).not.toBeNull();
   });
 
+  it("submits complete Browse values when Skip Browse API is checked", async () => {
+    enqueueGenerateListingMock.mockResolvedValueOnce({
+      info: null,
+      error: null,
+      success: "queued",
+    });
+    const user = userEvent.setup();
+
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    const min = screen.getByLabelText("Browse Min multiplier");
+    const max = screen.getByLabelText("Browse Max multiplier");
+    await user.clear(min);
+    await user.type(min, "0.5");
+    await user.clear(max);
+    await user.type(max, "2");
+    await user.click(screen.getByRole("checkbox", {name: "Skip Browse API"}));
+    await user.click(screen.getByRole("button", {name: "Generate AI Draft"}));
+
+    const submittedFormData = enqueueGenerateListingMock.mock.calls[0]?.[1];
+    expect(submittedFormData).toBeInstanceOf(FormData);
+
+    if (!(submittedFormData instanceof FormData)) {
+      throw new TypeError(
+        "Expected Generate AI Draft submission to use FormData.",
+      );
+    }
+
+    expect(submittedFormData.get("skip_browse")).toBe("true");
+    expect(submittedFormData.get("min_price_multiplier")).toBe("0.5");
+    expect(submittedFormData.get("max_price_multiplier")).toBe("2");
+  });
+
   it("renders backend-equivalent modifier defaults when missing", () => {
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
@@ -191,6 +271,219 @@ describe("ListingGenerateControls", () => {
     expect(
       screen.getByRole("checkbox", {name: "Avoid autographs"}),
     ).toHaveProperty("checked", true);
+    expect(
+      screen.getByRole("checkbox", {name: "Skip Browse API"}),
+    ).toHaveProperty("checked", false);
+  });
+
+  it("hydrates a persisted Skip Browse API choice", () => {
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            browsePricingOptions: {
+              skipBrowse: true,
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("checkbox", {name: "Skip Browse API"}),
+    ).toHaveProperty("checked", true);
+  });
+
+  it("shows canonical Browse multiplier defaults", () => {
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    expect(screen.getByLabelText("Browse Min multiplier")).toHaveProperty(
+      "value",
+      "0.33",
+    );
+    expect(screen.getByLabelText("Browse Max multiplier")).toHaveProperty(
+      "value",
+      "3.00",
+    );
+  });
+
+  it("hydrates persisted Browse multipliers", () => {
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            browsePricingOptions: {
+              skipBrowse: true,
+              minPriceMultiplier: 0.5,
+              maxPriceMultiplier: 2,
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Browse Min multiplier")).toHaveProperty(
+      "value",
+      "0.5",
+    );
+    expect(screen.getByLabelText("Browse Max multiplier")).toHaveProperty(
+      "value",
+      "2",
+    );
+    expect(screen.getByLabelText("Browse Min multiplier")).toHaveProperty(
+      "disabled",
+      true,
+    );
+    expect(screen.getByLabelText("Browse Max multiplier")).toHaveProperty(
+      "disabled",
+      true,
+    );
+  });
+
+  it("keeps individually valid persisted Browse fields while defaulting malformed fields", () => {
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            browsePricingOptions: {
+              skipBrowse: true,
+              minPriceMultiplier: 0.5,
+              maxPriceMultiplier: "invalid",
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByLabelText("Browse Min multiplier")).toHaveProperty(
+      "value",
+      "0.5",
+    );
+    expect(screen.getByLabelText("Browse Max multiplier")).toHaveProperty(
+      "value",
+      "3.00",
+    );
+  });
+
+  it("disables Browse multipliers with Auto Pricing off and restores values", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            browsePricingOptions: {
+              minPriceMultiplier: 0.5,
+              maxPriceMultiplier: 2,
+            },
+          },
+          auto_pricing_enabled: false,
+        }}
+      />,
+    );
+
+    const min = screen.getByLabelText("Browse Min multiplier");
+    const max = screen.getByLabelText("Browse Max multiplier");
+    expect(min).toHaveProperty("disabled", true);
+    expect(max).toHaveProperty("disabled", true);
+
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+
+    expect(min).toHaveProperty("disabled", false);
+    expect(max).toHaveProperty("disabled", false);
+    expect(min).toHaveProperty("value", "0.5");
+    expect(max).toHaveProperty("value", "2");
+  });
+
+  it("disables Browse multipliers with Skip Browse and restores values", async () => {
+    const user = userEvent.setup();
+
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    const min = screen.getByLabelText("Browse Min multiplier");
+    const max = screen.getByLabelText("Browse Max multiplier");
+    await user.clear(min);
+    await user.type(min, "0.5");
+    await user.clear(max);
+    await user.type(max, "2");
+    const skipBrowse = screen.getByRole("checkbox", {name: "Skip Browse API"});
+
+    await user.click(skipBrowse);
+    expect(min).toHaveProperty("disabled", true);
+    expect(max).toHaveProperty("disabled", true);
+
+    await user.click(skipBrowse);
+    expect(min).toHaveProperty("disabled", false);
+    expect(max).toHaveProperty("disabled", false);
+    expect(min).toHaveProperty("value", "0.5");
+    expect(max).toHaveProperty("value", "2");
+  });
+
+  it("disables Skip Browse API and shows it as skipped when Auto Pricing is off", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          auto_pricing_enabled: false,
+        }}
+      />,
+    );
+
+    const skipBrowse = screen.getByRole("checkbox", {name: "Skip Browse API"});
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(skipBrowse).toHaveProperty("disabled", true);
+
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+
+    expect(skipBrowse).toHaveProperty("checked", false);
+    expect(skipBrowse).toHaveProperty("disabled", false);
+  });
+
+  it("preserves the explicit Skip Browse API choice across Auto Pricing changes", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ListingGenerateControls
+        listing={{
+          ...buildListing("assets_ready"),
+          item_specifics: {
+            browsePricingOptions: {
+              skipBrowse: true,
+            },
+          },
+        }}
+      />,
+    );
+
+    const skipBrowse = screen.getByRole("checkbox", {name: "Skip Browse API"});
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(skipBrowse).toHaveProperty("disabled", true);
+
+    await user.click(screen.getByRole("checkbox", {name: "Auto Pricing?"}));
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(skipBrowse).toHaveProperty("disabled", false);
+  });
+
+  it("toggles Skip Browse API independently while Auto Pricing is enabled", async () => {
+    const user = userEvent.setup();
+
+    render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
+
+    const skipBrowse = screen.getByRole("checkbox", {name: "Skip Browse API"});
+    await user.click(skipBrowse);
+
+    expect(skipBrowse).toHaveProperty("checked", true);
+    expect(
+      screen.getByRole("checkbox", {name: "Auto Pricing?"}),
+    ).toHaveProperty("checked", true);
+    expect(saveListingPricingModifierOptionsMock).not.toHaveBeenCalled();
   });
 
   it("hydrates the persisted auto-pricing preference", () => {
@@ -314,6 +607,9 @@ describe("ListingGenerateControls", () => {
             pricingModifierOptions: {
               excludeGraded: false,
             },
+            browsePricingOptions: {
+              skipBrowse: true,
+            },
           },
         }}
       />,
@@ -322,6 +618,9 @@ describe("ListingGenerateControls", () => {
     expect(
       screen.getByRole("checkbox", {name: "Pre-filter graded comps"}),
     ).toHaveProperty("checked", false);
+    expect(
+      screen.getByRole("checkbox", {name: "Skip Browse API"}),
+    ).toHaveProperty("checked", true);
     expect(screen.getByLabelText("Seller hints")).toHaveProperty(
       "value",
       "Do not remount this field",
@@ -334,10 +633,16 @@ describe("ListingGenerateControls", () => {
     expect(screen.queryByRole("checkbox", {name: "+Variant"})).toBeNull();
   });
 
-  it("renders help text for graded/slabbed exclusions", () => {
+  it("renders the graded/slabbed exclusion copy in the tooltip", async () => {
+    const user = userEvent.setup();
     render(<ListingGenerateControls listing={buildListing("assets_ready")} />);
 
-    expect(screen.getByText(/core provider negatives/)).not.toBeNull();
+    expect(screen.queryByText(/core provider negatives/)).toBeNull();
+
+    await user.hover(
+      screen.getByRole("button", {name: "Avoid autographs help"}),
+    );
+
     expect(
       screen.getByText(
         /always removed after results return, even when this toggle is off/,

@@ -10,7 +10,10 @@ const keyAliases = {
   brand: ["brand", "manufacturer", "publisher", "make"],
   cardName: ["card", "card name", "card title", "name", "subject"],
   cardNumber: ["card number", "card no", "card #", "#", "number"],
-  player: ["player", "athlete", "character"],
+  league: ["league"],
+  player: ["player", "athlete", "character", "player athlete"],
+  insertSet: ["insert set"],
+  parallelVariety: ["parallel variety", "parallel", "variety"],
   series: ["series"],
   sport: ["sport"],
   set: ["set"],
@@ -83,6 +86,25 @@ function readSpecificValue(
     if (text) {
       return toDisplayCase(text);
     }
+  }
+
+  return null;
+}
+
+function readRawSpecificValue(
+  itemSpecifics: Json,
+  aliases: readonly string[],
+): string | null {
+  if (!isRecord(itemSpecifics)) {
+    return null;
+  }
+
+  for (const [key, value] of Object.entries(itemSpecifics)) {
+    if (!aliases.includes(normalizeKey(key))) {
+      continue;
+    }
+
+    return readPrimitiveText(value);
   }
 
   return null;
@@ -167,6 +189,66 @@ function buildStructuredCardQuery(listing: Listing): string | null {
   return combined === "" ? null : combined;
 }
 
+function stripTrailingStructuredPhrase(value: string, phrase: string): string {
+  const normalizedValue = normalizeWhitespace(value);
+  const normalizedPhrase = normalizeWhitespace(phrase);
+  if (!normalizedPhrase) {
+    return normalizedValue;
+  }
+
+  const suffix = ` ${normalizedPhrase.toLowerCase()}`;
+  if (!normalizedValue.toLowerCase().endsWith(suffix)) {
+    return normalizedValue;
+  }
+
+  const stripped = normalizedValue.slice(0, -suffix.length).trim();
+  return stripped || normalizedValue;
+}
+
+function readCanonicalBaseSet(listing: Listing): string | null {
+  const set = readRawSpecificValue(listing.item_specifics, keyAliases.set);
+  if (!set) {
+    return null;
+  }
+
+  const characteristics = [
+    readRawSpecificValue(listing.item_specifics, keyAliases.insertSet),
+    readRawSpecificValue(listing.item_specifics, keyAliases.parallelVariety),
+  ].filter((value): value is string => Boolean(value));
+
+  let canonicalSet = normalizeWhitespace(set);
+  let previous = "";
+  while (canonicalSet !== previous) {
+    previous = canonicalSet;
+    for (const characteristic of characteristics) {
+      canonicalSet = stripTrailingStructuredPhrase(canonicalSet, characteristic);
+    }
+  }
+
+  return canonicalSet;
+}
+
+function formatSearchCardNumber(cardNumber: string | null): string | null {
+  if (!cardNumber) {
+    return null;
+  }
+
+  const normalized = normalizeWhitespace(cardNumber).replace(/^#\s*/u, "");
+  return normalized ? `#${normalized}` : null;
+}
+
+function buildSportsCardsProSearchText(listing: Listing): string | null {
+  const year = readRawSpecificValue(listing.item_specifics, keyAliases.year);
+  const set = readCanonicalBaseSet(listing);
+  const player = readRawSpecificValue(listing.item_specifics, keyAliases.player);
+  const cardNumber = formatSearchCardNumber(
+    readRawSpecificValue(listing.item_specifics, keyAliases.cardNumber),
+  );
+  const structured = joinUnique([year, set, player, cardNumber]);
+
+  return structured === "" ? null : structured;
+}
+
 function readSportsCardsProSportSlug(listing: Listing): string | null {
   const sport = readSpecificValue(listing.item_specifics, keyAliases.sport);
   if (!sport) {
@@ -174,7 +256,10 @@ function readSportsCardsProSportSlug(listing: Listing): string | null {
   }
 
   const normalized = normalizeWhitespace(sport).toLowerCase();
-  return sportsCardsProSportMap[normalized as keyof typeof sportsCardsProSportMap] ?? null;
+  return (
+    sportsCardsProSportMap[normalized as keyof typeof sportsCardsProSportMap] ??
+    null
+  );
 }
 
 function buildSportsCardsProUrl(query: string, sport: string | null): string {
@@ -190,7 +275,11 @@ function buildSportsCardsProUrl(query: string, sport: string | null): string {
   return `https://www.sportscardspro.com/search-products?${params.toString()}`;
 }
 
-function buildTerapeakUrl(query: string, now = Date.now()): string {
+function buildTerapeakUrl(
+  query: string,
+  priceBand: {min: number | null; max: number | null},
+  now = Date.now(),
+): string {
   const dayRange = 365;
   const endDate = now;
   const startDate = endDate - dayRange * 24 * 60 * 60 * 1000;
@@ -204,7 +293,7 @@ function buildTerapeakUrl(query: string, now = Date.now()): string {
   params.append("dayRange", String(dayRange));
   params.append("endDate", String(endDate));
   params.append("startDate", String(startDate));
-  params.append("categoryId", "0");
+  params.append("categoryId", "261328");
   params.append("format", "BEST_OFFER");
   params.append("format", "FIXED_PRICE");
   params.append("offset", "0");
@@ -212,14 +301,43 @@ function buildTerapeakUrl(query: string, now = Date.now()): string {
   params.append("tabName", "SOLD");
   params.append("tz", "America/New_York");
 
+  if (
+    priceBand.min !== null &&
+    priceBand.max !== null &&
+    Number.isFinite(priceBand.min) &&
+    Number.isFinite(priceBand.max) &&
+    priceBand.min > 0 &&
+    priceBand.max > 0 &&
+    priceBand.max >= priceBand.min
+  ) {
+    params.append("minPrice", String(priceBand.min));
+    params.append("maxPrice", String(priceBand.max));
+  }
+
   return `https://www.ebay.com/sh/research?${params.toString()}`;
 }
 
 function buildTerapeakSearchText(listing: Listing): string | null {
-  const title = listing.title ? normalizeWhitespace(listing.title) : "";
+  const player = readRawSpecificValue(listing.item_specifics, keyAliases.player);
+  const cardNumber = readRawSpecificValue(
+    listing.item_specifics,
+    keyAliases.cardNumber,
+  );
+  const year = readRawSpecificValue(listing.item_specifics, keyAliases.year);
+  const set = readCanonicalBaseSet(listing);
+  const manufacturer = readRawSpecificValue(
+    listing.item_specifics,
+    keyAliases.brand,
+  );
+  const structured = joinUnique([
+    player,
+    cardNumber,
+    year,
+    set ?? manufacturer,
+  ]);
 
-  if (title !== "") {
-    return title;
+  if (structured !== "") {
+    return structured;
   }
 
   return buildListingPricingSearchText(listing);
@@ -247,20 +365,20 @@ export function getListingPricingLinks(
   listing: Listing,
   now = Date.now(),
 ): PricingLink[] {
-  const query = buildListingPricingSearchText(listing);
+  const sportsCardsProQuery = buildSportsCardsProSearchText(listing);
   const sport = readSportsCardsProSportSlug(listing);
   const terapeakQuery = buildTerapeakSearchText(listing);
 
-  if (!query && !terapeakQuery) {
+  if (!sportsCardsProQuery && !terapeakQuery) {
     return [];
   }
 
   return [
-    ...(query
+    ...(sportsCardsProQuery
       ? [
           {
             label: "SportsCardsPro",
-            href: buildSportsCardsProUrl(query, sport),
+            href: buildSportsCardsProUrl(sportsCardsProQuery, sport),
           },
         ]
       : []),
@@ -268,7 +386,16 @@ export function getListingPricingLinks(
       ? [
           {
             label: "eBay Terapeak",
-            href: buildTerapeakUrl(terapeakQuery, now),
+            href: buildTerapeakUrl(
+              terapeakQuery,
+              {
+                min:
+                  listing.latest_pricing_research?.terapeak_min_price ?? null,
+                max:
+                  listing.latest_pricing_research?.terapeak_max_price ?? null,
+              },
+              now,
+            ),
           },
         ]
       : []),

@@ -286,96 +286,6 @@ async function loadAppSettings(): Promise<
   }
 }
 
-function formatSettingValue(value: string | number | null): string {
-  if (value === null) {
-    return "—";
-  }
-
-  return String(value);
-}
-
-async function AppSettingsSection({
-  settingsPromise,
-}: {
-  settingsPromise: Promise<
-    | {status: "success"; settings: AppSettings}
-    | {status: "error"; message: string}
-  >;
-}) {
-  const settingsResult = await settingsPromise;
-
-  return (
-    <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
-      <p className="text-xs font-bold tracking-[0.28em] text-stone-500">
-        APP SETTINGS
-      </p>
-      {settingsResult.status === "success" ? (
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <dl className="space-y-2">
-            {[
-              ["Capture mode: ", settingsResult.settings.capture_mode],
-              ["Handling days: ", settingsResult.settings.handling_days],
-              [
-                "Shipping profile: ",
-                settingsResult.settings.default_shipping_profile,
-              ],
-              ["Package type: ", settingsResult.settings.default_package_type],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center gap-2"
-              >
-                <dt className="text-sm text-stone-500">{label}</dt>
-                <dd className="font-semibold">
-                  {formatSettingValue(value)}
-                </dd>
-              </div>
-            ))}
-          </dl>
-          <dl className="space-y-2">
-            {[
-              ["Placeholder 1: ", "—"],
-              ["Placeholder 2: ", "—"],
-              ["Placeholder 3: ", "—"],
-              ["Placeholder 4: ", "—"],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="flex items-center gap-2"
-              >
-                <dt className="text-sm text-stone-500">{label}</dt>
-                <dd className="font-semibold">{value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ) : (
-        <p className="mt-5 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {settingsResult.message}
-        </p>
-      )}
-    </section>
-  );
-}
-
-function AppSettingsSectionFallback() {
-  return (
-    <section className="rounded-[2rem] border border-stone-950/10 bg-white/75 p-6 shadow-[0_18px_60px_rgba(68,64,60,0.12)] backdrop-blur">
-      <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-        App settings
-      </p>
-      <div className="mt-5 space-y-4">
-        {Array.from({length: 4}).map((_, index) => (
-          <div
-            key={index}
-            className="h-5 animate-pulse rounded-2xl bg-stone-100"
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function ListingsSectionFallback() {
   return (
     <>
@@ -408,11 +318,6 @@ export default function Home() {
           </Suspense>
         </section>
 
-        <section className="grid gap-5">
-          <Suspense fallback={<AppSettingsSectionFallback />}>
-            <AppSettingsSection settingsPromise={appSettingsPromise} />
-          </Suspense>
-        </section>
       </section>
     </main>
   );
