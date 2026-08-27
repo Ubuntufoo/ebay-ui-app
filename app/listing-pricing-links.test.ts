@@ -310,9 +310,10 @@ describe("listing pricing links", () => {
       }),
       1789920000000,
     );
+    expect(links.map((link) => link.label)).toEqual(["eBay Terapeak"]);
+    const terapeak = links.find((link) => link.label === "eBay Terapeak");
 
-    expect(links[1]?.label).toBe("eBay Terapeak");
-    expect(links[1]?.href).toBe(
+    expect(terapeak?.href).toBe(
       "https://www.ebay.com/sh/research?marketplace=EBAY-US&keywords=Michael+Jordan+1990+NBA+Hoops+%2365+-psa+-bgs+-sgc+-cgc+-signature+-sig+-autograph+-autographed+-graded+-lot&dayRange=365&endDate=1789920000000&startDate=1758384000000&categoryId=261328&format=BEST_OFFER&format=FIXED_PRICE&offset=0&limit=50&tabName=SOLD&tz=America%2FNew_York",
     );
   });
@@ -330,7 +331,8 @@ describe("listing pricing links", () => {
       }),
       1789920000000,
     );
-    const url = new URL(links[1]!.href);
+    const terapeak = links.find((link) => link.label === "eBay Terapeak");
+    const url = new URL(terapeak!.href);
 
     expect(url.searchParams.get("minPrice")).toBe(String(min));
     expect(url.searchParams.get("maxPrice")).toBe(String(max));
@@ -353,7 +355,8 @@ describe("listing pricing links", () => {
       }),
       1789920000000,
     );
-    const url = new URL(links[1]!.href);
+    const terapeak = links.find((link) => link.label === "eBay Terapeak");
+    const url = new URL(terapeak!.href);
 
     expect(url.searchParams.has("minPrice")).toBe(false);
     expect(url.searchParams.has("maxPrice")).toBe(false);
@@ -361,7 +364,8 @@ describe("listing pricing links", () => {
 
   it("omits both Terapeak price params without latest pricing research", () => {
     const links = getListingPricingLinks(buildListing(), 1789920000000);
-    const url = new URL(links[1]!.href);
+    const terapeak = links.find((link) => link.label === "eBay Terapeak");
+    const url = new URL(terapeak!.href);
 
     expect(url.searchParams.has("minPrice")).toBe(false);
     expect(url.searchParams.has("maxPrice")).toBe(false);
