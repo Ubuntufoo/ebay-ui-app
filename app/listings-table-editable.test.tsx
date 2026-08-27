@@ -428,7 +428,15 @@ describe("ListingsTableEditable", () => {
           ),
         ),
       ),
-    ).toEqual({Manufacturer: "Panini"});
+    ).toMatchObject({
+      Manufacturer: "Panini",
+      Material: "Card Stock",
+      "Card Thickness": "20 Pt.",
+      "Card Size": "Standard",
+      Language: "English",
+      "Original/Licensed Reprint": "Original",
+      Vintage: "Yes",
+    });
   });
 
   it("keeps intake rows read-only and active row actions vertically stacked", async () => {

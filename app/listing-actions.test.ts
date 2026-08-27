@@ -61,6 +61,7 @@ describe("saveListingEdits price validation", () => {
     updateListingMock.mockResolvedValueOnce(undefined);
     const formData = new FormData();
     formData.set("listing_id", "LIST-001");
+    formData.set("category_id", "261328");
     formData.set(
       "item_specifics",
       JSON.stringify({
@@ -73,6 +74,7 @@ describe("saveListingEdits price validation", () => {
       "sports_card_specific_changes",
       JSON.stringify({Manufacturer: "Panini", Franchise: "Boston Red Sox"}),
     );
+    formData.set("sports_card_specific_default_changes", JSON.stringify({}));
 
     const result = await saveListingEdits(
       {error: null, success: false},
@@ -81,12 +83,77 @@ describe("saveListingEdits price validation", () => {
 
     expect(result).toEqual({error: null, success: true});
     expect(updateListingMock).toHaveBeenCalledWith("LIST-001", {
+      categoryId: "261328",
       itemSpecifics: {
         Manufacturer: "Panini",
         Player: "Mike Trout",
         Franchise: "Boston Red Sox",
         customField: "preserved",
       },
+    });
+  });
+
+  it.each([
+    ["invalid scalar", "No", "Original"],
+    ["invalid multi-value", ["Licensed Reprint", "Original"], "Original"],
+    ["valid selection", "Licensed Reprint", "Licensed Reprint"],
+  ])(
+    "validates Original/Licensed Reprint before merging a %s saved value",
+    async (_label, savedValue, expectedValue) => {
+      updateListingMock.mockResolvedValueOnce(undefined);
+      const formData = new FormData();
+      formData.set("listing_id", "LIST-001");
+      formData.set("category_id", "261328");
+      formData.set(
+        "item_specifics",
+        JSON.stringify({"Original/Licensed Reprint": savedValue}),
+      );
+      formData.set(
+        "sports_card_specific_changes",
+        JSON.stringify({"Original/Licensed Reprint": "Original"}),
+      );
+      formData.set(
+        "sports_card_specific_default_changes",
+        JSON.stringify({"Original/Licensed Reprint": "Original"}),
+      );
+
+      const result = await saveListingEdits(
+        {error: null, success: false},
+        formData,
+      );
+
+      expect(result).toEqual({error: null, success: true});
+      expect(updateListingMock).toHaveBeenCalledWith("LIST-001", {
+        categoryId: "261328",
+        itemSpecifics: {"Original/Licensed Reprint": expectedValue},
+      });
+    },
+  );
+
+  it("persists the missing Autographed default through Save edits", async () => {
+    updateListingMock.mockResolvedValueOnce(undefined);
+    const formData = new FormData();
+    formData.set("listing_id", "LIST-001");
+    formData.set("category_id", "261328");
+    formData.set("item_specifics", JSON.stringify({Player: "Mike Trout"}));
+    formData.set(
+      "sports_card_specific_changes",
+      JSON.stringify({Autographed: "No"}),
+    );
+    formData.set(
+      "sports_card_specific_default_changes",
+      JSON.stringify({Autographed: "No"}),
+    );
+
+    const result = await saveListingEdits(
+      {error: null, success: false},
+      formData,
+    );
+
+    expect(result).toEqual({error: null, success: true});
+    expect(updateListingMock).toHaveBeenCalledWith("LIST-001", {
+      categoryId: "261328",
+      itemSpecifics: {Player: "Mike Trout", Autographed: "No"},
     });
   });
 });

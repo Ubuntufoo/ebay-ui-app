@@ -8,6 +8,9 @@ import {updateListing} from "@/lib/sidecar-api";
 import type {SaveListingEditsActionState} from "@/app/listing-edit-state";
 import {getListingPriceError} from "@/app/listing-price-validation";
 import {
+  applySportsCardSpecificDefaults,
+  hasValidSportsCardSpecificValue,
+  sanitizeSportsCardItemSpecifics,
   sportsCardSpecificFields,
   updateSportsCardSpecific,
 } from "@/app/sports-card-item-specifics";
@@ -158,35 +161,66 @@ export async function saveListingEdits(
     }
 
     let updatedItemSpecifics = itemSpecificsResult.value;
-    if (formData.has("sports_card_specific_changes")) {
-      const changesResult = readSportsCardSpecificChanges(
-        formData.get("sports_card_specific_changes"),
-      );
-      if (changesResult.error) {
+    const categoryId = formData.has("category_id")
+      ? readTrimmedFormField(formData.get("category_id"))
+      : null;
+    if (categoryId === "261328") {
+      const defaultChangesResult = formData.has("sports_card_specific_default_changes")
+        ? readSportsCardSpecificChanges(formData.get("sports_card_specific_default_changes"))
+        : {value: null, error: null};
+      if (defaultChangesResult.error) {
         return {
-          error: changesResult.error,
+          error: defaultChangesResult.error,
           success: false,
         };
       }
 
-      for (const field of sportsCardSpecificFields) {
-        if (
-          changesResult.value !== null &&
-          Object.prototype.hasOwnProperty.call(
-            changesResult.value,
-            field.persistKey,
-          )
-        ) {
-          updatedItemSpecifics = updateSportsCardSpecific(
-            updatedItemSpecifics,
-            field,
-            changesResult.value[field.persistKey] ?? "",
-          );
+      if (defaultChangesResult.value === null) {
+        updatedItemSpecifics = applySportsCardSpecificDefaults(updatedItemSpecifics);
+      }
+
+      if (formData.has("sports_card_specific_changes")) {
+        const changesResult = readSportsCardSpecificChanges(
+          formData.get("sports_card_specific_changes"),
+        );
+        if (changesResult.error) {
+          return {
+            error: changesResult.error,
+            success: false,
+          };
+        }
+
+        const defaultChanges = defaultChangesResult.value ?? {};
+        for (const field of sportsCardSpecificFields) {
+          if (
+            changesResult.value !== null &&
+            Object.prototype.hasOwnProperty.call(
+              changesResult.value,
+              field.persistKey,
+            )
+          ) {
+            if (
+              Object.prototype.hasOwnProperty.call(defaultChanges, field.persistKey)
+            ) {
+              if (hasValidSportsCardSpecificValue(updatedItemSpecifics, field)) {
+                continue;
+              }
+            }
+
+            updatedItemSpecifics = updateSportsCardSpecific(
+              updatedItemSpecifics,
+              field,
+              changesResult.value[field.persistKey] ?? "",
+            );
+          }
         }
       }
     }
 
-    patch.itemSpecifics = updatedItemSpecifics;
+    patch.itemSpecifics = sanitizeSportsCardItemSpecifics(
+      updatedItemSpecifics,
+      categoryId,
+    );
   }
 
   try {

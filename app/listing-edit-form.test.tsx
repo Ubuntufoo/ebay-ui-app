@@ -921,6 +921,104 @@ describe("ListingEditForm", () => {
     ).not.toBe(0);
   });
 
+  it("shows taxonomy defaults and includes untouched defaults in one Save edits submission", async () => {
+    const user = userEvent.setup();
+    saveListingEditsMock.mockResolvedValueOnce({error: null, success: true});
+
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/defaults.jpg"],
+          {
+            category_id: "261328",
+            item_specifics: {
+              Player: "Mike Trout",
+              Sport: "Baseball",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect((screen.getByLabelText(/^Material/i) as HTMLInputElement).value).toBe(
+      "Card Stock",
+    );
+    expect(
+      (screen.getByLabelText(/^Card Thickness/i) as HTMLInputElement).value,
+    ).toBe("20 Pt.");
+    expect((screen.getByLabelText(/^Card Size/i) as HTMLInputElement).value).toBe(
+      "Standard",
+    );
+    expect((screen.getByLabelText(/^Language/i) as HTMLInputElement).value).toBe(
+      "English",
+    );
+    expect(
+      (screen.getByLabelText(/^Original\/Licensed Reprint/i) as HTMLSelectElement)
+        .value,
+    ).toBe("Original");
+    expect((screen.getByLabelText(/^Vintage/i) as HTMLSelectElement).value).toBe(
+      "Yes",
+    );
+    expect(
+      (screen.getByLabelText(/^Autographed/i) as HTMLSelectElement).value,
+    ).toBe("No");
+    expect(screen.getByLabelText(/^Material/i).getAttribute("list")).not.toBeNull();
+    expect((screen.getByLabelText(/^Card Name/i) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/^Features/i) as HTMLInputElement).value).toBe("");
+
+    await user.click(screen.getByRole("button", {name: "Save edits"}));
+    const submittedFormData = saveListingEditsMock.mock.calls[0][1] as FormData;
+    const changes = JSON.parse(
+      String(submittedFormData.get("sports_card_specific_changes")),
+    ) as Record<string, string>;
+
+    expect(changes).toMatchObject({
+      Material: "Card Stock",
+      "Card Thickness": "20 Pt.",
+      "Card Size": "Standard",
+      Language: "English",
+      "Original/Licensed Reprint": "Original",
+      Vintage: "Yes",
+      Autographed: "No",
+    });
+    expect(changes).not.toHaveProperty("Card Name");
+    expect(changes).not.toHaveProperty("Features");
+  });
+
+  it("preserves saved sports-card values while still defaulting missing fields", () => {
+    render(
+      <ListingEditForm
+        listing={buildListing(
+          "needs_review",
+          ["https://example.com/saved-specifics.jpg"],
+          {
+            category_id: "261328",
+            item_specifics: {
+              Features: ["Insert", "Short Print"],
+              Material: ["Paper"],
+              Autographed: "Yes",
+              Vintage: "No",
+            },
+          },
+        )}
+      />,
+    );
+
+    expect((screen.getByLabelText(/^Material/i) as HTMLInputElement).value).toBe(
+      "Paper",
+    );
+    expect((screen.getByLabelText(/^Features/i) as HTMLInputElement).value).toBe(
+      "Insert, Short Print",
+    );
+    expect((screen.getByLabelText(/^Vintage/i) as HTMLSelectElement).value).toBe(
+      "No",
+    );
+    expect(
+      (screen.getByLabelText(/^Autographed/i) as HTMLSelectElement).value,
+    ).toBe("Yes");
+  });
+
   it("renders a per-listing uncertain-year notice with advisory likely year details", () => {
     render(
       <ListingEditForm

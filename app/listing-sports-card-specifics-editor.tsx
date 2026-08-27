@@ -3,22 +3,25 @@
 import {useState} from "react";
 
 import {
+  applySportsCardSpecificDefaults,
   getSportsCardSpecificDisplayValue,
+  getSportsCardSpecificDefaultChanges,
   sportsCardSpecificFields,
   updateSportsCardSpecific,
 } from "@/app/sports-card-item-specifics";
 import type {Listing} from "@/lib/sidecar-api";
 import type {Json} from "@/lib/sidecar-api/types";
 
-function isJsonObject(value: Json | null): value is Record<string, Json> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 export function ListingSportsCardSpecificsEditor({listing}: {listing: Listing}) {
   const [itemSpecifics, setItemSpecifics] = useState<Json>(() =>
-    isJsonObject(listing.item_specifics) ? {...listing.item_specifics} : {},
+    applySportsCardSpecificDefaults(listing.item_specifics),
   );
-  const [changes, setChanges] = useState<Record<string, string>>({});
+  const [changes, setChanges] = useState<Record<string, string>>(() =>
+    getSportsCardSpecificDefaultChanges(listing.item_specifics),
+  );
+  const [defaultChanges, setDefaultChanges] = useState<Record<string, string>>(
+    () => getSportsCardSpecificDefaultChanges(listing.item_specifics),
+  );
 
   if (listing.category_id !== "261328") {
     return null;
@@ -34,6 +37,15 @@ export function ListingSportsCardSpecificsEditor({listing}: {listing: Listing}) 
       updateSportsCardSpecific(current, field, value),
     );
     setChanges((current) => ({...current, [field.persistKey]: value}));
+    setDefaultChanges((current) => {
+      if (!Object.prototype.hasOwnProperty.call(current, field.persistKey)) {
+        return current;
+      }
+
+      const next = {...current};
+      delete next[field.persistKey];
+      return next;
+    });
   }
 
   return (
@@ -55,6 +67,12 @@ export function ListingSportsCardSpecificsEditor({listing}: {listing: Listing}) 
         form="listing-edit-form"
         name="sports_card_specific_changes"
         value={JSON.stringify(changes)}
+      />
+      <input
+        type="hidden"
+        form="listing-edit-form"
+        name="sports_card_specific_default_changes"
+        value={JSON.stringify(defaultChanges)}
       />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -92,6 +110,7 @@ export function ListingSportsCardSpecificsEditor({listing}: {listing: Listing}) 
                 <input
                   id={inputId}
                   type="text"
+                  list={field.suggestions ? `${inputId}-suggestions` : undefined}
                   value={value}
                   disabled={disabled}
                   placeholder={
@@ -103,6 +122,13 @@ export function ListingSportsCardSpecificsEditor({listing}: {listing: Listing}) 
                   className="mt-1.5 w-full rounded-xl border border-stone-950/10 bg-stone-50 px-3 py-2 text-sm text-stone-900 outline-none transition focus:border-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
                 />
               )}
+              {field.suggestions ? (
+                <datalist id={`${inputId}-suggestions`}>
+                  {field.suggestions.map((suggestion) => (
+                    <option key={suggestion} value={suggestion} />
+                  ))}
+                </datalist>
+              ) : null}
             </label>
           );
         })}
