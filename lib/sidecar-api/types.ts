@@ -314,6 +314,73 @@ export interface ListingsResponse {
   listings: Listing[];
 }
 
+export type VariationListingManualPriceAmount = 0.99 | 1.49 | 1.99 | 2.49;
+export type VariationListingSkuCategoryCode = "BSKBL" | "BSBL" | "OTHER";
+export type VariationListingConditionToken =
+  | "NEAR_MINT_OR_BETTER"
+  | "EXCELLENT"
+  | "VERY_GOOD"
+  | "POOR";
+
+export type VariationListingIntakeMode = "idle" | "new_variation" | "duplicate_copy";
+
+export type VariationListingPendingPair = {
+  pairId: string;
+  mode: "new_variation";
+  targetGroupId: string;
+  targetVariationId: null;
+  priceAmount: VariationListingManualPriceAmount;
+  priceCurrency: "USD";
+  frontSourceRef: string;
+  startedAt: string;
+  expectedDesiredRevision: number;
+} | {
+  pairId: string;
+  mode: "duplicate_copy";
+  targetGroupId: string;
+  targetVariationId: string;
+  priceAmount: VariationListingManualPriceAmount;
+  priceCurrency: "USD";
+  frontSourceRef: string;
+  startedAt: string;
+  expectedDesiredRevision: number;
+};
+
+export interface VariationListingIntakeSession {
+  captureSourceKey: string;
+  mode: VariationListingIntakeMode;
+  targetGroupId: string | null;
+  targetVariationId: string | null;
+  stickyPriceAmount: VariationListingManualPriceAmount;
+  stickyPriceCurrency: "USD";
+  pendingPair: VariationListingPendingPair | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VariationListingIntakeSessionResponse {
+  session: VariationListingIntakeSession | null;
+}
+
+export interface ConfigureVariationListingIntakeInput {
+  mode: "idle" | "new_variation";
+  targetGroupId: string | null;
+  stickyPriceAmount: VariationListingManualPriceAmount;
+}
+
+export interface CreateVariationListingGroupInput {
+  skuCategoryCode: VariationListingSkuCategoryCode;
+  skuBucketToken: string;
+  categoryId?: "261328";
+  marketplaceId?: "EBAY_US";
+  merchantLocationKey: string;
+  fulfillmentPolicyId: string;
+  paymentPolicyId: string;
+  returnPolicyId: string;
+  conditionId: string;
+  conditionToken: VariationListingConditionToken;
+}
+
 export interface VariationListingCopy {
   copyId: string;
   availabilityState: "available" | "unavailable";

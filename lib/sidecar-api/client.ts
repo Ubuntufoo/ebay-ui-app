@@ -4,6 +4,8 @@ import {getSidecarConfig} from "@/lib/config/sidecar";
 import type {
   AbandonListingResponse,
   AppSettings,
+  CreateVariationListingGroupInput,
+  ConfigureVariationListingIntakeInput,
   DeleteSandboxListingResponse,
   EnqueueGenerateAiResponse,
   EbayEnvironment,
@@ -19,6 +21,8 @@ import type {
   UpdateAppSettingsInput,
   SidecarErrorResponse,
   VariationListingGroup,
+  VariationListingIntakeSession,
+  VariationListingIntakeSessionResponse,
   VariationListingGroupsResponse,
 } from "@/lib/sidecar-api/types";
 
@@ -140,6 +144,36 @@ export async function listVariationListingGroups(): Promise<
     "/api/variation-listings",
   );
   return response.groups;
+}
+
+export async function createVariationListingGroup(
+  input: CreateVariationListingGroupInput,
+): Promise<VariationListingGroup> {
+  return await sidecarFetch<VariationListingGroup>(
+    "/api/variation-listings",
+    buildJsonRequestInit("POST", input),
+  );
+}
+
+export async function getVariationListingIntakeSession(): Promise<
+  VariationListingIntakeSessionResponse
+> {
+  return await sidecarFetch<VariationListingIntakeSessionResponse>(
+    "/api/variation-listings/intake-session",
+  );
+}
+
+export async function configureVariationListingIntake(
+  input: ConfigureVariationListingIntakeInput,
+): Promise<VariationListingIntakeSession> {
+  const response = await sidecarFetch<VariationListingIntakeSessionResponse>(
+    "/api/variation-listings/intake-session",
+    buildJsonRequestInit("PATCH", input),
+  );
+  if (!response.session) {
+    throw new Error("Sidecar returned no intake session after configuration.");
+  }
+  return response.session;
 }
 
 export async function getListing(listingId: string): Promise<Listing> {

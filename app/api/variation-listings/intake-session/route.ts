@@ -1,21 +1,20 @@
 import {NextResponse} from "next/server";
 
 import {
+  configureVariationListingIntake,
+  getVariationListingIntakeSession,
   SidecarApiError,
-  createVariationListingGroup,
-  listVariationListingGroups,
-  type CreateVariationListingGroupInput,
+  type ConfigureVariationListingIntakeInput,
 } from "@/lib/sidecar-api";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const groups = await listVariationListingGroups();
-    return NextResponse.json({groups});
+    return NextResponse.json(await getVariationListingIntakeSession());
   } catch (error) {
     if (!(error instanceof SidecarApiError)) {
-      console.error("Failed to load variation listing groups.", error);
+      console.error("Failed to load variation listing intake session.", error);
     }
 
     return NextResponse.json(
@@ -23,21 +22,20 @@ export async function GET() {
         error:
           error instanceof SidecarApiError
             ? error.message
-            : "An unexpected error occurred while loading variation listings.",
+            : "An unexpected error occurred while loading the intake session.",
       },
       {status: error instanceof SidecarApiError ? error.status : 500},
     );
   }
 }
 
-export async function POST(request: Request) {
+export async function PATCH(request: Request) {
   try {
-    const input = (await request.json()) as CreateVariationListingGroupInput;
-    const group = await createVariationListingGroup(input);
-    return NextResponse.json(group, {status: 201});
+    const input = (await request.json()) as ConfigureVariationListingIntakeInput;
+    return NextResponse.json({session: await configureVariationListingIntake(input)});
   } catch (error) {
     if (!(error instanceof SidecarApiError)) {
-      console.error("Failed to create variation listing group.", error);
+      console.error("Failed to configure variation listing intake.", error);
     }
 
     return NextResponse.json(
@@ -45,7 +43,7 @@ export async function POST(request: Request) {
         error:
           error instanceof SidecarApiError
             ? error.message
-            : "An unexpected error occurred while creating the variation listing group.",
+            : "An unexpected error occurred while configuring the intake session.",
       },
       {status: error instanceof SidecarApiError ? error.status : 500},
     );

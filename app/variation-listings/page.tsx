@@ -1,16 +1,22 @@
 import {QueueErrorsPanel} from "@/app/queue-errors-panel";
-import {VariationListingsWorkspace} from "@/app/variation-listings/variation-listings-workspace";
+import {
+  VariationListingsWorkspace,
+  type VariationListingCreationDefaults,
+} from "@/app/variation-listings/variation-listings-workspace";
 import {
   SidecarApiError,
   getAppSettings,
   getGeminiUsage,
+  getVariationListingIntakeSession,
   listListings,
   listVariationListingGroups,
   type GeminiDailyUsageSummary,
   type Listing,
   type SoldCompsUsageSummary,
   type VariationListingGroup,
+  type VariationListingIntakeSession,
 } from "@/lib/sidecar-api";
+import Link from "next/link";
 import {countUnshippedOrders, listUnshippedOrders} from "@/lib/unshipped-orders";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +50,7 @@ type StatusBarData = {
   listings: Listing[];
   ordersToShipCount: number;
   soldCompsUsage: SoldCompsUsageSummary | null;
+  creationDefaults: VariationListingCreationDefaults;
 };
 
 async function loadStatusBarData(): Promise<StatusBarData> {
@@ -56,6 +63,20 @@ async function loadStatusBarData(): Promise<StatusBarData> {
     ]);
 
   return {
+    creationDefaults:
+      settingsResult.status === "fulfilled"
+        ? {
+            merchantLocationKey: settingsResult.value.merchant_location_key,
+            fulfillmentPolicyId: settingsResult.value.default_fulfillment_policy_id,
+            paymentPolicyId: settingsResult.value.default_payment_policy_id,
+            returnPolicyId: settingsResult.value.default_return_policy_id,
+          }
+        : {
+            merchantLocationKey: null,
+            fulfillmentPolicyId: null,
+            paymentPolicyId: null,
+            returnPolicyId: null,
+          },
     listings:
       listingsResult.status === "fulfilled" ? listingsResult.value : [],
     geminiUsage:
@@ -73,10 +94,31 @@ async function loadStatusBarData(): Promise<StatusBarData> {
   };
 }
 
+async function loadInitialIntakeSession(): Promise<{
+  session: VariationListingIntakeSession | null;
+  error: string | null;
+}> {
+  try {
+    const result = await getVariationListingIntakeSession();
+    return {session: result.session, error: null};
+  } catch (error) {
+    return {
+      session: null,
+      error:
+        error instanceof SidecarApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "An unexpected error occurred while loading the intake session.",
+    };
+  }
+}
+
 export default async function VariationListingsPage() {
-  const [result, statusBar] = await Promise.all([
+  const [result, statusBar, intake] = await Promise.all([
     loadVariationListingGroups(),
     loadStatusBarData(),
+    loadInitialIntakeSession(),
   ]);
 
   return (
@@ -94,7 +136,12 @@ export default async function VariationListingsPage() {
             statusOnly
           />
           {result.status === "success" ? (
-            <VariationListingsWorkspace initialGroups={result.groups} />
+            <VariationListingsWorkspace
+              creationDefaults={statusBar.creationDefaults}
+              initialIntakeError={intake.error}
+              initialIntakeSession={intake.session}
+              initialGroups={result.groups}
+            />
           ) : (
             <section className="rounded-[1.75rem] border border-rose-300/70 bg-rose-50/90 p-6 shadow-[0_16px_42px_rgba(28,25,23,0.1)]">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-700">
@@ -103,12 +150,12 @@ export default async function VariationListingsPage() {
               <p className="mt-3 text-lg leading-8 text-rose-950">
                 {result.message}
               </p>
-              <a
+              <Link
                 href="/"
                 className="mt-5 inline-flex rounded-full border border-rose-900/20 bg-white px-4 py-2 text-sm font-semibold text-rose-950"
               >
                 Return to standard listings
-              </a>
+              </Link>
             </section>
           )}
         </div>

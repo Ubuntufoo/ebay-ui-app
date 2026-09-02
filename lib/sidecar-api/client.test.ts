@@ -9,9 +9,11 @@ vi.mock("@/lib/config/sidecar", () => ({
 
 import {
   abandonListing,
+  configureVariationListingIntake,
   deleteSandboxListing,
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
+  getVariationListingIntakeSession,
   listVariationListingGroups,
   retryPricing,
   retryPricingAnalysis,
@@ -56,6 +58,66 @@ describe("listVariationListingGroups", () => {
       }),
     );
     expect(groups).toEqual([{groupId: "group-1"}]);
+  });
+});
+
+describe("variation listing intake session", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads the canonical durable session", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({session: null}), {status: 200}));
+
+    await expect(getVariationListingIntakeSession()).resolves.toEqual({session: null});
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/intake-session",
+      expect.objectContaining({method: "GET", cache: "no-store"}),
+    );
+  });
+
+  it("patches only the fixed intake configuration fields", async () => {
+    const session = {
+      captureSourceKey: "camera-1",
+      mode: "new_variation",
+      targetGroupId: "group-1",
+      targetVariationId: null,
+      stickyPriceAmount: 1.49,
+      stickyPriceCurrency: "USD",
+      pendingPair: null,
+      createdAt: "2026-09-02T15:00:00.000Z",
+      updatedAt: "2026-09-02T15:01:00.000Z",
+    };
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({session}), {status: 200}));
+
+    await expect(
+      configureVariationListingIntake({
+        mode: "new_variation",
+        targetGroupId: "group-1",
+        stickyPriceAmount: 1.49,
+      }),
+    ).resolves.toEqual(session);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/intake-session",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          mode: "new_variation",
+          targetGroupId: "group-1",
+          stickyPriceAmount: 1.49,
+        }),
+      }),
+    );
   });
 });
 
