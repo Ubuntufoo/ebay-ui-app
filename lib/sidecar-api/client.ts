@@ -18,6 +18,8 @@ import type {
   UpdateListingWorkflowStateInput,
   UpdateAppSettingsInput,
   SidecarErrorResponse,
+  VariationListingGroup,
+  VariationListingGroupsResponse,
 } from "@/lib/sidecar-api/types";
 
 export class SidecarApiError extends Error {
@@ -129,6 +131,15 @@ function buildJsonRequestInit(
 export async function listListings(): Promise<Listing[]> {
   const response = await sidecarFetch<ListingsResponse>("/api/listings");
   return response.listings;
+}
+
+export async function listVariationListingGroups(): Promise<
+  VariationListingGroup[]
+> {
+  const response = await sidecarFetch<VariationListingGroupsResponse>(
+    "/api/variation-listings",
+  );
+  return response.groups;
 }
 
 export async function getListing(listingId: string): Promise<Listing> {

@@ -41,6 +41,8 @@ type QueueErrorsPanelProps = {
   listings: Listing[];
   retryAction?: (listingId: string) => Promise<RetryPricingAnalysisResult>;
   soldCompsUsage?: SoldCompsUsageSummary | null;
+  currentWorkspace?: "standard" | "variation";
+  statusOnly?: boolean;
 };
 
 type GeminiUsagePresentation = {
@@ -388,6 +390,8 @@ export function QueueErrorsPanel({
   listings,
   retryAction = retryPricingAnalysis,
   soldCompsUsage = null,
+  currentWorkspace = "standard",
+  statusOnly = false,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
   const warningListings = getPricingWarningListings(listings);
@@ -486,7 +490,7 @@ export function QueueErrorsPanel({
 
   return (
     <section className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 p-4 text-stone-50 shadow-[0_18px_48px_rgba(28,25,23,0.22)] sm:p-5">
-      <div className="flex flex-wrap justify-center items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <Link
           href="/orders"
           className="inline-flex items-center gap-2 rounded-full border border-stone-700 bg-stone-900/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-200 transition hover:border-stone-500 hover:text-stone-50"
@@ -580,9 +584,42 @@ export function QueueErrorsPanel({
             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
           </svg>
         </a>
+
+        <nav
+          aria-label="Current workspace"
+          className="ml-auto flex items-center gap-2"
+        >
+          <span className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 xl:inline">
+            Current workspace
+          </span>
+          <div className="flex items-center rounded-full border border-stone-700 bg-stone-900/70 p-1">
+            <Link
+              href="/"
+              aria-current={currentWorkspace === "standard" ? "page" : undefined}
+              className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
+                currentWorkspace === "standard"
+                  ? "bg-stone-100 text-stone-950"
+                  : "text-stone-300 hover:text-stone-50"
+              }`}
+            >
+              Standard listings
+            </Link>
+            <Link
+              href="/variation-listings"
+              aria-current={currentWorkspace === "variation" ? "page" : undefined}
+              className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
+                currentWorkspace === "variation"
+                  ? "bg-stone-100 text-stone-950"
+                  : "text-stone-300 hover:text-stone-50"
+              }`}
+            >
+              Variation listings
+            </Link>
+          </div>
+        </nav>
       </div>
 
-      {warningListings.length > 0 && !errorMessage ? (
+      {!statusOnly && warningListings.length > 0 && !errorMessage ? (
         <PricingWarningsSection
           dismissErrors={dismissErrors}
           dismissingWarningKeys={dismissingWarningKeys}
@@ -594,11 +631,11 @@ export function QueueErrorsPanel({
         />
       ) : null}
 
-      {errorMessage ? (
+      {!statusOnly && errorMessage ? (
         <p className="mt-4 rounded-2xl border border-rose-400/40 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
           {errorMessage}
         </p>
-      ) : errorListings.length > 0 ? (
+      ) : !statusOnly && errorListings.length > 0 ? (
         <ErrorsSection listings={errorListings} />
       ) : null}
     </section>

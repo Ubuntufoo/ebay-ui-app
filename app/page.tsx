@@ -1,6 +1,9 @@
 import {Suspense} from "react";
 import {ListingsRealtime} from "@/app/listings-realtime";
-import {QueueErrorsPanelFallback} from "@/app/queue-errors-panel";
+import {
+  QueueErrorsPanel,
+  QueueErrorsPanelFallback,
+} from "@/app/queue-errors-panel";
 import {
   SidecarApiError,
   getAppSettings,
@@ -84,26 +87,6 @@ type UnshippedOrdersLoadResult =
 
 type EbayEnvironmentValue = EbayEnvironment["environment"] | null;
 
-function OrdersToShipIndicator({count}: {count: number}) {
-  return (
-    <a
-      href="/orders"
-      className="inline-flex items-center gap-2 rounded-full border border-stone-950/10 bg-white/80 px-3 py-2 text-xs font-bold uppercase tracking-[0.16em] text-stone-700 transition hover:border-stone-950 hover:text-stone-950"
-    >
-      <span>Orders to ship:</span>
-      <span
-        className={`inline-flex min-w-7 items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold tracking-[0.12em] ${
-          count > 0
-            ? "bg-amber-200 text-amber-950"
-            : "bg-stone-100 text-stone-600"
-        }`}
-      >
-        {count}
-      </span>
-    </a>
-  );
-}
-
 async function ListingsSection({
   geminiUsagePromise,
   appSettingsPromise,
@@ -141,23 +124,24 @@ async function ListingsSection({
   if (listingsResult.status === "error") {
     return (
       <>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.28em] text-stone-500">
-              Listings
-            </p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">
-              Inventory records
-            </h2>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <OrdersToShipIndicator count={ordersToShipCount} />
-            <span className="rounded-full border border-rose-300/70 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-              Request failed
-            </span>
-          </div>
-        </div>
-
+        <QueueErrorsPanel
+          geminiUsage={
+            geminiUsageResult.status === "success"
+              ? geminiUsageResult.geminiUsage
+              : null
+          }
+          geminiUsageStatus={
+            geminiUsageResult.status === "success" ? "ready" : "error"
+          }
+          listings={[]}
+          ordersToShipCount={ordersToShipCount}
+          soldCompsUsage={
+            appSettingsResult.status === "success"
+              ? appSettingsResult.settings.soldcomps_usage
+              : null
+          }
+          statusOnly
+        />
         <ListingsErrorState message={listingsResult.message} />
       </>
     );

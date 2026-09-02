@@ -509,6 +509,54 @@ describe("QueueErrorsPanel", () => {
     expect(activeCounter.nextElementSibling).toBe(link);
   });
 
+  it("renders the standard workspace selector after the Seller Hub link", () => {
+    render(<QueueErrorsPanel listings={[]} />);
+
+    const sellerHubLink = screen.getByRole("link", {
+      name: "Open eBay Seller Hub",
+    });
+    const workspaceNav = screen.getByRole("navigation", {
+      name: "Current workspace",
+    });
+    const standardLink = within(workspaceNav).getByRole("link", {
+      name: "Standard listings",
+    });
+    const variationLink = within(workspaceNav).getByRole("link", {
+      name: "Variation listings",
+    });
+
+    expect(sellerHubLink.nextElementSibling).toBe(workspaceNav);
+    expect(standardLink.getAttribute("aria-current")).toBe("page");
+    expect(variationLink.getAttribute("aria-current")).toBeNull();
+  });
+
+  it("marks variation active and suppresses standard warning and error bodies in status-only mode", () => {
+    render(
+      <QueueErrorsPanel
+        currentWorkspace="variation"
+        errorMessage="Standard listing request failed."
+        listings={[
+          buildListing("LIST-WARN", "assets_ready", "ready_to_generate", {
+            pricing_analysis_warnings: [buildPricingWarning()],
+          }),
+        ]}
+        statusOnly
+      />,
+    );
+
+    const workspaceNav = screen.getByRole("navigation", {
+      name: "Current workspace",
+    });
+    expect(
+      within(workspaceNav)
+        .getByRole("link", {name: "Variation listings"})
+        .getAttribute("aria-current"),
+    ).toBe("page");
+    expect(screen.getByTestId("operational-counter-ready")).not.toBeNull();
+    expect(screen.queryByText("Pricing analysis warnings")).toBeNull();
+    expect(screen.queryByText("Standard listing request failed.")).toBeNull();
+  });
+
   it("renders pricing analysis warnings section with summary and listing id", () => {
     render(
       <QueueErrorsPanel

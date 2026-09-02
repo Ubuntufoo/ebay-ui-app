@@ -12,11 +12,52 @@ import {
   deleteSandboxListing,
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
+  listVariationListingGroups,
   retryPricing,
   retryPricingAnalysis,
   updateAppSettings,
   updateListing,
 } from "@/lib/sidecar-api/client";
+
+describe("listVariationListingGroups", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads the dedicated variation-listing group collection", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({groups: [{groupId: "group-1"}]}), {
+        headers: {"content-type": "application/json"},
+        status: 200,
+      }),
+    );
+
+    const groups = await listVariationListingGroups();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings",
+      expect.objectContaining({
+        cache: "no-store",
+        method: "GET",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+        }),
+      }),
+    );
+    expect(groups).toEqual([{groupId: "group-1"}]);
+  });
+});
 
 describe("abandonListing", () => {
   beforeEach(() => {

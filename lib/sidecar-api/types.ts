@@ -3,8 +3,10 @@ export type Json =
   | number
   | boolean
   | null
-  | {[key: string]: Json | undefined}
+  | JsonObject
   | Json[];
+
+export type JsonObject = {[key: string]: Json | undefined};
 
 export const listingStatuses = [
   "record_created",
@@ -310,6 +312,104 @@ export interface Listing {
 
 export interface ListingsResponse {
   listings: Listing[];
+}
+
+export interface VariationListingCopy {
+  copyId: string;
+  availabilityState: "available" | "unavailable";
+  conditionToken: string;
+  conditionNotes: string | null;
+  frontR2Key: string;
+  backR2Key: string;
+  captureSourceKey: string;
+  capturePairId: string;
+  capturedAt: string;
+  createdAt: string;
+  updatedAt: string;
+  isRepresentative: boolean;
+}
+
+export interface VariationListingVariation {
+  variationId: string;
+  position: number;
+  inventorySerial: number;
+  sku: string;
+  selectorValue: string;
+  priceAmount: number;
+  priceCurrency: string;
+  representativeCopyId: string | null;
+  availableQuantity: number;
+  copyCount: number;
+  variationMetadata: JsonObject;
+  copies: VariationListingCopy[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VariationListingValidation {
+  blockers: string[];
+  initialPublicationReady: boolean;
+  hasPendingChanges: boolean;
+}
+
+export interface VariationListingJournalOperationSummary {
+  operationKey: string;
+  operationKind: string;
+  state: string;
+  observedRemoteState: string | null;
+  attemptNumber: number;
+  checkpointNumber: number;
+}
+
+export interface VariationListingLatestRevisionSummary {
+  revisionId: string;
+  capturedDesiredRevision: number;
+  operationCount: number;
+  capturedAt: string;
+  hasUnknownOutcome: boolean;
+  retryExhausted: boolean;
+  operations: VariationListingJournalOperationSummary[];
+}
+
+export interface VariationListingGroup {
+  groupId: string;
+  groupKey: string;
+  lifecycleState: string;
+  desiredRevision: number;
+  lastConfirmedRevision: number | null;
+  title: string | null;
+  description: string | null;
+  derivedCommonEbayAspects: JsonObject;
+  categoryId: string;
+  marketplaceId: string;
+  listingFormat: string;
+  merchantLocationKey: string;
+  fulfillmentPolicyId: string;
+  paymentPolicyId: string;
+  returnPolicyId: string;
+  conditionId: string;
+  conditionToken: string;
+  conditionDescription: string | null;
+  conditionDescriptors: Json[];
+  selectorName: string;
+  skuNamespace: {
+    categoryCode: string;
+    bucketToken: string;
+    nextInventorySerial: number;
+  };
+  variationCount: number;
+  totalAvailableQuantity: number;
+  variations: VariationListingVariation[];
+  validation: VariationListingValidation;
+  journal: {
+    latestRevision: VariationListingLatestRevisionSummary | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VariationListingGroupsResponse {
+  groups: VariationListingGroup[];
 }
 
 export interface AbandonListingResponse {
