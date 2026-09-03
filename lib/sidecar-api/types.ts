@@ -406,6 +406,71 @@ export interface UpdateVariationListingRepresentativeCopyInput {
   copyId: string;
 }
 
+export type VariationListingActionRouteName =
+  | "publish"
+  | "publish-changes"
+  | "retry"
+  | "quantity"
+  | "withdraw"
+  | "abandon"
+  | "cleanup";
+
+export type VariationListingActionName =
+  | "publish"
+  | "publish_changes"
+  | "retry"
+  | "quantity"
+  | "withdraw"
+  | "abandon"
+  | "cleanup";
+
+export interface VariationListingActionIssue {
+  code?: string;
+  field?: string;
+  message: string;
+  resource?: string;
+}
+
+export interface VariationListingActionStatus {
+  action: VariationListingActionName;
+  affected: {groupId: string; variationId?: string; sku?: string};
+  category: "validation" | "state" | "remote" | "reconciliation" | "terminal" | "system";
+  code: string;
+  diagnostic?: string;
+  issues: VariationListingActionIssue[];
+  operationKey?: string;
+  recommendedActions: string[];
+  remoteState: "known_unchanged" | "known_changed" | "unknown";
+  requiresReconciliation: boolean;
+  retryStatus: "not_applicable" | "safe_to_retry" | "reconciliation_required" | "retry_exhausted";
+  revisionId?: string;
+  severity: "error" | "warning";
+  stage: string;
+  summary: string;
+  userActionRequired: boolean;
+}
+
+export interface VariationListingRevisionActionInput {
+  expectedDesiredRevision: number;
+}
+
+export interface VariationListingQuantityActionInput extends VariationListingRevisionActionInput {
+  variationId: string;
+  copyId: string;
+  availabilityState: "available" | "unavailable";
+}
+
+export type VariationListingActionInput =
+  | VariationListingRevisionActionInput
+  | VariationListingQuantityActionInput
+  | Record<string, never>;
+
+export interface VariationListingActionResponse {
+  action: unknown;
+  group: VariationListingGroup | null;
+  warning?: VariationListingActionStatus;
+}
+
 export interface VariationListingCopy {
   copyId: string;
   availabilityState: "available" | "unavailable";
@@ -462,7 +527,17 @@ export interface VariationListingLatestRevisionSummary {
   capturedAt: string;
   hasUnknownOutcome: boolean;
   retryExhausted: boolean;
+  recovery?: VariationListingRecoverySummary;
   operations: VariationListingJournalOperationSummary[];
+}
+
+export interface VariationListingRecoverySummary {
+  operationKey?: string;
+  revisionId: string;
+  requiresReconciliation: boolean;
+  remoteState: "known_unchanged" | "known_changed" | "unknown";
+  recommendedActions: string[];
+  retryStatus: "not_applicable" | "safe_to_retry" | "reconciliation_required" | "retry_exhausted";
 }
 
 export interface VariationListingGroup {
@@ -640,4 +715,5 @@ export interface SidecarErrorResponse {
   error: "invalid_request" | "not_found" | "server_error" | string;
   message?: string;
   details?: SidecarValidationErrorDetail[];
+  status?: VariationListingActionStatus;
 }

@@ -25,6 +25,9 @@ import type {
   VariationListingIntakeSession,
   VariationListingIntakeSessionResponse,
   VariationListingGroupsResponse,
+  VariationListingActionInput,
+  VariationListingActionResponse,
+  VariationListingActionRouteName,
 } from "@/lib/sidecar-api/types";
 
 export class SidecarApiError extends Error {
@@ -185,6 +188,17 @@ export async function updateVariationListingRepresentativeCopy(
   return await sidecarFetch<VariationListingGroup>(
     `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/representative-copy`,
     buildJsonRequestInit("PATCH", input),
+  );
+}
+
+export async function runVariationListingAction(
+  groupId: string,
+  action: VariationListingActionRouteName,
+  input: VariationListingActionInput = {},
+): Promise<VariationListingActionResponse> {
+  return await sidecarFetch<VariationListingActionResponse>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/actions/${action}`,
+    buildJsonRequestInit("POST", input),
   );
 }
 

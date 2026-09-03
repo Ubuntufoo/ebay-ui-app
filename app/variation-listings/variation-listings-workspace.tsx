@@ -3,6 +3,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 
 import {VariationInventoryPanel} from "@/app/variation-listings/variation-inventory-panel";
+import {VariationPublicationPanel} from "@/app/variation-listings/variation-publication-panel";
 
 import type {
   CreateVariationListingGroupInput,
@@ -95,6 +96,34 @@ function creationDefaultsReady(
   );
 }
 
+function preferCurrentGroup(
+  current: VariationListingGroup,
+  incoming: VariationListingGroup,
+): boolean {
+  if (current.desiredRevision !== incoming.desiredRevision) {
+    return current.desiredRevision > incoming.desiredRevision;
+  }
+  const currentConfirmed = current.lastConfirmedRevision ?? -1;
+  const incomingConfirmed = incoming.lastConfirmedRevision ?? -1;
+  if (currentConfirmed !== incomingConfirmed) return currentConfirmed > incomingConfirmed;
+  const currentUpdated = Date.parse(current.updatedAt);
+  const incomingUpdated = Date.parse(incoming.updatedAt);
+  return Number.isFinite(currentUpdated) && Number.isFinite(incomingUpdated) && currentUpdated > incomingUpdated;
+}
+
+function isVariationListingGroup(value: unknown): value is VariationListingGroup {
+  if (!value || typeof value !== "object") return false;
+  const group = value as Partial<VariationListingGroup>;
+  const latest = group.journal && typeof group.journal === "object" ? group.journal.latestRevision : null;
+  const confirmed = group.lastConfirmedRevision;
+  return typeof group.groupId === "string" && group.groupId.length > 0 &&
+    Number.isInteger(group.desiredRevision) && (group.desiredRevision ?? -1) >= 0 &&
+    (confirmed === null || (typeof confirmed === "number" && Number.isInteger(confirmed) && confirmed >= 0)) &&
+    typeof group.lifecycleState === "string" && typeof group.updatedAt === "string" && Number.isFinite(Date.parse(group.updatedAt)) &&
+    !!group.validation && Array.isArray(group.validation.blockers) && typeof group.validation.initialPublicationReady === "boolean" && typeof group.validation.hasPendingChanges === "boolean" &&
+    !!group.journal && (latest === null || (typeof latest === "object" && typeof latest.revisionId === "string" && Number.isInteger(latest.capturedDesiredRevision) && Array.isArray(latest.operations)));
+}
+
 function mergeGroupsByDesiredRevision(
   currentGroups: VariationListingGroup[],
   incomingGroups: VariationListingGroup[],
@@ -102,7 +131,7 @@ function mergeGroupsByDesiredRevision(
   const currentById = new Map(currentGroups.map((group) => [group.groupId, group]));
   return incomingGroups.map((incoming) => {
     const current = currentById.get(incoming.groupId);
-    return current && current.desiredRevision > incoming.desiredRevision ? current : incoming;
+    return current && preferCurrentGroup(current, incoming) ? current : incoming;
   });
 }
 
@@ -175,7 +204,7 @@ function GroupCard({
             {blockerCount} blocker{blockerCount === 1 ? "" : "s"}
           </span>
         ) : null}
-        {latestRevision?.hasUnknownOutcome ? (
+        {latestRevision?.recovery?.requiresReconciliation ? (
           <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-900">Reconciliation required</span>
         ) : null}
       </div>
@@ -292,8 +321,11 @@ export function VariationListingsWorkspace({
       }
 
       const payload = (await response.json()) as VariationListingGroupsResponse;
-      if (!signal.aborted && Array.isArray(payload.groups)) {
-        setGroups((current) => mergeGroupsByDesiredRevision(current, payload.groups));
+      const incomingGroups = payload && Array.isArray(payload.groups) && payload.groups.every(isVariationListingGroup)
+        ? payload.groups
+        : null;
+      if (!signal.aborted && incomingGroups) {
+        setGroups((current) => mergeGroupsByDesiredRevision(current, incomingGroups));
         setRefreshFailed(false);
       } else if (!signal.aborted) {
         setRefreshFailed(true);
@@ -360,6 +392,7 @@ export function VariationListingsWorkspace({
   const conditionChangesLocked = duplicateMode || writesBlocked;
   const selectionLocked = duplicateMode || writesBlocked;
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (duplicateMode) {
       setCopyConditionToken(intakeSession?.copyConditionToken ?? pendingPair?.conditionToken ?? null);
@@ -372,6 +405,7 @@ export function VariationListingsWorkspace({
         : null,
     );
   }, [duplicateMode, intakeSession?.copyConditionToken, pendingPair?.conditionToken, selectedGroup?.conditionToken]);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const defaultsReady = creationDefaultsReady(creationDefaults);
   const normalizedBucketToken = skuBucketToken.trim();
   const bucketTokenValid = /^[A-Za-z0-9]+([._-][A-Za-z0-9]+)*$/.test(normalizedBucketToken);
@@ -470,7 +504,7 @@ export function VariationListingsWorkspace({
   const replaceGroup = useCallback((updatedGroup: VariationListingGroup) => {
     setGroups((current) =>
       current.map((group) =>
-        group.groupId === updatedGroup.groupId && group.desiredRevision <= updatedGroup.desiredRevision
+        group.groupId === updatedGroup.groupId && !preferCurrentGroup(group, updatedGroup)
           ? updatedGroup
           : group,
       ),
@@ -740,6 +774,13 @@ export function VariationListingsWorkspace({
         conditionChangesLocked={conditionChangesLocked}
         onCopyConditionChange={setCopyConditionToken}
         pendingConditionToken={pendingPair?.mode === "duplicate_copy" ? pendingPair.conditionToken : null}
+      />
+
+      <VariationPublicationPanel
+        key={selectedGroup?.groupId ?? "empty"}
+        group={selectedGroup}
+        capturePending={pendingPair !== null}
+        onGroupUpdated={replaceGroup}
       />
 
       <section className="grid gap-3 sm:grid-cols-5">

@@ -15,6 +15,7 @@ import {
   enqueueGenerateAi,
   getVariationListingIntakeSession,
   listVariationListingGroups,
+  runVariationListingAction,
   retryPricing,
   retryPricingAnalysis,
   updateAppSettings,
@@ -157,6 +158,39 @@ describe("variation listing representative copy", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({expectedDesiredRevision: 3, copyId: "copy-2"}),
+      }),
+    );
+  });
+});
+
+describe("variation listing actions", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts publish-changes through the dedicated encoded action endpoint", async () => {
+    const result = {action: {status: "completed"}, group: {groupId: "group/1"}};
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(result), {status: 200}));
+
+    await expect(
+      runVariationListingAction("group/1", "publish-changes", {expectedDesiredRevision: 4}),
+    ).resolves.toEqual(result);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/actions/publish-changes",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({expectedDesiredRevision: 4}),
       }),
     );
   });

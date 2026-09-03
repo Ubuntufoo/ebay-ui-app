@@ -134,6 +134,35 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getByText("Live refresh")).not.toBeNull();
   });
 
+  it("shows reconciliation badge only for current recovery state", () => {
+    const historicalUnknown = {
+      revisionId: "revision-3",
+      capturedDesiredRevision: 3,
+      operationCount: 1,
+      capturedAt: "2026-09-03T00:00:00Z",
+      hasUnknownOutcome: true,
+      retryExhausted: false,
+      recovery: {revisionId: "revision-3", retryStatus: "not_applicable", remoteState: "known_unchanged", requiresReconciliation: false, recommendedActions: []},
+      operations: [],
+    } as unknown as NonNullable<VariationListingGroup["journal"]["latestRevision"]>;
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({journal: {latestRevision: historicalUnknown}})]}
+        refreshIntervalMs={0}
+      />,
+    );
+    expect(screen.queryByText("Reconciliation required")).toBeNull();
+
+    cleanup();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({journal: {latestRevision: {...historicalUnknown, recovery: {revisionId: "revision-3", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, recommendedActions: []}}}})]}
+        refreshIntervalMs={0}
+      />,
+    );
+    expect(screen.getByText("Reconciliation required")).not.toBeNull();
+  });
+
   it("refreshes group state through the dedicated local API seam", async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
@@ -208,6 +237,15 @@ describe("VariationListingsWorkspace", () => {
 
     expect(screen.getAllByText("Tracy McGrady Cards").length).toBeGreaterThan(0);
     expect(screen.getByText("Refresh issue")).not.toBeNull();
+  });
+
+  it("does not let a stale poll overwrite a newer confirmed action result", async () => {
+    const confirmed = buildGroup({title: "Published revision", desiredRevision: 4, lastConfirmedRevision: 4, updatedAt: "2026-09-02T15:10:00.000Z", validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false}});
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({groups: [buildGroup({title: "Stale poll", desiredRevision: 4, lastConfirmedRevision: 3, updatedAt: "2026-09-02T15:20:00.000Z"})]}), {status: 200}));
+    render(<VariationListingsWorkspace initialGroups={[confirmed]} refreshIntervalMs={20} />);
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+    expect(screen.getAllByText("Published revision").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Stale poll")).toBeNull();
   });
 
   it("waits for an in-flight refresh before scheduling the next request", async () => {
