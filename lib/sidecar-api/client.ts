@@ -18,6 +18,7 @@ import type {
   UpdateListingInput,
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
+  UpdateVariationListingRepresentativeCopyInput,
   UpdateAppSettingsInput,
   SidecarErrorResponse,
   VariationListingGroup,
@@ -174,6 +175,17 @@ export async function configureVariationListingIntake(
     throw new Error("Sidecar returned no intake session after configuration.");
   }
   return response.session;
+}
+
+export async function updateVariationListingRepresentativeCopy(
+  groupId: string,
+  variationId: string,
+  input: UpdateVariationListingRepresentativeCopyInput,
+): Promise<VariationListingGroup> {
+  return await sidecarFetch<VariationListingGroup>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/representative-copy`,
+    buildJsonRequestInit("PATCH", input),
+  );
 }
 
 export async function getListing(listingId: string): Promise<Listing> {

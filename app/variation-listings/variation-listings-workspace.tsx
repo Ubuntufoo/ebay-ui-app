@@ -2,6 +2,8 @@
 
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 
+import {VariationInventoryPanel} from "@/app/variation-listings/variation-inventory-panel";
+
 import type {
   CreateVariationListingGroupInput,
   VariationListingConditionToken,
@@ -10,6 +12,7 @@ import type {
   VariationListingIntakeSession,
   VariationListingManualPriceAmount,
   VariationListingSkuCategoryCode,
+  VariationListingVariation,
 } from "@/lib/sidecar-api";
 
 export type VariationListingCreationDefaults = {
@@ -45,6 +48,22 @@ const CONDITION_OPTIONS: ReadonlyArray<{
   {label: "Poor", value: "POOR"},
 ];
 
+const CONDITION_RANK = new Map(
+  CONDITION_OPTIONS.map((option, index) => [option.value, index]),
+);
+
+function compatibleCopyConditionOptions(
+  groupCondition: string | null | undefined,
+): ReadonlyArray<{label: string; value: VariationListingConditionToken}> {
+  const groupRank = CONDITION_RANK.get(groupCondition as VariationListingConditionToken);
+  if (groupRank === undefined) return [];
+  return CONDITION_OPTIONS.filter((option) => CONDITION_RANK.get(option.value)! <= groupRank);
+}
+
+function isConditionToken(value: string | null | undefined): value is VariationListingConditionToken {
+  return value !== null && value !== undefined && CONDITION_RANK.has(value as VariationListingConditionToken);
+}
+
 const EMPTY_CREATION_DEFAULTS: VariationListingCreationDefaults = {
   merchantLocationKey: null,
   fulfillmentPolicyId: null,
@@ -54,6 +73,14 @@ const EMPTY_CREATION_DEFAULTS: VariationListingCreationDefaults = {
 
 function formatLifecycle(value: string): string {
   return value.replaceAll("-", " ");
+}
+
+function formatCondition(value: string): string {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 function formatPrice(value: VariationListingManualPriceAmount): string {
@@ -68,14 +95,27 @@ function creationDefaultsReady(
   );
 }
 
+function mergeGroupsByDesiredRevision(
+  currentGroups: VariationListingGroup[],
+  incomingGroups: VariationListingGroup[],
+): VariationListingGroup[] {
+  const currentById = new Map(currentGroups.map((group) => [group.groupId, group]));
+  return incomingGroups.map((incoming) => {
+    const current = currentById.get(incoming.groupId);
+    return current && current.desiredRevision > incoming.desiredRevision ? current : incoming;
+  });
+}
+
 function GroupCard({
   group,
   isSelected,
   onSelect,
+  selectionLocked,
 }: {
   group: VariationListingGroup;
   isSelected: boolean;
   onSelect: () => void;
+  selectionLocked: boolean;
 }) {
   const blockerCount = group.validation.blockers.length;
   const latestRevision = group.journal.latestRevision;
@@ -144,6 +184,7 @@ function GroupCard({
         type="button"
         aria-pressed={isSelected}
         onClick={onSelect}
+        disabled={selectionLocked}
         className={`mt-5 rounded-full px-4 py-2 text-sm font-bold transition ${
           isSelected
             ? "bg-amber-300 text-stone-950"
@@ -164,6 +205,13 @@ export function VariationListingsWorkspace({
   refreshIntervalMs = 3_000,
   refreshPath = "/api/variation-listings",
 }: VariationListingsWorkspaceProps) {
+  const initialTargetGroupId = initialIntakeSession?.targetGroupId ?? initialGroups[0]?.groupId;
+  const initialGroupCondition = initialGroups.find((group) => group.groupId === initialTargetGroupId)?.conditionToken;
+  const initialCopyConditionToken = isConditionToken(initialIntakeSession?.copyConditionToken)
+    ? initialIntakeSession.copyConditionToken
+    : isConditionToken(initialGroupCondition)
+      ? initialGroupCondition
+      : null;
   const [groups, setGroups] = useState(() => initialGroups);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
@@ -187,6 +235,8 @@ export function VariationListingsWorkspace({
     useState<VariationListingSkuCategoryCode>("BSKBL");
   const [conditionToken, setConditionToken] =
     useState<VariationListingConditionToken>("VERY_GOOD");
+  const [copyConditionToken, setCopyConditionToken] =
+    useState<VariationListingConditionToken | null>(() => initialCopyConditionToken);
   const [createStatus, setCreateStatus] = useState<"idle" | "creating" | "error">("idle");
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -213,6 +263,9 @@ export function VariationListingsWorkspace({
       ) {
         setIntakeSession(payload.session ?? null);
         setStickyPriceAmount(payload.session?.stickyPriceAmount ?? 0.99);
+        if (payload.session?.mode === "duplicate_copy" && payload.session.targetGroupId) {
+          setSelectedGroupId(payload.session.targetGroupId);
+        }
         setIntakeError(null);
       }
     } catch (error) {
@@ -240,7 +293,7 @@ export function VariationListingsWorkspace({
 
       const payload = (await response.json()) as VariationListingGroupsResponse;
       if (!signal.aborted && Array.isArray(payload.groups)) {
-        setGroups(payload.groups);
+        setGroups((current) => mergeGroupsByDesiredRevision(current, payload.groups));
         setRefreshFailed(false);
       } else if (!signal.aborted) {
         setRefreshFailed(true);
@@ -299,6 +352,26 @@ export function VariationListingsWorkspace({
   const duplicateMode = intakeSession?.mode === "duplicate_copy";
   const pendingPair = intakeSession?.pendingPair ?? null;
   const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null;
+  const copyConditionOptions = useMemo(
+    () => compatibleCopyConditionOptions(selectedGroup?.conditionToken),
+    [selectedGroup?.conditionToken],
+  );
+  const copyConditionValid = copyConditionToken !== null && copyConditionOptions.some((option) => option.value === copyConditionToken);
+  const conditionChangesLocked = duplicateMode || writesBlocked;
+  const selectionLocked = duplicateMode || writesBlocked;
+
+  useEffect(() => {
+    if (duplicateMode) {
+      setCopyConditionToken(intakeSession?.copyConditionToken ?? pendingPair?.conditionToken ?? null);
+      return;
+    }
+    const groupToken = selectedGroup?.conditionToken;
+    setCopyConditionToken(
+      compatibleCopyConditionOptions(groupToken).some((option) => option.value === groupToken)
+        ? (groupToken as VariationListingConditionToken)
+        : null,
+    );
+  }, [duplicateMode, intakeSession?.copyConditionToken, pendingPair?.conditionToken, selectedGroup?.conditionToken]);
   const defaultsReady = creationDefaultsReady(creationDefaults);
   const normalizedBucketToken = skuBucketToken.trim();
   const bucketTokenValid = /^[A-Za-z0-9]+([._-][A-Za-z0-9]+)*$/.test(normalizedBucketToken);
@@ -312,8 +385,14 @@ export function VariationListingsWorkspace({
     createStatus !== "creating";
 
   const persistIntake = useCallback(
-    async (input: {mode: "idle" | "new_variation"; targetGroupId: string | null; stickyPriceAmount: VariationListingManualPriceAmount}) => {
-      if (writesBlocked) return;
+    async (input: {
+      mode: "idle" | "new_variation" | "duplicate_copy";
+      targetGroupId: string | null;
+      targetVariationId: string | null;
+      copyConditionToken: VariationListingConditionToken | null;
+      stickyPriceAmount: VariationListingManualPriceAmount;
+    }) => {
+      if (writesBlocked || intakeWriteInFlightRef.current) return;
       const generation = ++intakeGenerationRef.current;
       intakeWriteInFlightRef.current = true;
       setIntakeStatus("configuring");
@@ -358,20 +437,58 @@ export function VariationListingsWorkspace({
     void persistIntake({
       mode: "new_variation",
       targetGroupId: selectedGroupId,
+      targetVariationId: null,
+      copyConditionToken: null,
       stickyPriceAmount,
     });
   }, [duplicateMode, persistIntake, selectedGroupId, stickyPriceAmount]);
 
   const disarmCapture = useCallback(() => {
-    void persistIntake({mode: "idle", targetGroupId: null, stickyPriceAmount});
+    void persistIntake({
+      mode: "idle",
+      targetGroupId: null,
+      targetVariationId: null,
+      copyConditionToken: null,
+      stickyPriceAmount,
+    });
   }, [persistIntake, stickyPriceAmount]);
+
+  const armDuplicateCapture = useCallback(
+    (variation: VariationListingVariation) => {
+      if (!selectedGroup || duplicateMode || writesBlocked || intakeWriteInFlightRef.current || !copyConditionValid) return;
+      void persistIntake({
+        mode: "duplicate_copy",
+        targetGroupId: selectedGroup.groupId,
+        targetVariationId: variation.variationId,
+        copyConditionToken,
+        stickyPriceAmount: variation.priceAmount,
+      });
+    },
+    [copyConditionToken, copyConditionValid, duplicateMode, persistIntake, selectedGroup, writesBlocked],
+  );
+
+  const replaceGroup = useCallback((updatedGroup: VariationListingGroup) => {
+    setGroups((current) =>
+      current.map((group) =>
+        group.groupId === updatedGroup.groupId && group.desiredRevision <= updatedGroup.desiredRevision
+          ? updatedGroup
+          : group,
+      ),
+    );
+  }, []);
 
   const selectPrice = useCallback(
     (price: VariationListingManualPriceAmount) => {
       const mode = intakeSession?.mode === "new_variation" ? "new_variation" : "idle";
       const targetGroupId = mode === "new_variation" ? intakeSession?.targetGroupId ?? null : null;
       if (intakeSession?.mode === "duplicate_copy") return;
-      void persistIntake({mode, targetGroupId, stickyPriceAmount: price});
+      void persistIntake({
+        mode,
+        targetGroupId,
+        targetVariationId: null,
+        copyConditionToken: null,
+        stickyPriceAmount: price,
+      });
     },
     [intakeSession, persistIntake],
   );
@@ -466,7 +583,12 @@ export function VariationListingsWorkspace({
               {isArmed ? armedGroup?.title || armedGroup?.skuNamespace.bucketToken || intakeSession?.targetGroupId : "Idle"}
             </p>
             {isArmed ? <p className="mt-1 text-sm text-amber-900">{formatPrice(intakeSession?.stickyPriceAmount ?? stickyPriceAmount)} · new variation</p> : null}
-            {duplicateMode ? <p className="mt-1 text-sm text-amber-900">Existing duplicate-copy mode is active; this workspace can only disarm it.</p> : null}
+            {duplicateMode ? (
+              <p className="mt-1 text-sm text-amber-900">
+                Existing duplicate-copy mode is active; this workspace can only disarm it.
+                {copyConditionToken ? ` Condition: ${formatCondition(copyConditionToken)}.` : ""}
+              </p>
+            ) : null}
           </div>
 
           <div className="mt-4">
@@ -517,6 +639,11 @@ export function VariationListingsWorkspace({
                     ? `Cards will target ${armedGroup?.title || intakeSession?.targetGroupId} at ${formatPrice(intakeSession?.stickyPriceAmount ?? stickyPriceAmount)}.`
                     : "Capture is idle. Arm the selected bucket to persist a durable target."}
             </p>
+            {pendingPair?.mode === "duplicate_copy" && !selectedGroup ? (
+              <p className="mt-2 text-xs font-semibold text-amber-900">
+                Frozen pending condition: {formatCondition(pendingPair.conditionToken)}
+              </p>
+            ) : null}
           </div>
           {intakeError ? (
             <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">
@@ -601,6 +728,20 @@ export function VariationListingsWorkspace({
         </form>
       </section>
 
+      <VariationInventoryPanel
+        group={selectedGroup}
+        intakeSession={intakeSession}
+        writesBlocked={writesBlocked}
+        onArmDuplicate={armDuplicateCapture}
+        onGroupUpdated={replaceGroup}
+        duplicateCaptureAvailable={copyConditionValid}
+        copyConditionToken={copyConditionToken}
+        copyConditionOptions={copyConditionOptions}
+        conditionChangesLocked={conditionChangesLocked}
+        onCopyConditionChange={setCopyConditionToken}
+        pendingConditionToken={pendingPair?.mode === "duplicate_copy" ? pendingPair.conditionToken : null}
+      />
+
       <section className="grid gap-3 sm:grid-cols-5">
         <div className="rounded-2xl border border-stone-950/10 bg-white/85 px-4 py-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Groups</p>
@@ -647,7 +788,10 @@ export function VariationListingsWorkspace({
               key={group.groupId}
               group={group}
               isSelected={group.groupId === selectedGroupId}
-              onSelect={() => setSelectedGroupId(group.groupId)}
+              onSelect={() => {
+                if (!selectionLocked) setSelectedGroupId(group.groupId);
+              }}
+              selectionLocked={selectionLocked}
             />
           ))}
         </section>

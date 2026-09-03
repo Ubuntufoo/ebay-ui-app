@@ -329,6 +329,7 @@ export type VariationListingPendingPair = {
   mode: "new_variation";
   targetGroupId: string;
   targetVariationId: null;
+  conditionToken: null;
   priceAmount: VariationListingManualPriceAmount;
   priceCurrency: "USD";
   frontSourceRef: string;
@@ -339,6 +340,7 @@ export type VariationListingPendingPair = {
   mode: "duplicate_copy";
   targetGroupId: string;
   targetVariationId: string;
+  conditionToken: VariationListingConditionToken;
   priceAmount: VariationListingManualPriceAmount;
   priceCurrency: "USD";
   frontSourceRef: string;
@@ -351,6 +353,7 @@ export interface VariationListingIntakeSession {
   mode: VariationListingIntakeMode;
   targetGroupId: string | null;
   targetVariationId: string | null;
+  copyConditionToken: VariationListingConditionToken | null;
   stickyPriceAmount: VariationListingManualPriceAmount;
   stickyPriceCurrency: "USD";
   pendingPair: VariationListingPendingPair | null;
@@ -362,11 +365,28 @@ export interface VariationListingIntakeSessionResponse {
   session: VariationListingIntakeSession | null;
 }
 
-export interface ConfigureVariationListingIntakeInput {
-  mode: "idle" | "new_variation";
-  targetGroupId: string | null;
-  stickyPriceAmount: VariationListingManualPriceAmount;
-}
+export type ConfigureVariationListingIntakeInput =
+  | {
+      mode: "idle";
+      targetGroupId: null;
+      targetVariationId: null;
+      copyConditionToken: null;
+      stickyPriceAmount: VariationListingManualPriceAmount;
+    }
+  | {
+      mode: "new_variation";
+      targetGroupId: string;
+      targetVariationId: null;
+      copyConditionToken: null;
+      stickyPriceAmount: VariationListingManualPriceAmount;
+    }
+  | {
+      mode: "duplicate_copy";
+      targetGroupId: string;
+      targetVariationId: string;
+      copyConditionToken: VariationListingConditionToken;
+      stickyPriceAmount: VariationListingManualPriceAmount;
+    };
 
 export interface CreateVariationListingGroupInput {
   skuCategoryCode: VariationListingSkuCategoryCode;
@@ -381,6 +401,11 @@ export interface CreateVariationListingGroupInput {
   conditionToken: VariationListingConditionToken;
 }
 
+export interface UpdateVariationListingRepresentativeCopyInput {
+  expectedDesiredRevision: number;
+  copyId: string;
+}
+
 export interface VariationListingCopy {
   copyId: string;
   availabilityState: "available" | "unavailable";
@@ -388,6 +413,8 @@ export interface VariationListingCopy {
   conditionNotes: string | null;
   frontR2Key: string;
   backR2Key: string;
+  frontImageUrl: string | null;
+  backImageUrl: string | null;
   captureSourceKey: string;
   capturePairId: string;
   capturedAt: string;
@@ -402,8 +429,8 @@ export interface VariationListingVariation {
   inventorySerial: number;
   sku: string;
   selectorValue: string;
-  priceAmount: number;
-  priceCurrency: string;
+  priceAmount: VariationListingManualPriceAmount;
+  priceCurrency: "USD";
   representativeCopyId: string | null;
   availableQuantity: number;
   copyCount: number;

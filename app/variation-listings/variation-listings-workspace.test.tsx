@@ -2,7 +2,11 @@ import {act, cleanup, fireEvent, render, screen} from "@testing-library/react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import {VariationListingsWorkspace} from "@/app/variation-listings/variation-listings-workspace";
-import type {VariationListingGroup} from "@/lib/sidecar-api";
+import type {
+  VariationListingCopy,
+  VariationListingGroup,
+  VariationListingVariation,
+} from "@/lib/sidecar-api";
 
 const fetchMock = vi.fn();
 
@@ -58,9 +62,49 @@ function buildSession(
     mode: "idle",
     targetGroupId: null,
     targetVariationId: null,
+    copyConditionToken: null,
     stickyPriceAmount: 0.99,
     stickyPriceCurrency: "USD",
     pendingPair: null,
+    createdAt: "2026-09-02T15:00:00.000Z",
+    updatedAt: "2026-09-02T15:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function buildVariation(
+  overrides: Partial<VariationListingVariation> = {},
+): VariationListingVariation {
+  const copy = (copyId: string, isRepresentative: boolean): VariationListingCopy => ({
+    copyId,
+    availabilityState: "available",
+    conditionToken: "NEAR_MINT_OR_BETTER",
+    conditionNotes: isRepresentative ? "Sharp corners" : "Light edge wear",
+    frontR2Key: `copies/${copyId}/front.jpg`,
+    backR2Key: `copies/${copyId}/back.jpg`,
+    frontImageUrl: `https://images.example/${copyId}/front.jpg`,
+    backImageUrl: `https://images.example/${copyId}/back.jpg`,
+    captureSourceKey: "camera-1",
+    capturePairId: `pair-${copyId}`,
+    capturedAt: "2026-09-02T15:00:00.000Z",
+    createdAt: "2026-09-02T15:00:00.000Z",
+    updatedAt: "2026-09-02T15:00:00.000Z",
+    isRepresentative,
+  });
+
+  return {
+    variationId: "variation-1",
+    position: 0,
+    inventorySerial: 243,
+    sku: "BSKBL-McGrady-000243",
+    selectorValue: "2003 Topps",
+    priceAmount: 1.99,
+    priceCurrency: "USD",
+    representativeCopyId: "copy-1",
+    availableQuantity: 2,
+    copyCount: 2,
+    variationMetadata: {},
+    copies: [copy("copy-1", true), copy("copy-2", false)],
     createdAt: "2026-09-02T15:00:00.000Z",
     updatedAt: "2026-09-02T15:00:00.000Z",
     ...overrides,
@@ -243,6 +287,55 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getByText("$1.99 · new variation")).not.toBeNull();
   });
 
+  it("reconciles the selected bucket to an externally armed duplicate target during polling", async () => {
+    const groupA = buildGroup({
+      title: "Group A",
+      conditionToken: "EXCELLENT",
+      variations: [buildVariation()],
+    });
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+      conditionToken: "VERY_GOOD",
+      variations: [buildVariation({variationId: "variation-b"})],
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [groupA, groupB]}), {status: 200}))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            session: buildSession({
+              mode: "duplicate_copy",
+              targetGroupId: groupB.groupId,
+              targetVariationId: "variation-b",
+              copyConditionToken: "EXCELLENT",
+              stickyPriceAmount: 1.99,
+            }),
+          }),
+          {status: 200},
+        ),
+      );
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+
+    expect(screen.getAllByText("Group B").length).toBeGreaterThan(0);
+    const selector = screen.getByRole("combobox", {name: "Duplicate-copy condition"}) as HTMLSelectElement;
+    expect(selector.value).toBe("EXCELLENT");
+    expect(Array.from(selector.options).map((option) => option.value)).toEqual([
+      "NEAR_MINT_OR_BETTER",
+      "EXCELLENT",
+      "VERY_GOOD",
+    ]);
+    expect(screen.getByText(/Existing duplicate-copy mode is active; this workspace can only disarm it\. Condition: Excellent\./)).not.toBeNull();
+  });
+
   it("persists price changes through the local intake API", async () => {
     const session = buildSession();
     fetchMock.mockResolvedValueOnce(
@@ -263,7 +356,7 @@ describe("VariationListingsWorkspace", () => {
       "/api/variation-listings/intake-session",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({mode: "idle", targetGroupId: null, stickyPriceAmount: 1.49}),
+        body: JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.49}),
       }),
     );
   });
@@ -280,11 +373,286 @@ describe("VariationListingsWorkspace", () => {
     await act(async () => await Promise.resolve());
 
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
-      JSON.stringify({mode: "new_variation", targetGroupId: "11111111-1111-4111-8111-111111111111", stickyPriceAmount: 0.99}),
+      JSON.stringify({mode: "new_variation", targetGroupId: "11111111-1111-4111-8111-111111111111", targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 0.99}),
     );
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
-      JSON.stringify({mode: "idle", targetGroupId: null, stickyPriceAmount: 0.99}),
+      JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 0.99}),
     );
+  });
+
+  it("arms and disarms duplicate capture for the exact variation price", async () => {
+    const variation = buildVariation();
+    const otherVariation = buildVariation({
+      variationId: "variation-2",
+      selectorValue: "2004 Topps",
+      priceAmount: 2.49,
+    });
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            session: buildSession({
+              mode: "duplicate_copy",
+              targetGroupId: "11111111-1111-4111-8111-111111111111",
+              targetVariationId: variation.variationId,
+              copyConditionToken: "EXCELLENT",
+              stickyPriceAmount: variation.priceAmount,
+            }),
+          }),
+          {status: 200},
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation, otherVariation], variationCount: 2})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole("button", {name: "Capture duplicate"})[0]);
+    await act(async () => await Promise.resolve());
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({
+        mode: "duplicate_copy",
+        targetGroupId: "11111111-1111-4111-8111-111111111111",
+        targetVariationId: variation.variationId,
+        copyConditionToken: "EXCELLENT",
+        stickyPriceAmount: 1.99,
+      }),
+    );
+    expect(screen.getByText("Duplicate mode")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", true);
+
+    fireEvent.click(screen.getByRole("button", {name: "Disarm"}));
+    await act(async () => await Promise.resolve());
+    expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
+      JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.99}),
+    );
+  });
+
+  it("defaults duplicate condition to the group and exposes only equal-or-better options", () => {
+    const variation = buildVariation();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation], conditionToken: "EXCELLENT"})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const selector = screen.getByRole("combobox", {name: "Duplicate-copy condition"}) as HTMLSelectElement;
+    expect(selector.value).toBe("EXCELLENT");
+    expect(Array.from(selector.options).map((option) => option.value)).toEqual([
+      "NEAR_MINT_OR_BETTER",
+      "EXCELLENT",
+    ]);
+  });
+
+  it("sends the selected duplicate condition and hydrates a durable duplicate session", async () => {
+    const variation = buildVariation();
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          session: buildSession({
+            mode: "duplicate_copy",
+            targetGroupId: "11111111-1111-4111-8111-111111111111",
+            targetVariationId: variation.variationId,
+            copyConditionToken: "NEAR_MINT_OR_BETTER",
+            stickyPriceAmount: variation.priceAmount,
+          }),
+        }),
+        {status: 200},
+      ),
+    );
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation], conditionToken: "EXCELLENT"})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const selector = screen.getByRole("combobox", {name: "Duplicate-copy condition"}) as HTMLSelectElement;
+    fireEvent.change(selector, {target: {value: "NEAR_MINT_OR_BETTER"}});
+    fireEvent.click(screen.getByRole("button", {name: "Capture duplicate"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({
+        mode: "duplicate_copy",
+        targetGroupId: "11111111-1111-4111-8111-111111111111",
+        targetVariationId: variation.variationId,
+        copyConditionToken: "NEAR_MINT_OR_BETTER",
+        stickyPriceAmount: variation.priceAmount,
+      }),
+    );
+    expect(selector.value).toBe("NEAR_MINT_OR_BETTER");
+    expect(selector.disabled).toBe(true);
+  });
+
+  it("hydrates and locks the selector from an already armed durable duplicate session", () => {
+    const variation = buildVariation();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({conditionToken: "EXCELLENT", variations: [variation]})]}
+        initialIntakeSession={buildSession({
+          mode: "duplicate_copy",
+          targetGroupId: "11111111-1111-4111-8111-111111111111",
+          targetVariationId: variation.variationId,
+          copyConditionToken: "NEAR_MINT_OR_BETTER",
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const selector = screen.getByRole("combobox", {name: "Duplicate-copy condition"}) as HTMLSelectElement;
+    expect(selector.value).toBe("NEAR_MINT_OR_BETTER");
+    expect(selector.disabled).toBe(true);
+  });
+
+  it("fails closed when a group condition is unrecognized", () => {
+    const variation = buildVariation();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({conditionToken: "UNKNOWN_CONDITION", variations: [variation]})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByText("Duplicate capture unavailable: bucket condition is unrecognized.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", true);
+  });
+
+  it("shows and locks the frozen duplicate condition for a pending pair", () => {
+    const variation = buildVariation();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({conditionToken: "EXCELLENT", variations: [variation]})]}
+        initialIntakeSession={buildSession({
+          mode: "duplicate_copy",
+          targetGroupId: "11111111-1111-4111-8111-111111111111",
+          targetVariationId: variation.variationId,
+          copyConditionToken: "NEAR_MINT_OR_BETTER",
+          pendingPair: {
+            pairId: "pair-duplicate",
+            mode: "duplicate_copy",
+            targetGroupId: "11111111-1111-4111-8111-111111111111",
+            targetVariationId: variation.variationId,
+            conditionToken: "NEAR_MINT_OR_BETTER",
+            priceAmount: variation.priceAmount,
+            priceCurrency: "USD",
+            frontSourceRef: "/camera/front.jpg",
+            startedAt: "2026-09-02T15:00:00.000Z",
+            expectedDesiredRevision: 3,
+          },
+        })}
+        refreshIntervalMs={0}
+      />
+    );
+
+    const selector = screen.getByRole("combobox", {name: "Duplicate-copy condition"}) as HTMLSelectElement;
+    expect(selector.value).toBe("NEAR_MINT_OR_BETTER");
+    expect(selector.disabled).toBe(true);
+    expect(screen.getByText("Frozen pending condition: Near Mint Or Better")).not.toBeNull();
+  });
+
+  it("rejects a second intake PATCH while the first configure is in flight", async () => {
+    let resolveConfigure: ((response: Response) => void) | undefined;
+    fetchMock.mockReturnValueOnce(
+      new Promise<Response>((resolve) => {
+        resolveConfigure = resolve;
+      }),
+    );
+    render(<VariationListingsWorkspace initialGroups={[buildGroup()]} refreshIntervalMs={0} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", {name: "$1.49"}));
+      fireEvent.click(screen.getByRole("button", {name: "$1.99"}));
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveConfigure?.(new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 1.49})}), {status: 200}));
+      await Promise.resolve();
+    });
+  });
+
+  it("does not let an older polling response overwrite a newer group revision", async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({groups: [buildGroup({desiredRevision: 2, title: "Older group"})]}), {status: 200}),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({desiredRevision: 3, title: "Newer group"})]}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+    expect(screen.getAllByText("Newer group").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Older group")).toBeNull();
+  });
+
+  it("renders copy inspection fields and replaces the group after representative CAS", async () => {
+    const variation = buildVariation();
+    const updatedVariation = buildVariation({
+      representativeCopyId: "copy-2",
+      copies: variation.copies.map((copy) => ({
+        ...copy,
+        isRepresentative: copy.copyId === "copy-2",
+      })),
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(buildGroup({variations: [updatedVariation], variationCount: 1})), {status: 200}),
+    );
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation], variationCount: 1})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getAllByText("Near Mint Or Better").length).toBe(2);
+    expect(screen.getByText("Light edge wear")).not.toBeNull();
+    expect(screen.getAllByText("available").length).toBe(2);
+    expect(screen.getByRole("img", {name: "Front image for copy copy-1"}).getAttribute("src")).toBe(
+      "https://images.example/copy-1/front.jpg",
+    );
+    expect(screen.getByRole("img", {name: "Front image for copy copy-2"})).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", {name: "Use as representative"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/11111111-1111-4111-8111-111111111111/variations/variation-1/representative-copy",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, copyId: "copy-2"}),
+      }),
+    );
+    expect(screen.getByText("Representative")).not.toBeNull();
+    expect(screen.getAllByRole("button", {name: "Use as representative"})).toHaveLength(1);
+  });
+
+  it("rejects a malformed representative response without replacing local state", async () => {
+    const variation = buildVariation();
+    const malformed = buildGroup({desiredRevision: -1, variations: [variation], variationCount: 1});
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(malformed), {status: 200}));
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation], variationCount: 1})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Use as representative"}));
+    await act(async () => await Promise.resolve());
+    expect(screen.getByText("Representative copy update returned a malformed or mismatched group.")).not.toBeNull();
+    expect(screen.getAllByRole("button", {name: "Use as representative"})).toHaveLength(1);
   });
 
   it("locks intake writes while a pending pair is present", () => {
@@ -299,6 +667,7 @@ describe("VariationListingsWorkspace", () => {
             mode: "new_variation",
             targetGroupId: "11111111-1111-4111-8111-111111111111",
             targetVariationId: null,
+            conditionToken: null,
             priceAmount: 0.99,
             priceCurrency: "USD",
             frontSourceRef: "/camera/front.jpg",

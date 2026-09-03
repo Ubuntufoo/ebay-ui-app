@@ -19,6 +19,7 @@ import {
   retryPricingAnalysis,
   updateAppSettings,
   updateListing,
+  updateVariationListingRepresentativeCopy,
 } from "@/lib/sidecar-api/client";
 
 describe("listVariationListingGroups", () => {
@@ -92,6 +93,7 @@ describe("variation listing intake session", () => {
       mode: "new_variation",
       targetGroupId: "group-1",
       targetVariationId: null,
+      copyConditionToken: null,
       stickyPriceAmount: 1.49,
       stickyPriceCurrency: "USD",
       pendingPair: null,
@@ -104,6 +106,8 @@ describe("variation listing intake session", () => {
       configureVariationListingIntake({
         mode: "new_variation",
         targetGroupId: "group-1",
+        targetVariationId: null,
+        copyConditionToken: null,
         stickyPriceAmount: 1.49,
       }),
     ).resolves.toEqual(session);
@@ -114,8 +118,45 @@ describe("variation listing intake session", () => {
         body: JSON.stringify({
           mode: "new_variation",
           targetGroupId: "group-1",
+          targetVariationId: null,
+          copyConditionToken: null,
           stickyPriceAmount: 1.49,
         }),
+      }),
+    );
+  });
+});
+
+describe("variation listing representative copy", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("patches the encoded variation representative endpoint with CAS input", async () => {
+    const group = {groupId: "group/1"};
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(group), {status: 200}));
+
+    await expect(
+      updateVariationListingRepresentativeCopy("group/1", "variation/2", {
+        expectedDesiredRevision: 3,
+        copyId: "copy-2",
+      }),
+    ).resolves.toEqual(group);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/variations/variation%2F2/representative-copy",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, copyId: "copy-2"}),
       }),
     );
   });

@@ -19,6 +19,7 @@ export {
   updateListing,
   updateListingImageUrls,
   updateListingWorkflowState,
+  updateVariationListingRepresentativeCopy,
   SidecarApiError,
 } from "@/lib/sidecar-api/client";
 export type {
@@ -78,6 +79,7 @@ export type {
   UpdateListingInput,
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
+  UpdateVariationListingRepresentativeCopyInput,
   SidecarErrorResponse,
   SidecarValidationErrorDetail,
 } from "@/lib/sidecar-api/types";
