@@ -3,6 +3,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 
 import {VariationInventoryPanel} from "@/app/variation-listings/variation-inventory-panel";
+import {VariationGroupReviewPanel} from "@/app/variation-listings/variation-group-review-panel";
 import {VariationPublicationPanel} from "@/app/variation-listings/variation-publication-panel";
 
 import type {
@@ -281,8 +282,8 @@ export function VariationListingsWorkspace({
       if (!response.ok) {
         throw new Error(`Intake session refresh failed (${response.status}).`);
       }
-      const payload = (await response.json()) as {session?: VariationListingIntakeSession | null};
-      if (!("session" in payload)) {
+      const payload = (await response.json().catch(() => null)) as {session?: VariationListingIntakeSession | null} | null;
+      if (!payload || typeof payload !== "object" || !("session" in payload)) {
         throw new Error("Intake session response was malformed.");
       }
       if (
@@ -774,6 +775,13 @@ export function VariationListingsWorkspace({
         conditionChangesLocked={conditionChangesLocked}
         onCopyConditionChange={setCopyConditionToken}
         pendingConditionToken={pendingPair?.mode === "duplicate_copy" ? pendingPair.conditionToken : null}
+      />
+
+      <VariationGroupReviewPanel
+        key={selectedGroup ? `${selectedGroup.groupId}:${selectedGroup.desiredRevision}` : "empty-review"}
+        group={selectedGroup}
+        writesBlocked={writesBlocked}
+        onGroupUpdated={replaceGroup}
       />
 
       <VariationPublicationPanel

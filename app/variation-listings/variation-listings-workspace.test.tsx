@@ -676,6 +676,123 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getAllByRole("button", {name: "Use as representative"})).toHaveLength(1);
   });
 
+  it("edits the buyer-facing Card selector before publication with CAS", async () => {
+    const variation = buildVariation();
+    const updatedGroup = buildGroup({
+      desiredRevision: 5,
+      variations: [buildVariation({selectorValue: "2003 Topps Chrome (updated)"})],
+      variationCount: 1,
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(updatedGroup), {status: 200}));
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation], variationCount: 1})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const selectorInput = screen.getByDisplayValue("2003 Topps") as HTMLInputElement;
+    expect(selectorInput.disabled).toBe(false);
+    fireEvent.change(selectorInput, {target: {value: "2003 Topps Chrome"}});
+    fireEvent.click(screen.getByRole("button", {name: "Save title"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/11111111-1111-4111-8111-111111111111/variations/variation-1/selector-value",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, selectorValue: "2003 Topps Chrome"}),
+      }),
+    );
+    expect(screen.getByDisplayValue("2003 Topps Chrome (updated)")).not.toBeNull();
+  });
+
+  it("retains an unsaved selector edit across same-revision polling", async () => {
+    const variation = buildVariation();
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [buildGroup({
+        updatedAt: "2026-09-02T15:06:00.000Z",
+        variations: [variation],
+        variationCount: 1,
+      })]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation], variationCount: 1})]}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    const selectorInput = screen.getByDisplayValue("2003 Topps") as HTMLInputElement;
+    fireEvent.change(selectorInput, {target: {value: "Unsaved selector"}});
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+
+    expect(selectorInput.value).toBe("Unsaved selector");
+  });
+
+  it("locks group review inputs while generating and saves the generated draft with CAS", async () => {
+    const variations = [
+      buildVariation(),
+      buildVariation({variationId: "variation-2", selectorValue: "2004 Topps", sku: "BSKBL-McGrady-000244", position: 1}),
+    ];
+    let resolveGenerate!: (response: Response) => void;
+    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { resolveGenerate = resolve; }));
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations, variationCount: 2})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Generate group draft"}));
+    expect(screen.getByLabelText("Group title")).toHaveProperty("disabled", true);
+    expect(screen.getByLabelText("Group description")).toHaveProperty("disabled", true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/11111111-1111-4111-8111-111111111111/review-draft/generate",
+      expect.objectContaining({method: "POST"}),
+    );
+
+    await act(async () => {
+      resolveGenerate(new Response(JSON.stringify({
+        groupId: "11111111-1111-4111-8111-111111111111",
+        expectedDesiredRevision: 4,
+        title: "2003 Topps Basketball",
+        description: "Choose your card from this group.",
+        derivedCommonEbayAspects: {Sport: "Basketball"},
+        readiness: {ready: false, blockers: ["Missing common aspect"]},
+        warnings: [],
+      }), {status: 200}));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByLabelText("Group title")).toHaveProperty("value", "2003 Topps Basketball");
+    expect(screen.getByLabelText("Group description")).toHaveProperty("value", "Choose your card from this group.");
+    const savedGroup = buildGroup({
+      desiredRevision: 5,
+      title: "2003 Topps Basketball",
+      description: "Choose your card from this group.",
+      derivedCommonEbayAspects: {Sport: "Basketball"},
+      variations,
+      variationCount: 2,
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(savedGroup), {status: 200}));
+    fireEvent.click(screen.getByRole("button", {name: "Save review draft"}));
+    expect(screen.getByLabelText("Group title")).toHaveProperty("disabled", true);
+    await act(async () => await Promise.resolve());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/11111111-1111-4111-8111-111111111111/review-draft",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          expectedDesiredRevision: 4,
+          title: "2003 Topps Basketball",
+          description: "Choose your card from this group.",
+          derivedCommonEbayAspects: {Sport: "Basketball"},
+        }),
+      }),
+    );
+  });
+
   it("rejects a malformed representative response without replacing local state", async () => {
     const variation = buildVariation();
     const malformed = buildGroup({desiredRevision: -1, variations: [variation], variationCount: 1});

@@ -9,6 +9,7 @@ export {
   getEbayEnvironment,
   getGeminiUsage,
   getVariationListingIntakeSession,
+  generateVariationListingReviewDraft,
   getListing,
   listListings,
   listVariationListingGroups,
@@ -21,6 +22,8 @@ export {
   updateListingImageUrls,
   updateListingWorkflowState,
   updateVariationListingRepresentativeCopy,
+  updateVariationListingReviewDraft,
+  updateVariationListingSelectorValue,
   SidecarApiError,
 } from "@/lib/sidecar-api/client";
 export type {
@@ -72,6 +75,7 @@ export type {
   VariationListingManualPriceAmount,
   VariationListingSkuCategoryCode,
   VariationListingGroupsResponse,
+  VariationListingGeneratedReviewDraft,
   VariationListingActionInput,
   VariationListingActionIssue,
   VariationListingActionName,
@@ -90,6 +94,8 @@ export type {
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
   UpdateVariationListingRepresentativeCopyInput,
+  UpdateVariationListingReviewDraftInput,
+  UpdateVariationListingSelectorValueInput,
   SidecarErrorResponse,
   SidecarValidationErrorDetail,
 } from "@/lib/sidecar-api/types";

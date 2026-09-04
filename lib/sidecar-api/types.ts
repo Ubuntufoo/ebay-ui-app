@@ -406,6 +406,31 @@ export interface UpdateVariationListingRepresentativeCopyInput {
   copyId: string;
 }
 
+export interface UpdateVariationListingSelectorValueInput {
+  expectedDesiredRevision: number;
+  selectorValue: string;
+}
+
+export interface UpdateVariationListingReviewDraftInput {
+  expectedDesiredRevision: number;
+  title: string;
+  description: string;
+  derivedCommonEbayAspects: JsonObject;
+}
+
+export interface VariationListingGeneratedReviewDraft {
+  groupId: string;
+  expectedDesiredRevision: number;
+  title: string;
+  description: string;
+  derivedCommonEbayAspects: JsonObject;
+  readiness: {
+    ready: boolean;
+    blockers: string[];
+  };
+  warnings: string[];
+}
+
 export type VariationListingActionRouteName =
   | "publish"
   | "publish-changes"

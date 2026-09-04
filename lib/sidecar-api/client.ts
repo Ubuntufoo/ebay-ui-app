@@ -19,12 +19,15 @@ import type {
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
   UpdateVariationListingRepresentativeCopyInput,
+  UpdateVariationListingReviewDraftInput,
+  UpdateVariationListingSelectorValueInput,
   UpdateAppSettingsInput,
   SidecarErrorResponse,
   VariationListingGroup,
   VariationListingIntakeSession,
   VariationListingIntakeSessionResponse,
   VariationListingGroupsResponse,
+  VariationListingGeneratedReviewDraft,
   VariationListingActionInput,
   VariationListingActionResponse,
   VariationListingActionRouteName,
@@ -187,6 +190,36 @@ export async function updateVariationListingRepresentativeCopy(
 ): Promise<VariationListingGroup> {
   return await sidecarFetch<VariationListingGroup>(
     `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/representative-copy`,
+    buildJsonRequestInit("PATCH", input),
+  );
+}
+
+export async function generateVariationListingReviewDraft(
+  groupId: string,
+): Promise<VariationListingGeneratedReviewDraft> {
+  return await sidecarFetch<VariationListingGeneratedReviewDraft>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/review-draft/generate`,
+    buildJsonRequestInit("POST"),
+  );
+}
+
+export async function updateVariationListingReviewDraft(
+  groupId: string,
+  input: UpdateVariationListingReviewDraftInput,
+): Promise<VariationListingGroup> {
+  return await sidecarFetch<VariationListingGroup>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/review-draft`,
+    buildJsonRequestInit("PATCH", input),
+  );
+}
+
+export async function updateVariationListingSelectorValue(
+  groupId: string,
+  variationId: string,
+  input: UpdateVariationListingSelectorValueInput,
+): Promise<VariationListingGroup> {
+  return await sidecarFetch<VariationListingGroup>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/selector-value`,
     buildJsonRequestInit("PATCH", input),
   );
 }

@@ -14,6 +14,7 @@ import {
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
   getVariationListingIntakeSession,
+  generateVariationListingReviewDraft,
   listVariationListingGroups,
   runVariationListingAction,
   retryPricing,
@@ -21,6 +22,8 @@ import {
   updateAppSettings,
   updateListing,
   updateVariationListingRepresentativeCopy,
+  updateVariationListingReviewDraft,
+  updateVariationListingSelectorValue,
 } from "@/lib/sidecar-api/client";
 
 describe("listVariationListingGroups", () => {
@@ -158,6 +161,74 @@ describe("variation listing representative copy", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({expectedDesiredRevision: 3, copyId: "copy-2"}),
+      }),
+    );
+  });
+});
+
+describe("variation listing review and selector helpers", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts group review generation through the encoded endpoint", async () => {
+    const draft = {groupId: "group/1", expectedDesiredRevision: 3};
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(draft), {status: 200}));
+
+    await expect(generateVariationListingReviewDraft("group/1")).resolves.toEqual(draft);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/review-draft/generate",
+      expect.objectContaining({method: "POST", cache: "no-store"}),
+    );
+  });
+
+  it("patches review draft content with the expected revision", async () => {
+    const group = {groupId: "group/1", desiredRevision: 4};
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(group), {status: 200}));
+
+    await expect(updateVariationListingReviewDraft("group/1", {
+      expectedDesiredRevision: 3,
+      title: "Cards",
+      description: "Choose a card.",
+      derivedCommonEbayAspects: {Sport: "Basketball"},
+    })).resolves.toEqual(group);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/review-draft",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          expectedDesiredRevision: 3,
+          title: "Cards",
+          description: "Choose a card.",
+          derivedCommonEbayAspects: {Sport: "Basketball"},
+        }),
+      }),
+    );
+  });
+
+  it("patches selector value with the expected revision", async () => {
+    const group = {groupId: "group/1", desiredRevision: 4};
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(group), {status: 200}));
+
+    await expect(updateVariationListingSelectorValue("group/1", "variation/2", {
+      expectedDesiredRevision: 3,
+      selectorValue: "2003 Topps Chrome",
+    })).resolves.toEqual(group);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/variations/variation%2F2/selector-value",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, selectorValue: "2003 Topps Chrome"}),
       }),
     );
   });

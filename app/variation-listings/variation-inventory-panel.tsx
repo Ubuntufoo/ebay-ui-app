@@ -1,6 +1,6 @@
 "use client";
 
-import {useCallback, useState} from "react";
+import {useCallback, useEffect, useState} from "react";
 
 import type {
   VariationListingConditionToken,
@@ -114,7 +114,17 @@ export function VariationInventoryPanel({
   pendingConditionToken,
 }: VariationInventoryPanelProps) {
   const [representativeWrite, setRepresentativeWrite] = useState<string | null>(null);
+  const [selectorDrafts, setSelectorDrafts] = useState<Record<string, string>>({});
+  const [selectorWrite, setSelectorWrite] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Preserve edits across same-revision polling, but never carry a draft over
+  // to a different group or server revision.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    setSelectorDrafts({});
+  }, [group?.groupId, group?.desiredRevision]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const setRepresentative = useCallback(
     async (variation: VariationListingVariation, copyId: string) => {
@@ -137,7 +147,7 @@ export function VariationInventoryPanel({
         const payload = (await response.json().catch(() => null)) as VariationListingGroup | {error?: string} | null;
         if (!response.ok) {
           throw new Error(
-            payload && "error" in payload && payload.error
+            payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" && payload.error
               ? payload.error
               : `Representative copy update failed (${response.status}).`,
           );
@@ -163,6 +173,58 @@ export function VariationInventoryPanel({
       }
     },
     [group, onGroupUpdated, representativeWrite],
+  );
+
+  const saveSelectorValue = useCallback(
+    async (variation: VariationListingVariation) => {
+      if (!group || selectorWrite) return;
+      const selectorValue = (selectorDrafts[variation.variationId] ?? variation.selectorValue).trim();
+      if (!selectorValue || selectorValue === variation.selectorValue) return;
+      setSelectorWrite(variation.variationId);
+      setActionError(null);
+      try {
+        const response = await fetch(
+          `/api/variation-listings/${encodeURIComponent(group.groupId)}/variations/${encodeURIComponent(variation.variationId)}/selector-value`,
+          {
+            method: "PATCH",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({expectedDesiredRevision: group.desiredRevision, selectorValue}),
+          },
+        );
+        const payload = (await response.json().catch(() => null)) as VariationListingGroup | {error?: string} | null;
+        const updatedVariation = payload && typeof payload === "object" && "variations" in payload && Array.isArray(payload.variations)
+          ? payload.variations.find((candidate) => candidate && typeof candidate === "object" && "variationId" in candidate && candidate.variationId === variation.variationId)
+          : null;
+        if (
+          !response.ok ||
+          !payload ||
+          typeof payload !== "object" ||
+          !("groupId" in payload) ||
+          payload.groupId !== group.groupId ||
+          !("desiredRevision" in payload) ||
+          !Number.isInteger(payload.desiredRevision) ||
+          payload.desiredRevision < group.desiredRevision + 1 ||
+          !updatedVariation ||
+          !("selectorValue" in updatedVariation) ||
+          typeof updatedVariation.selectorValue !== "string"
+        ) {
+          throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" && payload.error
+            ? payload.error
+            : `Variation title update returned a malformed or stale group (${response.status}).`);
+        }
+        setSelectorDrafts((current) => {
+          const next = {...current};
+          delete next[variation.variationId];
+          return next;
+        });
+        onGroupUpdated(payload);
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : "Unable to update variation title.");
+      } finally {
+        setSelectorWrite(null);
+      }
+    },
+    [group, onGroupUpdated, selectorDrafts, selectorWrite],
   );
 
   if (!group) {
@@ -230,8 +292,26 @@ export function VariationInventoryPanel({
             return (
               <article key={variation.variationId} className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-base font-semibold text-stone-950">{variation.selectorValue}</h3>
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">
+                      Variation title / Card selector
+                      <div className="mt-1 flex gap-2">
+                        <input
+                          value={selectorDrafts[variation.variationId] ?? variation.selectorValue}
+                          onChange={(event) => setSelectorDrafts((current) => ({...current, [variation.variationId]: event.target.value}))}
+                          disabled={writesBlocked || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null}
+                          className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-stone-950 disabled:bg-stone-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void saveSelectorValue(variation)}
+                          disabled={writesBlocked || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null || !(selectorDrafts[variation.variationId] ?? "").trim() || (selectorDrafts[variation.variationId] ?? variation.selectorValue).trim() === variation.selectorValue}
+                          className="rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {selectorWrite === variation.variationId ? "Saving…" : "Save title"}
+                        </button>
+                      </div>
+                    </label>
                     <p className="mt-1 text-xs text-stone-500">{variation.sku}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
