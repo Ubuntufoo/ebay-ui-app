@@ -31,22 +31,65 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
       );
     }
     const upstream = response.body;
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    let streamEnded = false;
+    const abortUpstream = () => {
+      if (!upstreamController.signal.aborted) upstreamController.abort();
+    };
+    const isAbortError = (error: unknown) =>
+      error instanceof Error && error.name === "AbortError";
     const body = new ReadableStream<Uint8Array>({
       start(streamController) {
-        const reader = upstream.getReader();
-        const onAbort = () => { upstreamController.abort(); void reader.cancel(); };
+        reader = upstream.getReader();
+        const onAbort = () => abortUpstream();
         const cleanup = () => request.signal.removeEventListener("abort", onAbort);
-        request.signal.addEventListener("abort", onAbort, {once: true});
-        const pump = (): void => {
-          void reader.read().then(({done, value}) => {
-            if (done) { cleanup(); streamController.close(); return; }
-            if (value) streamController.enqueue(value);
-            pump();
-          }).catch((error) => { cleanup(); streamController.error(error); });
+        const closeNormally = () => {
+          if (streamEnded) return;
+          streamEnded = true;
+          cleanup();
+          try {
+            streamController.close();
+          } catch {
+            // Downstream cancellation may have already closed the stream.
+          }
         };
-        pump();
+        request.signal.addEventListener("abort", onAbort, {once: true});
+        const pump = async (): Promise<void> => {
+          try {
+            while (!streamEnded) {
+              const {done, value} = await reader!.read();
+              if (done) {
+                closeNormally();
+                return;
+              }
+              if (value) streamController.enqueue(value);
+            }
+          } catch (error) {
+            if (
+              request.signal.aborted ||
+              upstreamController.signal.aborted ||
+              isAbortError(error)
+            ) {
+              closeNormally();
+              return;
+            }
+            streamEnded = true;
+            cleanup();
+            streamController.error(error);
+          }
+        };
+        void pump();
       },
-      cancel() { upstreamController.abort(); },
+      async cancel() {
+        if (streamEnded) return;
+        streamEnded = true;
+        abortUpstream();
+        try {
+          await reader?.cancel();
+        } catch {
+          // Reader cancellation after an upstream abort is expected.
+        }
+      },
     });
     request.signal.removeEventListener("abort", abort);
     return new Response(body, {

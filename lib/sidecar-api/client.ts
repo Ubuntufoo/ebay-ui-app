@@ -183,6 +183,17 @@ export async function configureVariationListingIntake(
   return response.session;
 }
 
+export async function discardVariationListingPendingPair(): Promise<VariationListingIntakeSession> {
+  const response = await sidecarFetch<VariationListingIntakeSessionResponse>(
+    "/api/variation-listings/intake-session/discard",
+    buildJsonRequestInit("POST"),
+  );
+  if (!response.session) {
+    throw new Error("Sidecar returned no intake session after discarding the pending pair.");
+  }
+  return response.session;
+}
+
 export async function updateVariationListingRepresentativeCopy(
   groupId: string,
   variationId: string,

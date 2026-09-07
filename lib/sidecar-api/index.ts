@@ -2,6 +2,7 @@ export {
   abandonListing,
   createVariationListingGroup,
   configureVariationListingIntake,
+  discardVariationListingPendingPair,
   deleteSandboxListing,
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,

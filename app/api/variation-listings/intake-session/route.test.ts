@@ -2,20 +2,23 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 
 const getSessionMock = vi.hoisted(() => vi.fn());
 const configureMock = vi.hoisted(() => vi.fn());
+const discardMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/sidecar-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/sidecar-api")>()),
   getVariationListingIntakeSession: getSessionMock,
   configureVariationListingIntake: configureMock,
+  discardVariationListingPendingPair: discardMock,
 }));
 
-import {GET, PATCH} from "@/app/api/variation-listings/intake-session/route";
+import {DELETE, GET, PATCH} from "@/app/api/variation-listings/intake-session/route";
 import {SidecarApiError} from "@/lib/sidecar-api";
 
 describe("variation listing intake-session route", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
     configureMock.mockReset();
+    discardMock.mockReset();
   });
 
   it("returns the durable session envelope", async () => {
@@ -70,5 +73,14 @@ describe("variation listing intake-session route", () => {
     );
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({error: "pending pair"});
+  });
+
+  it("returns the durable session after discarding a pending pair", async () => {
+    const session = {mode: "idle", pendingPair: null};
+    discardMock.mockResolvedValue(session);
+    const response = await DELETE();
+    expect(discardMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({session});
   });
 });

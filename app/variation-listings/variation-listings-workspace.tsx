@@ -488,6 +488,37 @@ export function VariationListingsWorkspace({
     });
   }, [persistIntake, stickyPriceAmount]);
 
+  const discardPendingPair = useCallback(async () => {
+    if (!pendingPair || intakeWriteInFlightRef.current) return;
+    const generation = ++intakeGenerationRef.current;
+    intakeWriteInFlightRef.current = true;
+    setIntakeStatus("configuring");
+    try {
+      const response = await fetch("/api/variation-listings/intake-session", {method: "DELETE"});
+      const payload = (await response.json().catch(() => null)) as {
+        session?: VariationListingIntakeSession | null;
+        error?: string;
+      } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || `Pending-pair discard failed (${response.status}).`);
+      }
+      const session = payload?.session;
+      if (!session) throw new Error("Pending-pair discard returned no intake session.");
+      if (generation === intakeGenerationRef.current) {
+        setIntakeSession(session);
+        setStickyPriceAmount(session.stickyPriceAmount);
+        setIntakeError(null);
+      }
+    } catch (error) {
+      if (generation === intakeGenerationRef.current) {
+        setIntakeError(error instanceof Error ? error.message : "Unable to discard pending pair.");
+      }
+    } finally {
+      intakeWriteInFlightRef.current = false;
+      setIntakeStatus("idle");
+    }
+  }, [pendingPair]);
+
   const armDuplicateCapture = useCallback(
     (variation: VariationListingVariation) => {
       if (!selectedGroup || duplicateMode || writesBlocked || intakeWriteInFlightRef.current || !copyConditionValid) return;
@@ -665,6 +696,16 @@ export function VariationListingsWorkspace({
             >
               Disarm
             </button>
+            {pendingPair ? (
+              <button
+                type="button"
+                onClick={() => void discardPendingPair()}
+                disabled={intakeStatus === "configuring"}
+                className="rounded-full border border-rose-300 bg-white px-5 py-2.5 text-sm font-bold text-rose-700 transition enabled:hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Discard pending pair
+              </button>
+            ) : null}
             <p className="max-w-xl text-xs leading-5 text-stone-500">
               {pendingPair
                 ? `Pair ${pendingPair.pairId} is pending from ${pendingPair.frontSourceRef}. Target, mode, and price are locked until the pair completes or is discarded.`

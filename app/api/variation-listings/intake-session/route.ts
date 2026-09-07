@@ -2,6 +2,7 @@ import {NextResponse} from "next/server";
 
 import {
   configureVariationListingIntake,
+  discardVariationListingPendingPair,
   getVariationListingIntakeSession,
   SidecarApiError,
   type ConfigureVariationListingIntakeInput,
@@ -44,6 +45,26 @@ export async function PATCH(request: Request) {
           error instanceof SidecarApiError
             ? error.message
             : "An unexpected error occurred while configuring the intake session.",
+      },
+      {status: error instanceof SidecarApiError ? error.status : 500},
+    );
+  }
+}
+
+export async function DELETE() {
+  try {
+    return NextResponse.json({session: await discardVariationListingPendingPair()});
+  } catch (error) {
+    if (!(error instanceof SidecarApiError)) {
+      console.error("Failed to discard variation listing pending pair.", error);
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof SidecarApiError
+            ? error.message
+            : "An unexpected error occurred while discarding the pending pair.",
       },
       {status: error instanceof SidecarApiError ? error.status : 500},
     );
