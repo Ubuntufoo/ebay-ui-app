@@ -179,6 +179,10 @@ export function VariationInventoryPanel({
     async (variation: VariationListingVariation) => {
       if (!group || selectorWrite) return;
       const selectorValue = (selectorDrafts[variation.variationId] ?? variation.selectorValue).trim();
+      if (selectorValue.length > 65) {
+        setActionError("Card selector must be 65 characters or fewer for eBay.");
+        return;
+      }
       if (!selectorValue || selectorValue === variation.selectorValue) return;
       setSelectorWrite(variation.variationId);
       setActionError(null);
@@ -210,7 +214,7 @@ export function VariationInventoryPanel({
         ) {
           throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" && payload.error
             ? payload.error
-            : `Variation title update returned a malformed or stale group (${response.status}).`);
+            : `Card selector update returned a malformed or stale group (${response.status}).`);
         }
         setSelectorDrafts((current) => {
           const next = {...current};
@@ -219,7 +223,7 @@ export function VariationInventoryPanel({
         });
         onGroupUpdated(payload);
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : "Unable to update variation title.");
+        setActionError(error instanceof Error ? error.message : "Unable to update Card selector.");
       } finally {
         setSelectorWrite(null);
       }
@@ -294,11 +298,12 @@ export function VariationInventoryPanel({
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">
-                      Variation title / Card selector
+                      Card selector
                       <div className="mt-1 flex gap-2">
                         <input
                           value={selectorDrafts[variation.variationId] ?? variation.selectorValue}
                           onChange={(event) => setSelectorDrafts((current) => ({...current, [variation.variationId]: event.target.value}))}
+                          maxLength={65}
                           disabled={writesBlocked || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null}
                           className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-stone-950 disabled:bg-stone-100"
                         />
@@ -313,6 +318,7 @@ export function VariationInventoryPanel({
                       </div>
                     </label>
                     <p className="mt-1 text-xs text-stone-500">{variation.sku}</p>
+                    <p className="mt-1 text-[10px] font-medium normal-case tracking-normal text-stone-500">eBay Card selector · 65 characters maximum</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">${variation.priceAmount.toFixed(2)}</span>

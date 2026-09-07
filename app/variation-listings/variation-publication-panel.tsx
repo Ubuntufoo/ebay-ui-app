@@ -7,6 +7,22 @@ type Props = {group: VariationListingGroup | null; capturePending: boolean; onGr
 type Progress = {kind: string; stage: string};
 const token = (value: string) => value.replaceAll("_", " ").replaceAll("-", " ");
 
+function hasTerminalCleanupEvidence(
+  latest: NonNullable<VariationListingGroup["journal"]["latestRevision"]>,
+): boolean {
+  if (
+    typeof latest.revisionId !== "string" ||
+    latest.revisionId.trim() === "" ||
+    latest.operationCount !== latest.operations.length ||
+    latest.operations.length === 0 ||
+    latest.operations.at(-1)?.operationKind !== "final_absence_verification"
+  ) return false;
+  return latest.operations.every((operation) =>
+    (operation.state === "confirmed_complete" || operation.state === "confirmed_no_op") &&
+    (operation.operationKind !== "final_absence_verification" || operation.observedRemoteState === "proven_absent"),
+  );
+}
+
 function isGroup(value: unknown, id: string): value is VariationListingGroup {
   if (!value || typeof value !== "object") return false;
   const g = value as Partial<VariationListingGroup>;
@@ -31,7 +47,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
   const [status, setStatus] = useState<VariationListingActionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
-  const [confirming, setConfirming] = useState<"withdraw" | "abandon" | "cleanup" | null>(null);
+  const [confirming, setConfirming] = useState<"withdraw" | "abandon" | "cleanup" | "return-to-review" | null>(null);
   const [ambiguous, setAmbiguous] = useState(false);
   const [awaitingGroupRefresh, setAwaitingGroupRefresh] = useState(false);
   const actionLockRef = useRef(false);
@@ -127,13 +143,20 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
   const initialReady = !capturePending && !runningAction && !blockedByRecovery && !actionStateLocked && !confirmed && (group.lifecycleState === "review" || group.lifecycleState === "publish-ready") && group.validation.initialPublicationReady;
   const changesReady = !capturePending && !runningAction && !blockedByRecovery && !actionStateLocked && active && group.validation.hasPendingChanges;
   const retryReady = !capturePending && !runningAction && !actionStateLocked && recovery?.retryStatus === "safe_to_retry";
+  const reconcileReady = !capturePending && !runningAction && !actionStateLocked && recovery?.retryStatus === "reconciliation_required" && recovery.requiresReconciliation;
+  const recoveryActionReady = retryReady || reconcileReady;
   const withdrawReady = !capturePending && !runningAction && !blockedByRecovery && !actionStateLocked && active && group.desiredRevision === group.lastConfirmedRevision;
   const unpublishedBase = !confirmed && !blockedByRecovery && !actionStateLocked && !["abandoned", "withdrawn", "cleanup", "terminal-absent"].includes(group.lifecycleState);
   const hasClearRecoveryState = !!recovery && recovery.retryStatus === "not_applicable" && !recovery.requiresReconciliation && recovery.remoteState !== "unknown";
   const hasFrozenUnpublishedRevision = unpublishedBase && hasClearRecoveryState && latest !== null && latest.revisionId.length > 0 && latest.capturedDesiredRevision === group.desiredRevision;
   const abandonReady = unpublishedBase && (group.desiredRevision === 0 || hasFrozenUnpublishedRevision);
   const cleanupReady = unpublishedBase && hasFrozenUnpublishedRevision;
-  const destructive = (action: "withdraw" | "abandon" | "cleanup") => confirming === action ? void runAction(action) : setConfirming(action);
+  const currentRevision = latest !== null && typeof latest.revisionId === "string" && latest.revisionId.trim() !== "" && latest.capturedDesiredRevision === group.desiredRevision;
+  const returnToReviewReady = !capturePending && !runningAction && !actionStateLocked && !confirmed && currentRevision && hasClearRecoveryState && (
+    group.lifecycleState === "publish-ready" ||
+    group.lifecycleState === "abandoned" && hasTerminalCleanupEvidence(latest)
+  );
+  const destructive = (action: "withdraw" | "abandon" | "cleanup" | "return-to-review") => confirming === action ? void runAction(action) : setConfirming(action);
   return <section className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500">Publication</p><h2 className="mt-1 text-xl font-semibold">Staged revision status</h2><p className="mt-1 text-sm leading-6 text-stone-600">Publish reviewed revisions and recover interrupted remote actions from durable backend state.</p></div><span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold">{group.validation.hasPendingChanges ? "Changes staged" : "Remote revision synced"}</span></div>
     <div className="mt-4 grid gap-3 sm:grid-cols-3">{[["Lifecycle", token(group.lifecycleState)], ["Desired revision", String(group.desiredRevision)], ["Confirmed revision", group.lastConfirmedRevision === null ? "Not published" : String(group.lastConfirmedRevision)]].map(([label, value]) => <div key={label} className="rounded-xl bg-stone-50 px-3 py-2"><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">{label}</p><p className="mt-1 text-sm font-semibold">{value}</p></div>)}</div>
@@ -141,7 +164,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     {group.validation.blockers.length > 0 ? <div className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-900"><p className="font-bold">Publication blockers</p><ul className="mt-2 list-disc space-y-1 pl-5 text-xs">{group.validation.blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul></div> : null}
     {confirmed ? <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Published destructive cleanup remains blocked until YP8 proves sold/order protection.</p> : null}
     {recovery && recovery.retryStatus !== "not_applicable" ? <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900"><p className="font-bold">Recovery: {token(recovery.retryStatus)}</p><p className="mt-1">Stage remote state: {token(recovery.remoteState)} · {recovery.requiresReconciliation ? "reconciliation required" : "reconciliation not required"}</p><p className="mt-1">Revision: {recovery.revisionId}{recovery.operationKey ? ` · operation: ${recovery.operationKey}` : ""}</p><p className="mt-1">Recommended: {recovery.recommendedActions.join(", ") || "inspect durable history"}</p></div> : null}
-    <div className="mt-4 flex flex-wrap items-center gap-3"><button type="button" onClick={() => void runAction("publish")} disabled={!initialReady} className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300">{runningAction === "publish" ? "Publishing…" : "Publish"}</button><button type="button" onClick={() => void runAction("publish-changes")} disabled={!changesReady} className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300">{runningAction === "publish-changes" ? "Publishing…" : "Publish Changes"}</button><button type="button" onClick={() => void runAction("retry")} disabled={!retryReady} className="rounded-full border border-amber-500 px-4 py-2 text-sm font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-40">{runningAction === "retry" ? "Retrying…" : "Retry"}</button><button type="button" onClick={() => destructive("withdraw")} disabled={!withdrawReady} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "withdraw" ? "Confirm Withdraw" : "Withdraw"}</button><button type="button" onClick={() => destructive("abandon")} disabled={!abandonReady || capturePending || !!runningAction} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "abandon" ? "Confirm Abandon" : "Abandon"}</button><button type="button" onClick={() => destructive("cleanup")} disabled={!cleanupReady || capturePending || !!runningAction} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "cleanup" ? "Confirm Cleanup" : "Cleanup"}</button></div>
+    <div className="mt-4 flex flex-wrap items-center gap-3"><button type="button" onClick={() => void runAction("publish")} disabled={!initialReady} className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300">{runningAction === "publish" ? "Publishing…" : "Publish"}</button><button type="button" onClick={() => void runAction("publish-changes")} disabled={!changesReady} className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300">{runningAction === "publish-changes" ? "Publishing…" : "Publish Changes"}</button><button type="button" onClick={() => void runAction("retry")} disabled={!recoveryActionReady} className="rounded-full border border-amber-500 px-4 py-2 text-sm font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-40">{runningAction === "retry" ? (reconcileReady ? "Reconciling…" : "Retrying…") : reconcileReady ? "Reconcile" : "Retry"}</button><button type="button" onClick={() => destructive("return-to-review")} disabled={!returnToReviewReady} className="rounded-full border border-stone-400 px-4 py-2 text-sm font-bold text-stone-800 disabled:cursor-not-allowed disabled:opacity-40">{runningAction === "return-to-review" ? "Cleaning and reopening…" : confirming === "return-to-review" ? "Confirm Return to Review" : "Return to Review"}</button><button type="button" onClick={() => destructive("withdraw")} disabled={!withdrawReady} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "withdraw" ? "Confirm Withdraw" : "Withdraw"}</button><button type="button" onClick={() => destructive("abandon")} disabled={!abandonReady || capturePending || !!runningAction} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "abandon" ? "Confirm Abandon" : "Abandon"}</button><button type="button" onClick={() => destructive("cleanup")} disabled={!cleanupReady || capturePending || !!runningAction} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "cleanup" ? "Confirm Cleanup" : "Cleanup"}</button></div>
     {progress ? <div className="mt-4 rounded-xl bg-sky-50 px-4 py-3 text-xs text-sky-900"><p className="font-bold">Live action progress: {token(progress.kind)}</p><p className="mt-1">Stage: {token(progress.stage)}</p></div> : null}
     {status ? <div className={`mt-4 rounded-xl px-4 py-3 text-xs ${status.severity === "error" ? "bg-rose-50 text-rose-900" : "bg-amber-50 text-amber-900"}`}><p className="font-bold">{status.summary}</p><p className="mt-1">Stage: {token(status.stage)} · remote: {token(status.remoteState)} · retry: {token(status.retryStatus)} · reconciliation: {status.requiresReconciliation ? "required" : "not required"}</p>{status.diagnostic ? <p className="mt-1">{status.diagnostic}</p> : null}{status.recommendedActions.length > 0 ? <p className="mt-1">Recommended: {status.recommendedActions.join(", ")}</p> : null}{status.issues.length > 0 ? <ul className="mt-2 list-disc pl-5">{status.issues.map((issue, index) => <li key={`${issue.code ?? "issue"}-${index}`}>{issue.message}</li>)}</ul> : null}</div> : null}
     {error ? <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p> : null}

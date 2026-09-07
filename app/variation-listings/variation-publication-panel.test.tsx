@@ -69,12 +69,84 @@ describe("VariationPublicationPanel", () => {
     await act(async () => await Promise.resolve());
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
-  it("only enables retry for authoritative safe-to-retry recovery and renders blockers", () => {
-    vi.stubGlobal("EventSource", EventSourceMock);
-    render(<VariationPublicationPanel group={group({validation: {blockers: ["Missing title"], initialPublicationReady: false, hasPendingChanges: true}, journal: {latestRevision: {recovery: {revisionId: "r1", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, recommendedActions: ["reconcile_remote_state"]}} as unknown as VariationListingGroup["journal"]["latestRevision"]}})} capturePending={false} onGroupUpdated={vi.fn()} />);
+  it("exposes exact reconciliation for authoritative reconciliation-required recovery and renders blockers", async () => {
+    vi.stubGlobal("EventSource", EventSourceMock); vi.stubGlobal("fetch", fetchMock);
+    const recoveryGroup = group({validation: {blockers: ["Missing title"], initialPublicationReady: false, hasPendingChanges: true}, journal: {latestRevision: {recovery: {revisionId: "r1", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, recommendedActions: ["reconcile_remote_state"]}, operations: []} as unknown as VariationListingGroup["journal"]["latestRevision"]}});
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({group: recoveryGroup}), {status: 200}));
+    render(<VariationPublicationPanel group={recoveryGroup} capturePending={false} onGroupUpdated={vi.fn()} />);
     expect(screen.getByText("Missing title")).not.toBeNull();
-    expect(screen.getByRole("button", {name: "Retry"})).toHaveProperty("disabled", true);
+    const reconcile = screen.getByRole("button", {name: "Reconcile"});
+    expect(reconcile).toHaveProperty("disabled", false);
+    fireEvent.click(reconcile);
+    await act(async () => await Promise.resolve());
+    expect(fetchMock).toHaveBeenCalledWith("/api/variation-listings/group-1/actions/retry", expect.objectContaining({body: JSON.stringify({})}));
   });
+  it("enables Return to Review only after unpublished recovery is fully reconciled", async () => {
+    vi.stubGlobal("EventSource", EventSourceMock); vi.stubGlobal("fetch", fetchMock);
+    const latestRevision = {
+      revisionId: "r1",
+      capturedDesiredRevision: 4,
+      operationCount: 1,
+      capturedAt: "2026-09-04T00:00:00Z",
+      hasUnknownOutcome: false,
+      retryExhausted: false,
+      recovery: {revisionId: "r1", retryStatus: "not_applicable", remoteState: "known_unchanged", requiresReconciliation: false, recommendedActions: []},
+      operations: [{operationKey: "complete-group", operationKind: "complete_group_replace", state: "confirmed_no_op", observedRemoteState: "proven_absent", attemptNumber: 2, checkpointNumber: 1}],
+    } as unknown as VariationListingGroup["journal"]["latestRevision"];
+    const publishReady = group({lifecycleState: "publish-ready", lastConfirmedRevision: null, desiredRevision: 4, journal: {latestRevision}, validation: {blockers: ["Card selector exceeds eBay's 65-character limit."], initialPublicationReady: false, hasPendingChanges: true}});
+    const reopened = group({lifecycleState: "review", lastConfirmedRevision: null, desiredRevision: 6, journal: {latestRevision}, validation: {blockers: ["Card selector exceeds eBay's 65-character limit."], initialPublicationReady: false, hasPendingChanges: true}});
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({group: reopened}), {status: 200}));
+    render(<VariationPublicationPanel group={publishReady} capturePending={false} onGroupUpdated={vi.fn()} />);
+    const button = screen.getByRole("button", {name: "Return to Review"});
+    expect(button).toHaveProperty("disabled", false);
+    fireEvent.click(button);
+    expect(screen.getByRole("button", {name: "Confirm Return to Review"})).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", {name: "Confirm Return to Review"}));
+    await act(async () => await Promise.resolve());
+    expect(fetchMock).toHaveBeenCalledWith("/api/variation-listings/group-1/actions/return-to-review", expect.objectContaining({body: JSON.stringify({expectedDesiredRevision: 4})}));
+  });
+  it("allows abandoned cleanup resume only with terminal final-absence evidence", async () => {
+    vi.stubGlobal("EventSource", EventSourceMock); vi.stubGlobal("fetch", fetchMock);
+    const cleanupRevision = {
+      revisionId: "cleanup-5",
+      capturedDesiredRevision: 5,
+      operationCount: 2,
+      capturedAt: "2026-09-04T00:00:00Z",
+      hasUnknownOutcome: false,
+      retryExhausted: false,
+      recovery: {revisionId: "cleanup-5", retryStatus: "not_applicable", remoteState: "known_unchanged", requiresReconciliation: false, recommendedActions: []},
+      operations: [
+        {operationKey: "cleanup-group", operationKind: "cleanup_group", state: "confirmed_complete", observedRemoteState: "proven_absent", attemptNumber: 1, checkpointNumber: 1},
+        {operationKey: "final-absence", operationKind: "final_absence_verification", state: "confirmed_no_op", observedRemoteState: "proven_absent", attemptNumber: 1, checkpointNumber: 1},
+      ],
+    } as unknown as VariationListingGroup["journal"]["latestRevision"];
+    const abandoned = group({lifecycleState: "abandoned", desiredRevision: 5, lastConfirmedRevision: null, journal: {latestRevision: cleanupRevision}});
+    const reopened = group({lifecycleState: "review", desiredRevision: 6, lastConfirmedRevision: null, journal: {latestRevision: cleanupRevision}});
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({group: reopened}), {status: 200}));
+    render(<VariationPublicationPanel group={abandoned} capturePending={false} onGroupUpdated={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", {name: "Return to Review"}));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm Return to Review"}));
+    await act(async () => await Promise.resolve());
+    expect(fetchMock).toHaveBeenCalledWith("/api/variation-listings/group-1/actions/return-to-review", expect.objectContaining({body: JSON.stringify({expectedDesiredRevision: 5})}));
+  });
+  it("blocks Return to Review for abandoned groups without terminal cleanup evidence", () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    const abandoned = group({
+      lifecycleState: "abandoned",
+      desiredRevision: 5,
+      lastConfirmedRevision: null,
+      journal: {latestRevision: {
+        revisionId: "initial-5",
+        capturedDesiredRevision: 5,
+        operationCount: 1,
+        recovery: {revisionId: "initial-5", retryStatus: "not_applicable", remoteState: "known_unchanged", requiresReconciliation: false, recommendedActions: []},
+        operations: [{operationKey: "publish", operationKind: "complete_group_replace", state: "confirmed_complete", observedRemoteState: "proven_absent", attemptNumber: 1, checkpointNumber: 1}],
+      } as unknown as VariationListingGroup["journal"]["latestRevision"]}},
+    );
+    render(<VariationPublicationPanel group={abandoned} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.getByRole("button", {name: "Return to Review"})).toHaveProperty("disabled", true);
+  });
+
   it("closes selected-group SSE on unmount and shows supplemental progress", () => {
     vi.stubGlobal("EventSource", EventSourceMock);
     const {unmount} = render(<VariationPublicationPanel group={group()} capturePending={false} onGroupUpdated={vi.fn()} />);

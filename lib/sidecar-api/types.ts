@@ -438,7 +438,8 @@ export type VariationListingActionRouteName =
   | "quantity"
   | "withdraw"
   | "abandon"
-  | "cleanup";
+  | "cleanup"
+  | "return-to-review";
 
 export type VariationListingActionName =
   | "publish"
@@ -447,7 +448,8 @@ export type VariationListingActionName =
   | "quantity"
   | "withdraw"
   | "abandon"
-  | "cleanup";
+  | "cleanup"
+  | "return_to_review";
 
 export interface VariationListingActionIssue {
   code?: string;

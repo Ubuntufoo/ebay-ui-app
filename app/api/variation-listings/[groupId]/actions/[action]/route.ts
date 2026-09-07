@@ -17,6 +17,7 @@ const ACTIONS = new Set<VariationListingActionRouteName>([
   "withdraw",
   "abandon",
   "cleanup",
+  "return-to-review",
 ]);
 
 type RouteContext = {
