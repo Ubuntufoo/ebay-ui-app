@@ -83,7 +83,6 @@ export type {
   VariationListingActionResponse,
   VariationListingActionRouteName,
   VariationListingActionStatus,
-  VariationListingQuantityActionInput,
   VariationListingRevisionActionInput,
   VariationListingJournalOperationSummary,
   VariationListingLatestRevisionSummary,

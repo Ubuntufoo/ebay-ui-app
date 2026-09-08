@@ -70,8 +70,8 @@ function CopyCard({
           <p className="mt-0.5 text-xs text-stone-500">{formatCondition(copy.conditionToken)}</p>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] ${copy.availabilityState === "available" ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-600"}`}>
-            {copy.availabilityState}
+          <span className="rounded-full bg-stone-100 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-600">
+            Captured copy
           </span>
           {copy.isRepresentative ? (
             <span className="rounded-full bg-amber-200 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-amber-900">Representative</span>
@@ -322,7 +322,7 @@ export function VariationInventoryPanel({
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">${variation.priceAmount.toFixed(2)}</span>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">{variation.availableQuantity}/{variation.copyCount} available</span>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">{variation.copyCount} captured</span>
                     <button
                       type="button"
                       onClick={() => onArmDuplicate(variation)}

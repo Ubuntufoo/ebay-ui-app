@@ -178,8 +178,8 @@ function GroupCard({
           <p className="mt-1 text-lg font-semibold">{group.variationCount}</p>
         </div>
         <div className="rounded-xl bg-stone-50 px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Available</p>
-          <p className="mt-1 text-lg font-semibold">{group.totalAvailableQuantity}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Captured</p>
+          <p className="mt-1 text-lg font-semibold">{group.variations.reduce((sum, variation) => sum + variation.copyCount, 0)}</p>
         </div>
         <div className="rounded-xl bg-stone-50 px-3 py-2">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Desired rev</p>
@@ -364,7 +364,10 @@ export function VariationListingsWorkspace({
   const totals = useMemo(
     () => ({
       variations: groups.reduce((sum, group) => sum + group.variationCount, 0),
-      available: groups.reduce((sum, group) => sum + group.totalAvailableQuantity, 0),
+      captured: groups.reduce(
+        (sum, group) => sum + group.variations.reduce((groupSum, variation) => groupSum + variation.copyCount, 0),
+        0,
+      ),
       pending: groups.filter((group) => group.validation.hasPendingChanges).length,
       confirmed: groups.filter((group) => group.lastConfirmedRevision !== null).length,
     }),
@@ -638,7 +641,7 @@ export function VariationListingsWorkspace({
             </p>
             {selectedGroup ? (
               <p className="mt-1 text-sm text-stone-600">
-                {selectedGroup.variationCount} variation{selectedGroup.variationCount === 1 ? "" : "s"} · {selectedGroup.totalAvailableQuantity} available · {selectedGroup.validation.hasPendingChanges ? "pending changes" : "synced"}
+                {selectedGroup.variationCount} variation{selectedGroup.variationCount === 1 ? "" : "s"} · {selectedGroup.variations.reduce((sum, variation) => sum + variation.copyCount, 0)} captured copies · {selectedGroup.validation.hasPendingChanges ? "pending changes" : "synced"}
               </p>
             ) : null}
           </div>
@@ -852,8 +855,8 @@ export function VariationListingsWorkspace({
         <div className="rounded-2xl border border-stone-950/10 bg-white/85 px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Available copies</p>
-              <p className="mt-1 text-2xl font-semibold">{totals.available}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Captured copies</p>
+              <p className="mt-1 text-2xl font-semibold">{totals.captured}</p>
             </div>
             <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] ${refreshFailed ? "bg-rose-100 text-rose-800" : "bg-emerald-100 text-emerald-800"}`}>
               {refreshFailed ? "Refresh issue" : "Live refresh"}

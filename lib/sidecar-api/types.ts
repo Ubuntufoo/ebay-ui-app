@@ -435,7 +435,6 @@ export type VariationListingActionRouteName =
   | "publish"
   | "publish-changes"
   | "retry"
-  | "quantity"
   | "withdraw"
   | "abandon"
   | "cleanup"
@@ -445,7 +444,6 @@ export type VariationListingActionName =
   | "publish"
   | "publish_changes"
   | "retry"
-  | "quantity"
   | "withdraw"
   | "abandon"
   | "cleanup"
@@ -481,15 +479,8 @@ export interface VariationListingRevisionActionInput {
   expectedDesiredRevision: number;
 }
 
-export interface VariationListingQuantityActionInput extends VariationListingRevisionActionInput {
-  variationId: string;
-  copyId: string;
-  availabilityState: "available" | "unavailable";
-}
-
 export type VariationListingActionInput =
   | VariationListingRevisionActionInput
-  | VariationListingQuantityActionInput
   | Record<string, never>;
 
 export interface VariationListingActionResponse {
@@ -524,7 +515,6 @@ export interface VariationListingVariation {
   priceAmount: VariationListingManualPriceAmount;
   priceCurrency: "USD";
   representativeCopyId: string | null;
-  availableQuantity: number;
   copyCount: number;
   variationMetadata: JsonObject;
   copies: VariationListingCopy[];
@@ -594,7 +584,6 @@ export interface VariationListingGroup {
     nextInventorySerial: number;
   };
   variationCount: number;
-  totalAvailableQuantity: number;
   variations: VariationListingVariation[];
   validation: VariationListingValidation;
   journal: {

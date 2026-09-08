@@ -40,7 +40,6 @@ function buildGroup(
       nextInventorySerial: 243,
     },
     variationCount: 2,
-    totalAvailableQuantity: 3,
     variations: [],
     validation: {
       blockers: [],
@@ -101,7 +100,6 @@ function buildVariation(
     priceAmount: 1.99,
     priceCurrency: "USD",
     representativeCopyId: "copy-1",
-    availableQuantity: 2,
     copyCount: 2,
     variationMetadata: {},
     copies: [copy("copy-1", true), copy("copy-2", false)],
@@ -171,7 +169,6 @@ describe("VariationListingsWorkspace", () => {
             buildGroup({
               title: "2003 Topps Basketball",
               variationCount: 4,
-              totalAvailableQuantity: 5,
             }),
           ],
         }),
@@ -656,7 +653,7 @@ describe("VariationListingsWorkspace", () => {
 
     expect(screen.getAllByText("Near Mint Or Better").length).toBe(2);
     expect(screen.getByText("Light edge wear")).not.toBeNull();
-    expect(screen.getAllByText("available").length).toBe(2);
+    expect(screen.getAllByText("Captured copy").length).toBe(2);
     expect(screen.getByRole("img", {name: "Front image for copy copy-1"}).getAttribute("src")).toBe(
       "https://images.example/copy-1/front.jpg",
     );

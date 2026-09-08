@@ -1,45 +1,32 @@
 {
   "schema_version": 1,
-  "operation_id": "write-2026-09-03T14-55-33-675Z-9c6a38c9",
+  "operation_id": "write-2026-09-07T16-03-41-898Z-702519a4",
   "tool": "repo_write_changes",
   "repo_id": "ebay-ui-app-you-pick",
-  "timestamp": "2026-09-03T14:55:33.675Z",
-  "head_sha_before": "4eec74d7a4a41789014beb6c8de127af422ed2c1",
-  "head_sha_after": "4eec74d7a4a41789014beb6c8de127af422ed2c1",
+  "timestamp": "2026-09-07T16:03:41.898Z",
+  "head_sha_before": "52049eb9cf552ed83bb3b29a0b456918a17ade08",
+  "head_sha_after": "52049eb9cf552ed83bb3b29a0b456918a17ade08",
   "touched_paths": [
-    "lib/sidecar-api/types.ts",
-    "lib/sidecar-api/client.ts",
-    "lib/sidecar-api/index.ts",
-    "app/api/variation-listings/[groupId]/actions/[action]/route.ts",
-    "app/variation-listings/variation-publication-panel.tsx",
+    "app/variation-listings/variation-inventory-panel.tsx",
     "app/variation-listings/variation-listings-workspace.tsx",
-    "lib/sidecar-api/client.test.ts"
-  ],
-  "changed_paths": [
-    "lib/sidecar-api/types.ts",
-    "lib/sidecar-api/client.ts",
-    "lib/sidecar-api/index.ts",
-    "app/api/variation-listings/[groupId]/actions/[action]/route.ts",
-    "app/variation-listings/variation-publication-panel.tsx",
-    "app/variation-listings/variation-listings-workspace.tsx",
-    "lib/sidecar-api/client.test.ts"
-  ],
-  "created_paths": [
-    "app/api/variation-listings/[groupId]/actions/[action]/route.ts",
     "app/variation-listings/variation-publication-panel.tsx"
   ],
-  "modified_paths": [
-    "lib/sidecar-api/types.ts",
-    "lib/sidecar-api/client.ts",
-    "lib/sidecar-api/index.ts",
+  "changed_paths": [
+    "app/variation-listings/variation-inventory-panel.tsx",
     "app/variation-listings/variation-listings-workspace.tsx",
-    "lib/sidecar-api/client.test.ts"
+    "app/variation-listings/variation-publication-panel.tsx"
+  ],
+  "created_paths": [],
+  "modified_paths": [
+    "app/variation-listings/variation-inventory-panel.tsx",
+    "app/variation-listings/variation-listings-workspace.tsx",
+    "app/variation-listings/variation-publication-panel.tsx"
   ],
   "counts": {
-    "requested": 7,
-    "changed": 7,
-    "created": 2,
+    "requested": 3,
+    "changed": 3,
+    "created": 0,
     "unchanged": 0
   },
-  "summary": "Applied 7 changes across 7 files."
+  "summary": "Applied 3 changes across 3 files."
 }

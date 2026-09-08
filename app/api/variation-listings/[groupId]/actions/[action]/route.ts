@@ -13,7 +13,6 @@ const ACTIONS = new Set<VariationListingActionRouteName>([
   "publish",
   "publish-changes",
   "retry",
-  "quantity",
   "withdraw",
   "abandon",
   "cleanup",

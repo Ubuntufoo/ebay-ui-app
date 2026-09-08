@@ -17,4 +17,11 @@ describe("variation action proxy", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual(expect.objectContaining({status}));
   });
+  it("rejects the removed local quantity action", async () => {
+    const response = await POST(
+      new Request("http://local", {method: "POST", body: JSON.stringify({expectedDesiredRevision: 2})}),
+      {params: Promise.resolve({groupId: "group/1", action: "quantity"})},
+    );
+    expect(response.status).toBe(404);
+  });
 });
