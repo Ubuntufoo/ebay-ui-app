@@ -19,6 +19,7 @@ import {
   dismissPricingAnalysisWarnings,
   type DismissPricingAnalysisWarningsResult,
 } from "@/app/pricing-analysis-dismiss-actions";
+import {WorkspaceSwitcher} from "@/app/workspace-switcher";
 
 export type OperationalCounterKey = "errors" | "ready" | "review" | "active";
 
@@ -42,6 +43,7 @@ type QueueErrorsPanelProps = {
   retryAction?: (listingId: string) => Promise<RetryPricingAnalysisResult>;
   soldCompsUsage?: SoldCompsUsageSummary | null;
   currentWorkspace?: "standard" | "variation";
+  guardStandardCaptureRouting?: boolean;
   statusOnly?: boolean;
 };
 
@@ -391,6 +393,7 @@ export function QueueErrorsPanel({
   retryAction = retryPricingAnalysis,
   soldCompsUsage = null,
   currentWorkspace = "standard",
+  guardStandardCaptureRouting = false,
   statusOnly = false,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
@@ -585,38 +588,10 @@ export function QueueErrorsPanel({
           </svg>
         </a>
 
-        <nav
-          aria-label="Current workspace"
-          className="ml-auto flex items-center gap-2"
-        >
-          <span className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-stone-400 xl:inline">
-            Current workspace
-          </span>
-          <div className="flex items-center rounded-full border border-stone-700 bg-stone-900/70 p-1">
-            <Link
-              href="/"
-              aria-current={currentWorkspace === "standard" ? "page" : undefined}
-              className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
-                currentWorkspace === "standard"
-                  ? "bg-stone-100 text-stone-950"
-                  : "text-stone-300 hover:text-stone-50"
-              }`}
-            >
-              Standard listings
-            </Link>
-            <Link
-              href="/variation-listings"
-              aria-current={currentWorkspace === "variation" ? "page" : undefined}
-              className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
-                currentWorkspace === "variation"
-                  ? "bg-stone-100 text-stone-950"
-                  : "text-stone-300 hover:text-stone-50"
-              }`}
-            >
-              Variation listings
-            </Link>
-          </div>
-        </nav>
+        <WorkspaceSwitcher
+          currentWorkspace={currentWorkspace}
+          guardStandardCaptureRouting={guardStandardCaptureRouting}
+        />
       </div>
 
       {!statusOnly && warningListings.length > 0 && !errorMessage ? (

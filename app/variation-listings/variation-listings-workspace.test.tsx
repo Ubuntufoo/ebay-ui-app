@@ -371,6 +371,41 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getByText(/Existing duplicate-copy mode is active; this workspace can only disarm it\. Condition: Excellent\./)).not.toBeNull();
   });
 
+  it("reconciles the selected bucket to an externally armed new-variation target", async () => {
+    const groupA = buildGroup({title: "Group A"});
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [groupA, groupB]}), {status: 200}))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            session: buildSession({
+              mode: "new_variation",
+              targetGroupId: groupB.groupId,
+              targetVariationId: null,
+              copyConditionToken: null,
+            }),
+          }),
+          {status: 200},
+        ),
+      );
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+
+    expect(screen.getAllByText("Group B").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Cards will target Group B/)).not.toBeNull();
+  });
+
   it("persists price changes through the local intake API", async () => {
     const session = buildSession();
     fetchMock.mockResolvedValueOnce(
@@ -392,6 +427,59 @@ describe("VariationListingsWorkspace", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.49}),
+      }),
+    );
+  });
+
+  it("disables capture controls for a withdrawn bucket", () => {
+    const variation = buildVariation();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[
+          buildGroup({
+            lifecycleState: "withdrawn",
+            variations: [variation],
+            variationCount: 1,
+          }),
+        ]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByText(/This bucket is withdrawn and cannot accept new captures\./)).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("self-disarms a stale non-pending intake target when its bucket is withdrawn", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({session: buildSession()}), {status: 200}),
+    );
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({lifecycleState: "withdrawn"})]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: "11111111-1111-4111-8111-111111111111",
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/intake-session",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          mode: "idle",
+          targetGroupId: null,
+          targetVariationId: null,
+          copyConditionToken: null,
+          stickyPriceAmount: 0.99,
+        }),
       }),
     );
   });

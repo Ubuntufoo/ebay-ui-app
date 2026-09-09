@@ -3,7 +3,7 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import type {SidecarErrorResponse, VariationListingActionResponse, VariationListingActionRouteName, VariationListingActionStatus, VariationListingGroup} from "@/lib/sidecar-api";
 
-type Props = {group: VariationListingGroup | null; capturePending: boolean; onGroupUpdated: (group: VariationListingGroup) => void};
+type Props = {group: VariationListingGroup | null; capturePending: boolean; onGroupUpdated: (group: VariationListingGroup) => void; onActionSettled?: () => void};
 type Progress = {kind: string; stage: string};
 const token = (value: string) => value.replaceAll("_", " ").replaceAll("-", " ");
 
@@ -42,7 +42,7 @@ function isStatus(value: unknown): value is VariationListingActionStatus {
     ["error", "warning"].includes(s.severity as string) && typeof s.requiresReconciliation === "boolean" && typeof s.userActionRequired === "boolean" && Array.isArray(s.issues) && Array.isArray(s.recommendedActions);
 }
 
-export function VariationPublicationPanel({group, capturePending, onGroupUpdated}: Props) {
+export function VariationPublicationPanel({group, capturePending, onGroupUpdated, onActionSettled}: Props) {
   const [runningAction, setRunningAction] = useState<VariationListingActionRouteName | null>(null);
   const [status, setStatus] = useState<VariationListingActionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,8 +130,8 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
         }
       }
     } catch (caught) { if (actionLockRef.current) setAmbiguous(true); setError(caught instanceof Error ? caught.message : "Unable to run variation listing action."); }
-    finally { setRunningAction(null); }
-  }, [awaitingGroupRefresh, group, groupStateSignature, onGroupUpdated, runningAction]);
+    finally { setRunningAction(null); onActionSettled?.(); }
+  }, [awaitingGroupRefresh, group, groupStateSignature, onActionSettled, onGroupUpdated, runningAction]);
 
   if (!group) return <section className="rounded-[1.5rem] border border-dashed border-stone-300 bg-white/65 p-6 text-center text-sm text-stone-500">Select a bucket to review publication readiness and revision state.</section>;
   const latest = group.journal.latestRevision;

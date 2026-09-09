@@ -125,6 +125,7 @@ async function ListingsSection({
     return (
       <>
         <QueueErrorsPanel
+          guardStandardCaptureRouting
           geminiUsage={
             geminiUsageResult.status === "success"
               ? geminiUsageResult.geminiUsage
@@ -152,6 +153,7 @@ async function ListingsSection({
   return (
     <>
       <ListingsRealtime
+        guardStandardCaptureRouting
         initialGeminiUsage={
           geminiUsageResult.status === "success"
             ? geminiUsageResult.geminiUsage

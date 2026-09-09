@@ -40,6 +40,18 @@ const MANUAL_PRICE_TIERS: readonly VariationListingManualPriceAmount[] = [
   2.49,
 ];
 
+const CAPTURE_ELIGIBLE_LIFECYCLES = new Set([
+  "intake",
+  "draft",
+  "review",
+  "publish-ready",
+  "active",
+]);
+
+function captureEligible(group: VariationListingGroup | null | undefined): boolean {
+  return Boolean(group && CAPTURE_ELIGIBLE_LIFECYCLES.has(group.lifecycleState));
+}
+
 const CONDITION_OPTIONS: ReadonlyArray<{
   label: string;
   value: VariationListingConditionToken;
@@ -293,7 +305,7 @@ export function VariationListingsWorkspace({
       ) {
         setIntakeSession(payload.session ?? null);
         setStickyPriceAmount(payload.session?.stickyPriceAmount ?? 0.99);
-        if (payload.session?.mode === "duplicate_copy" && payload.session.targetGroupId) {
+        if (payload.session?.targetGroupId) {
           setSelectedGroupId(payload.session.targetGroupId);
         }
         setIntakeError(null);
@@ -387,6 +399,8 @@ export function VariationListingsWorkspace({
   const isArmed = intakeSession?.mode === "new_variation" && intakeSession.targetGroupId !== null;
   const duplicateMode = intakeSession?.mode === "duplicate_copy";
   const pendingPair = intakeSession?.pendingPair ?? null;
+  const selectedGroupCaptureEligible = captureEligible(selectedGroup);
+  const armedGroupCaptureEligible = captureEligible(armedGroup);
   const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null;
   const copyConditionOptions = useMemo(
     () => compatibleCopyConditionOptions(selectedGroup?.conditionToken),
@@ -443,9 +457,10 @@ export function VariationListingsWorkspace({
         const payload = (await response.json().catch(() => null)) as {
           session?: VariationListingIntakeSession | null;
           error?: string;
+          message?: string;
         } | null;
         if (!response.ok) {
-          throw new Error(payload?.error || `Intake configuration failed (${response.status}).`);
+          throw new Error(payload?.message || payload?.error || `Intake configuration failed (${response.status}).`);
         }
         const session = payload?.session;
         if (!session) throw new Error("Intake configuration returned no session.");
@@ -470,8 +485,39 @@ export function VariationListingsWorkspace({
     void refreshIntakeSession();
   }, [refreshIntakeSession]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (
+      !intakeSession ||
+      intakeSession.mode === "idle" ||
+      pendingPair !== null ||
+      intakeStatus === "configuring" ||
+      intakeError !== null ||
+      intakeSession.targetGroupId === null ||
+      (armedGroup !== null && armedGroupCaptureEligible)
+    ) {
+      return;
+    }
+    void persistIntake({
+      mode: "idle",
+      targetGroupId: null,
+      targetVariationId: null,
+      copyConditionToken: null,
+      stickyPriceAmount: intakeSession.stickyPriceAmount,
+    });
+  }, [
+    armedGroup,
+    armedGroupCaptureEligible,
+    intakeError,
+    intakeSession,
+    intakeStatus,
+    pendingPair,
+    persistIntake,
+  ]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
   const armCapture = useCallback(() => {
-    if (!selectedGroupId || duplicateMode) return;
+    if (!selectedGroupId || !selectedGroupCaptureEligible || duplicateMode) return;
     void persistIntake({
       mode: "new_variation",
       targetGroupId: selectedGroupId,
@@ -479,7 +525,7 @@ export function VariationListingsWorkspace({
       copyConditionToken: null,
       stickyPriceAmount,
     });
-  }, [duplicateMode, persistIntake, selectedGroupId, stickyPriceAmount]);
+  }, [duplicateMode, persistIntake, selectedGroupCaptureEligible, selectedGroupId, stickyPriceAmount]);
 
   const disarmCapture = useCallback(() => {
     void persistIntake({
@@ -524,7 +570,7 @@ export function VariationListingsWorkspace({
 
   const armDuplicateCapture = useCallback(
     (variation: VariationListingVariation) => {
-      if (!selectedGroup || duplicateMode || writesBlocked || intakeWriteInFlightRef.current || !copyConditionValid) return;
+      if (!selectedGroup || !selectedGroupCaptureEligible || duplicateMode || writesBlocked || intakeWriteInFlightRef.current || !copyConditionValid) return;
       void persistIntake({
         mode: "duplicate_copy",
         targetGroupId: selectedGroup.groupId,
@@ -533,7 +579,7 @@ export function VariationListingsWorkspace({
         stickyPriceAmount: variation.priceAmount,
       });
     },
-    [copyConditionToken, copyConditionValid, duplicateMode, persistIntake, selectedGroup, writesBlocked],
+    [copyConditionToken, copyConditionValid, duplicateMode, persistIntake, selectedGroup, selectedGroupCaptureEligible, writesBlocked],
   );
 
   const replaceGroup = useCallback((updatedGroup: VariationListingGroup) => {
@@ -647,6 +693,11 @@ export function VariationListingsWorkspace({
           </div>
 
           <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            {selectedGroup && !selectedGroupCaptureEligible ? (
+              <p className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
+                This bucket is {formatLifecycle(selectedGroup.lifecycleState)} and cannot accept new captures.
+              </p>
+            ) : null}
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800">Armed target</p>
             <p className="mt-1 text-lg font-semibold text-amber-950">
               {isArmed ? armedGroup?.title || armedGroup?.skuNamespace.bucketToken || intakeSession?.targetGroupId : "Idle"}
@@ -686,7 +737,7 @@ export function VariationListingsWorkspace({
             <button
               type="button"
               onClick={armCapture}
-              disabled={!selectedGroupId || isArmed && selectedGroupId === intakeSession?.targetGroupId || duplicateMode || writesBlocked}
+              disabled={!selectedGroupId || !selectedGroupCaptureEligible || isArmed && selectedGroupId === intakeSession?.targetGroupId || duplicateMode || writesBlocked}
               className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-stone-50 transition enabled:hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600"
             >
               Arm capture
@@ -813,7 +864,7 @@ export function VariationListingsWorkspace({
         writesBlocked={writesBlocked}
         onArmDuplicate={armDuplicateCapture}
         onGroupUpdated={replaceGroup}
-        duplicateCaptureAvailable={copyConditionValid}
+        duplicateCaptureAvailable={copyConditionValid && selectedGroupCaptureEligible}
         copyConditionToken={copyConditionToken}
         copyConditionOptions={copyConditionOptions}
         conditionChangesLocked={conditionChangesLocked}
@@ -832,6 +883,7 @@ export function VariationListingsWorkspace({
         key={selectedGroup?.groupId ?? "empty"}
         group={selectedGroup}
         capturePending={pendingPair !== null}
+        onActionSettled={retryIntakeSession}
         onGroupUpdated={replaceGroup}
       />
 

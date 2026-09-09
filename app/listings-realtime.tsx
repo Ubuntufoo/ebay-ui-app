@@ -32,6 +32,7 @@ const pricingProviderOptions: Array<{
 type SupportedPricingProviderMode = Exclude<PricingProviderMode, "apify">;
 
 type ListingsRealtimeProps = {
+  guardStandardCaptureRouting?: boolean;
   initialCaptureMode?: string | null;
   initialEbayEnvironment?: EbayEnvironment["environment"] | null;
   initialGeminiUsage?: GeminiDailyUsageSummary | null;
@@ -50,6 +51,7 @@ type ListingsRealtimeProps = {
 };
 
 export function ListingsRealtime({
+  guardStandardCaptureRouting = false,
   initialCaptureMode = null,
   initialEbayEnvironment = null,
   initialGeminiUsage = null,
@@ -257,6 +259,7 @@ export function ListingsRealtime({
     <>
       <div className="space-y-2">
         <QueueErrorsPanel
+          guardStandardCaptureRouting={guardStandardCaptureRouting}
           errorMessage={panelErrorMessage}
           geminiUsage={geminiUsage}
           geminiUsageStatus={geminiUsageStatus}
