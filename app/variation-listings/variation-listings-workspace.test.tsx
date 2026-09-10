@@ -5,6 +5,7 @@ import {VariationListingsWorkspace} from "@/app/variation-listings/variation-lis
 import type {
   VariationListingCopy,
   VariationListingGroup,
+  VariationListingIntakeSession,
   VariationListingVariation,
 } from "@/lib/sidecar-api";
 
@@ -54,8 +55,8 @@ function buildGroup(
 }
 
 function buildSession(
-  overrides: Partial<import("@/lib/sidecar-api").VariationListingIntakeSession> = {},
-): import("@/lib/sidecar-api").VariationListingIntakeSession {
+  overrides: Partial<VariationListingIntakeSession> = {},
+): VariationListingIntakeSession {
   return {
     captureSourceKey: "camera-1",
     mode: "idle",
@@ -65,6 +66,7 @@ function buildSession(
     stickyPriceAmount: 0.99,
     stickyPriceCurrency: "USD",
     pendingPair: null,
+    processingStatus: null,
     createdAt: "2026-09-02T15:00:00.000Z",
     updatedAt: "2026-09-02T15:00:00.000Z",
     ...overrides,
@@ -320,6 +322,38 @@ describe("VariationListingsWorkspace", () => {
 
     expect(screen.getByText("Capture armed")).not.toBeNull();
     expect(screen.getByText("$1.99 · new variation")).not.toBeNull();
+  });
+
+  it.each([
+    ["waiting_for_back", "Waiting for back image"],
+    ["generating_identity", "Generating card identity…"],
+    ["saving", "Saving variation…"],
+    ["ready", "Ready for next card"],
+    ["failed", "Capture failed"],
+  ] as const)("renders %s processing progress with an aria-live announcement", (phase, label) => {
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: "11111111-1111-4111-8111-111111111111",
+            pairId: "pair-1",
+            phase,
+            completionKind: "new_variation",
+            message: phase === "failed" ? "Gemini timed out" : null,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getAllByText(label).length).toBeGreaterThan(0);
+    expect(document.querySelector('[aria-live="polite"]')).not.toBeNull();
+    if (phase === "failed") {
+      expect(screen.getByText("Gemini timed out")).not.toBeNull();
+    }
   });
 
   it("reconciles the selected bucket to an externally armed duplicate target during polling", async () => {

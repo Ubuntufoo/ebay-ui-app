@@ -101,6 +101,23 @@ function formatPrice(value: VariationListingManualPriceAmount): string {
   return `$${value.toFixed(2)}`;
 }
 
+function formatProcessingPhase(
+  phase: NonNullable<VariationListingIntakeSession["processingStatus"]>["phase"],
+): string {
+  switch (phase) {
+    case "waiting_for_back":
+      return "Waiting for back image";
+    case "generating_identity":
+      return "Generating card identity…";
+    case "saving":
+      return "Saving variation…";
+    case "ready":
+      return "Ready for next card";
+    case "failed":
+      return "Capture failed";
+  }
+}
+
 function creationDefaultsReady(
   defaults: VariationListingCreationDefaults,
 ): defaults is Record<keyof VariationListingCreationDefaults, string> {
@@ -399,6 +416,7 @@ export function VariationListingsWorkspace({
   const isArmed = intakeSession?.mode === "new_variation" && intakeSession.targetGroupId !== null;
   const duplicateMode = intakeSession?.mode === "duplicate_copy";
   const pendingPair = intakeSession?.pendingPair ?? null;
+  const processingStatus = intakeSession?.processingStatus ?? null;
   const selectedGroupCaptureEligible = captureEligible(selectedGroup);
   const armedGroupCaptureEligible = captureEligible(armedGroup);
   const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null;
@@ -677,7 +695,17 @@ export function VariationListingsWorkspace({
               <h2 className="mt-1 text-xl font-semibold">Sticky target and price</h2>
             </div>
             <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
-              {pendingPair ? "Pair pending" : isArmed ? "Capture armed" : duplicateMode ? "Duplicate mode" : selectedGroup ? "Bucket selected" : "No bucket selected"}
+              {processingStatus
+                ? formatProcessingPhase(processingStatus.phase)
+                : pendingPair
+                  ? "Pair pending"
+                  : isArmed
+                    ? "Capture armed"
+                    : duplicateMode
+                      ? "Duplicate mode"
+                      : selectedGroup
+                        ? "Bucket selected"
+                        : "No bucket selected"}
             </span>
           </div>
 
@@ -709,6 +737,34 @@ export function VariationListingsWorkspace({
                 Existing duplicate-copy mode is active; this workspace can only disarm it.
                 {copyConditionToken ? ` Condition: ${formatCondition(copyConditionToken)}.` : ""}
               </p>
+            ) : null}
+            {processingStatus ? (
+              <div
+                className={`mt-3 rounded-xl px-3 py-2 text-sm ${
+                  processingStatus.phase === "failed"
+                    ? "bg-rose-100 text-rose-900"
+                    : processingStatus.phase === "ready"
+                      ? "bg-emerald-100 text-emerald-900"
+                      : "bg-amber-100 text-amber-950"
+                }`}
+                role="status"
+                aria-live="polite"
+              >
+                <p className="font-semibold">{formatProcessingPhase(processingStatus.phase)}</p>
+                {processingStatus.phase === "generating_identity" ? (
+                  <p className="mt-1 text-xs">Front and back received. Gemini is analyzing this card.</p>
+                ) : processingStatus.phase === "saving" ? (
+                  <p className="mt-1 text-xs">Images and capture data are being saved.</p>
+                ) : processingStatus.phase === "waiting_for_back" ? (
+                  <p className="mt-1 text-xs">Front image captured. Capture the back image to continue.</p>
+                ) : processingStatus.phase === "ready" ? (
+                  <p className="mt-1 text-xs">The variation was saved successfully.</p>
+                ) : processingStatus.message ? (
+                  <p className="mt-1 text-xs">{processingStatus.message}</p>
+                ) : (
+                  <p className="mt-1 text-xs">The current variation pass failed. Check the watcher error before retrying.</p>
+                )}
+              </div>
             ) : null}
           </div>
 

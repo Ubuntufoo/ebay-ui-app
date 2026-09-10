@@ -41,9 +41,11 @@ describe("variation listing intake-session route", () => {
       mode: "idle",
       targetGroupId: null,
       targetVariationId: null,
+      copyConditionToken: null,
       stickyPriceAmount: 1.99,
       stickyPriceCurrency: "USD",
       pendingPair: null,
+      processingStatus: null,
       createdAt: "2026-09-02T15:00:00.000Z",
       updatedAt: "2026-09-02T15:01:00.000Z",
     };

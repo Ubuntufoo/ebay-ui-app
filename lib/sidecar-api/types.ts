@@ -348,6 +348,23 @@ export type VariationListingPendingPair = {
   expectedDesiredRevision: number;
 };
 
+export type VariationListingIntakeProcessingPhase =
+  | "waiting_for_back"
+  | "generating_identity"
+  | "saving"
+  | "ready"
+  | "failed";
+
+export interface VariationListingIntakeProcessingStatus {
+  captureSourceKey: string;
+  targetGroupId: string;
+  pairId: string;
+  phase: VariationListingIntakeProcessingPhase;
+  completionKind: "new_variation" | "duplicate_copy";
+  message: string | null;
+  updatedAt: string;
+}
+
 export interface VariationListingIntakeSession {
   captureSourceKey: string;
   mode: VariationListingIntakeMode;
@@ -357,6 +374,11 @@ export interface VariationListingIntakeSession {
   stickyPriceAmount: VariationListingManualPriceAmount;
   stickyPriceCurrency: "USD";
   pendingPair: VariationListingPendingPair | null;
+  /**
+   * Progress telemetry is omitted by older Sidecar responses. Treat a missing
+   * value as idle while newer responses provide an explicit status or null.
+   */
+  processingStatus?: VariationListingIntakeProcessingStatus | null;
   createdAt: string;
   updatedAt: string;
 }
