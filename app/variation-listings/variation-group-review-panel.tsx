@@ -137,6 +137,24 @@ export function VariationGroupReviewPanel({group, writesBlocked, onGroupUpdated}
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={4000} rows={4} disabled={!editable || writesBlocked || status !== "idle"} className="mt-2 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:bg-stone-100" />
       </label>
 
+      <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">Group eBay aspects</p>
+        {Object.keys(commonAspects).length > 0 ? (
+          <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-[minmax(8rem,0.4fr)_1fr]">
+            {Object.entries(commonAspects).map(([key, value]) => (
+              <div key={key} className="contents">
+                <dt className="text-xs font-semibold text-stone-600">{key}</dt>
+                <dd className="text-xs text-stone-900">
+                  {Array.isArray(value) ? value.join(", ") : String(value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="mt-2 text-xs text-stone-500">No common eBay aspects are currently available.</p>
+        )}
+      </div>
+
       {warnings.length > 0 ? <p className="mt-3 text-xs text-amber-800">{warnings.join(" · ")}</p> : null}
       {error ? <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p> : null}
 

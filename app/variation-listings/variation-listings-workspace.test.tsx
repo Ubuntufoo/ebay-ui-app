@@ -852,6 +852,9 @@ describe("VariationListingsWorkspace", () => {
 
     expect(screen.getByLabelText("Group title")).toHaveProperty("value", "2003 Topps Basketball");
     expect(screen.getByLabelText("Group description")).toHaveProperty("value", "Choose your card from this group.");
+    expect(screen.getByText("Group eBay aspects")).not.toBeNull();
+    expect(screen.getByText("Sport")).not.toBeNull();
+    expect(screen.getByText("Basketball")).not.toBeNull();
     const savedGroup = buildGroup({
       desiredRevision: 5,
       title: "2003 Topps Basketball",
@@ -876,6 +879,25 @@ describe("VariationListingsWorkspace", () => {
         }),
       }),
     );
+  });
+
+  it("renders persisted group-level common eBay aspects in Group Review", () => {
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[
+          buildGroup({
+            derivedCommonEbayAspects: {Sport: "Baseball", Brand: "Topps"},
+          }),
+        ]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByText("Group eBay aspects")).not.toBeNull();
+    expect(screen.getByText("Sport")).not.toBeNull();
+    expect(screen.getByText("Baseball")).not.toBeNull();
+    expect(screen.getByText("Brand")).not.toBeNull();
+    expect(screen.getByText("Topps")).not.toBeNull();
   });
 
   it("rejects a malformed representative response without replacing local state", async () => {
@@ -922,6 +944,46 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getByText(/Target, mode, and price are locked/)).not.toBeNull();
     expect(screen.getByRole("button", {name: "$1.49"})).toHaveProperty("disabled", true);
     expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+  });
+
+  it("presents Basketball/Baseball as configured listing profiles and keeps Other disabled", () => {
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const profile = screen.getByLabelText("Listing profile") as HTMLSelectElement;
+    expect(profile.value).toBe("BSKBL");
+    expect(screen.getByRole("option", {name: "Basketball sports cards"})).toHaveProperty("disabled", false);
+    expect(screen.getByRole("option", {name: "Basketball sports cards"})).toHaveProperty("value", "BSKBL");
+    expect(screen.getByRole("option", {name: "Baseball sports cards"})).toHaveProperty("disabled", false);
+    expect(screen.getByRole("option", {name: "Baseball sports cards"})).toHaveProperty("value", "BSBL");
+    expect(screen.getByRole("option", {name: "Other / non-sports — not configured yet"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("option", {name: "Other / non-sports — not configured yet"})).toHaveProperty("value", "OTHER");
+  });
+
+  it("fails closed if an unconfigured profile value reaches bucket creation", () => {
+    render(
+      <VariationListingsWorkspace
+        creationDefaults={{
+          merchantLocationKey: "location-1",
+          fulfillmentPolicyId: "fulfillment-1",
+          paymentPolicyId: "payment-1",
+          returnPolicyId: "returns-1",
+        }}
+        initialGroups={[buildGroup()]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const profile = screen.getByLabelText("Listing profile") as HTMLSelectElement;
+    fireEvent.change(profile, {target: {value: "OTHER"}});
+    fireEvent.change(screen.getByPlaceholderText("McGrady or 2003Topps"), {target: {value: "NonSports"}});
+
+    expect(screen.getByRole("button", {name: "Create bucket"})).toHaveProperty("disabled", true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("creates a bucket with trimmed defaults and selects the created bucket", async () => {

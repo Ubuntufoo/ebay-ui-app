@@ -429,6 +429,7 @@ export function VariationListingsWorkspace({
   const bucketTokenValid = /^[A-Za-z0-9]+([._-][A-Za-z0-9]+)*$/.test(normalizedBucketToken);
   const canCreate =
     defaultsReady &&
+    skuCategoryCode !== "OTHER" &&
     normalizedBucketToken.length > 0 &&
     normalizedBucketToken.length <= 32 &&
     normalizedBucketToken !== "Single" &&
@@ -808,18 +809,24 @@ export function VariationListingsWorkspace({
           </label>
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
-              Category prefix
+            <div>
+              <label htmlFor="variation-listing-profile" className="text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
+                Listing profile
+              </label>
               <select
+                id="variation-listing-profile"
                 value={skuCategoryCode}
                 onChange={(event) => setSkuCategoryCode(event.target.value as VariationListingSkuCategoryCode)}
                 className="mt-2 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-medium normal-case tracking-normal text-stone-950"
               >
-                <option value="BSKBL">Basketball</option>
-                <option value="BSBL">Baseball</option>
-                <option value="OTHER">Other</option>
+                <option value="BSKBL">Basketball sports cards</option>
+                <option value="BSBL">Baseball sports cards</option>
+                <option value="OTHER" disabled>Other / non-sports — not configured yet</option>
               </select>
-            </label>
+              <p className="mt-1 text-[11px] font-medium normal-case tracking-normal text-stone-500">
+                Basketball and Baseball profiles set the trusted common Sport for the group. Non-sports profiles will use separately validated eBay category/aspect contracts.
+              </p>
+            </div>
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
               Shared condition
               <select
