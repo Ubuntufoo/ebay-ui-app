@@ -15,11 +15,29 @@ class EventSourceMock {
 }
 
 function group(overrides: Partial<VariationListingGroup> = {}): VariationListingGroup {
-  return {...({groupId: "group-1", lifecycleState: "active", desiredRevision: 4, lastConfirmedRevision: 3, title: "Cards", validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true}, journal: {latestRevision: null}, updatedAt: "2026-09-03T00:00:00Z"} as unknown as VariationListingGroup), ...overrides};
+  return {...({groupId: "group-1", lifecycleState: "active", desiredRevision: 4, lastConfirmedRevision: 3, listingId: null, listingUrl: null, title: "Cards", validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true}, journal: {latestRevision: null}, updatedAt: "2026-09-03T00:00:00Z"} as unknown as VariationListingGroup), ...overrides};
 }
 
 describe("VariationPublicationPanel", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); fetchMock.mockReset(); EventSourceMock.instances = []; });
+  it("renders the durable confirmed eBay listing URL and keeps it across group refresh", () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    const listing = group({listingId: "1234567890", listingUrl: "https://www.sandbox.ebay.com/itm/1234567890"});
+    const view = render(<VariationPublicationPanel group={listing} capturePending={false} onGroupUpdated={vi.fn()} />);
+    const link = screen.getByRole("link", {name: "View on eBay Sandbox"});
+    expect(link.getAttribute("href")).toBe(listing.listingUrl);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noreferrer noopener");
+    view.rerender(<VariationPublicationPanel group={{...listing, updatedAt: "2026-09-03T00:01:00Z"}} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.getByRole("link", {name: "View on eBay Sandbox"}).getAttribute("href")).toBe(listing.listingUrl);
+  });
+  it("does not expose an unconfirmed or missing listing identity", () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    const view = render(<VariationPublicationPanel group={group({lastConfirmedRevision: null, listingId: "1234567890", listingUrl: "https://www.sandbox.ebay.com/itm/1234567890"})} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.queryByRole("link", {name: /View on eBay/})).toBeNull();
+    view.rerender(<VariationPublicationPanel group={group({listingId: null, listingUrl: null})} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.queryByRole("link", {name: /View on eBay/})).toBeNull();
+  });
   it("gates publish changes by active confirmation and sends the current CAS revision", async () => {
     vi.stubGlobal("fetch", fetchMock);
     fetchMock.mockResolvedValue(new Response(JSON.stringify({group: group({desiredRevision: 5, lastConfirmedRevision: 5, validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false}})}), {status: 200}));

@@ -17,6 +17,8 @@ function buildGroup(
   return {
     groupId: "11111111-1111-4111-8111-111111111111",
     groupKey: "VL-G-11111111111141118111111111111111",
+    listingId: null,
+    listingUrl: null,
     lifecycleState: "review",
     desiredRevision: 3,
     lastConfirmedRevision: 2,

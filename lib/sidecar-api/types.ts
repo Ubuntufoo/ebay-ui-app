@@ -582,6 +582,9 @@ export interface VariationListingRecoverySummary {
 export interface VariationListingGroup {
   groupId: string;
   groupKey: string;
+  /** Confirmed remote listing identity from the terminal publication journal evidence. */
+  listingId: string | null;
+  listingUrl: string | null;
   lifecycleState: string;
   desiredRevision: number;
   lastConfirmedRevision: number | null;
