@@ -326,7 +326,7 @@ export function VariationInventoryPanel({
                     <button
                       type="button"
                       onClick={() => onArmDuplicate(variation)}
-                      disabled={writesBlocked || duplicateMode || duplicateArmed || !duplicateCaptureAvailable}
+                      disabled={writesBlocked || duplicateArmed || !duplicateCaptureAvailable}
                       className="rounded-full bg-stone-950 px-3 py-1.5 text-xs font-bold text-white transition enabled:hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600"
                     >
                       {duplicateArmed ? "Duplicate armed" : "Capture duplicate"}

@@ -582,13 +582,110 @@ describe("VariationListingsWorkspace", () => {
       }),
     );
     expect(screen.getByText("Duplicate mode")).not.toBeNull();
-    expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Duplicate armed"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", false);
 
     fireEvent.click(screen.getByRole("button", {name: "Disarm"}));
     await act(async () => await Promise.resolve());
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
       JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.99}),
     );
+  });
+
+  it("retargets completed duplicate mode directly to another variation without an idle disarm", async () => {
+    const firstVariation = buildVariation();
+    const secondVariation = buildVariation({
+      variationId: "variation-2",
+      selectorValue: "2004 Topps",
+      priceAmount: 2.49,
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          session: buildSession({
+            mode: "duplicate_copy",
+            targetGroupId: "11111111-1111-4111-8111-111111111111",
+            targetVariationId: secondVariation.variationId,
+            copyConditionToken: "EXCELLENT",
+            stickyPriceAmount: secondVariation.priceAmount,
+          }),
+        }),
+        {status: 200},
+      ),
+    );
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [firstVariation, secondVariation], variationCount: 2})]}
+        initialIntakeSession={buildSession({
+          mode: "duplicate_copy",
+          targetGroupId: "11111111-1111-4111-8111-111111111111",
+          targetVariationId: firstVariation.variationId,
+          copyConditionToken: "EXCELLENT",
+          stickyPriceAmount: firstVariation.priceAmount,
+          pendingPair: null,
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Duplicate armed"})).toHaveProperty("disabled", true);
+    const retargetButton = screen.getByRole("button", {name: "Capture duplicate"});
+    expect(retargetButton).toHaveProperty("disabled", false);
+
+    fireEvent.click(retargetButton);
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({
+        mode: "duplicate_copy",
+        targetGroupId: "11111111-1111-4111-8111-111111111111",
+        targetVariationId: secondVariation.variationId,
+        copyConditionToken: "EXCELLENT",
+        stickyPriceAmount: 2.49,
+      }),
+    );
+    expect(screen.getByRole("button", {name: "Duplicate armed"})).toHaveProperty("disabled", true);
+  });
+
+  it("keeps duplicate retargeting blocked while a pair is pending", () => {
+    const firstVariation = buildVariation();
+    const secondVariation = buildVariation({
+      variationId: "variation-2",
+      selectorValue: "2004 Topps",
+      priceAmount: 2.49,
+    });
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [firstVariation, secondVariation], variationCount: 2})]}
+        initialIntakeSession={buildSession({
+          mode: "duplicate_copy",
+          targetGroupId: "11111111-1111-4111-8111-111111111111",
+          targetVariationId: firstVariation.variationId,
+          copyConditionToken: "EXCELLENT",
+          stickyPriceAmount: firstVariation.priceAmount,
+          pendingPair: {
+            pairId: "pair-retarget-lock",
+            mode: "duplicate_copy",
+            targetGroupId: "11111111-1111-4111-8111-111111111111",
+            targetVariationId: firstVariation.variationId,
+            conditionToken: "EXCELLENT",
+            priceAmount: firstVariation.priceAmount,
+            priceCurrency: "USD",
+            frontSourceRef: "/camera/front.jpg",
+            startedAt: "2026-09-15T21:00:00.000Z",
+            expectedDesiredRevision: 3,
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Duplicate armed"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("defaults duplicate condition to the group and exposes only equal-or-better options", () => {

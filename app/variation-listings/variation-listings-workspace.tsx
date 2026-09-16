@@ -589,7 +589,12 @@ export function VariationListingsWorkspace({
 
   const armDuplicateCapture = useCallback(
     (variation: VariationListingVariation) => {
-      if (!selectedGroup || !selectedGroupCaptureEligible || duplicateMode || writesBlocked || intakeWriteInFlightRef.current || !copyConditionValid) return;
+      if (!selectedGroup || !selectedGroupCaptureEligible || writesBlocked || intakeWriteInFlightRef.current || !copyConditionValid) return;
+      if (
+        duplicateMode &&
+        intakeSession?.targetGroupId === selectedGroup.groupId &&
+        intakeSession.targetVariationId === variation.variationId
+      ) return;
       void persistIntake({
         mode: "duplicate_copy",
         targetGroupId: selectedGroup.groupId,
@@ -598,7 +603,7 @@ export function VariationListingsWorkspace({
         stickyPriceAmount: variation.priceAmount,
       });
     },
-    [copyConditionToken, copyConditionValid, duplicateMode, persistIntake, selectedGroup, selectedGroupCaptureEligible, writesBlocked],
+    [copyConditionToken, copyConditionValid, duplicateMode, intakeSession, persistIntake, selectedGroup, selectedGroupCaptureEligible, writesBlocked],
   );
 
   const replaceGroup = useCallback((updatedGroup: VariationListingGroup) => {
