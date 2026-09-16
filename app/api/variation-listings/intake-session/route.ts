@@ -4,6 +4,7 @@ import {
   configureVariationListingIntake,
   discardVariationListingPendingPair,
   getVariationListingIntakeSession,
+  retryVariationListingPendingPair,
   SidecarApiError,
   type ConfigureVariationListingIntakeInput,
 } from "@/lib/sidecar-api";
@@ -45,6 +46,25 @@ export async function PATCH(request: Request) {
           error instanceof SidecarApiError
             ? error.message
             : "An unexpected error occurred while configuring the intake session.",
+      },
+      {status: error instanceof SidecarApiError ? error.status : 500},
+    );
+  }
+}
+
+export async function POST() {
+  try {
+    return NextResponse.json({session: await retryVariationListingPendingPair()});
+  } catch (error) {
+    if (!(error instanceof SidecarApiError)) {
+      console.error("Failed to retry variation listing pending pair.", error);
+    }
+    return NextResponse.json(
+      {
+        error:
+          error instanceof SidecarApiError
+            ? error.message
+            : "An unexpected error occurred while requesting capture retry.",
       },
       {status: error instanceof SidecarApiError ? error.status : 500},
     );

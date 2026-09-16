@@ -358,6 +358,378 @@ describe("VariationListingsWorkspace", () => {
     }
   });
 
+  it.each([
+    ["gemini", "Gemini failure", "Gemini timed out"],
+    ["storage", "Image storage failure", "Image storage: upload failed"],
+    ["gemini_and_storage", "Gemini + image storage failure", "Gemini: timed out | Image storage: upload failed"],
+    ["persistence", "Persistence failure", "Persistence: completion response was lost"],
+  ] as const)("labels %s failures and preserves the concise message", (failureKind, label, message) => {
+    const pendingPair = {
+      pairId: "pair-failure",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "failed",
+            completionKind: "new_variation",
+            message,
+            failureKind,
+            retryable: failureKind !== "persistence",
+            retryRequested: false,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByText(label)).not.toBeNull();
+    expect(screen.getByText(message)).not.toBeNull();
+  });
+
+  it("offers retry only for the exact current failed pair and disables it after request", async () => {
+    const pendingPair = {
+      pairId: "pair-retry",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          session: buildSession({
+            mode: "new_variation",
+            targetGroupId: pendingPair.targetGroupId,
+            pendingPair,
+            processingStatus: {
+              captureSourceKey: "camera-1",
+              targetGroupId: pendingPair.targetGroupId,
+              pairId: pendingPair.pairId,
+              phase: "failed",
+              completionKind: "new_variation",
+              message: "Gemini timed out",
+              failureKind: "gemini",
+              retryable: true,
+              retryRequested: true,
+              updatedAt: "2026-09-02T15:01:00.000Z",
+            },
+          }),
+        }),
+        {status: 200},
+      ),
+    );
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "failed",
+            completionKind: "new_variation",
+            message: "Gemini timed out",
+            failureKind: "gemini",
+            retryable: true,
+            retryRequested: false,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const retryButton = screen.getByRole("button", {name: "Retry current pair"});
+    expect(retryButton).toHaveProperty("disabled", false);
+    fireEvent.click(retryButton);
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/intake-session",
+      expect.objectContaining({method: "POST"}),
+    );
+    expect(screen.getByRole("button", {name: "Retry requested"})).toHaveProperty("disabled", true);
+  });
+
+  it("does not offer retry for a stale status pair", () => {
+    const pendingPair = {
+      pairId: "pair-current",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: "pair-stale",
+            phase: "failed",
+            completionKind: "new_variation",
+            message: "Gemini timed out",
+            failureKind: "gemini",
+            retryable: true,
+            retryRequested: false,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.queryByRole("button", {name: "Retry current pair"})).toBeNull();
+  });
+
+  it("keeps persistence failures non-discardable and warns the operator", () => {
+    const pendingPair = {
+      pairId: "pair-persistence",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "failed",
+            completionKind: "new_variation",
+            message: "Persistence: completion response was lost",
+            failureKind: "persistence",
+            retryable: true,
+            retryRequested: false,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Discard pending pair"})).toHaveProperty("disabled", true);
+    expect(screen.getByText(/Persistence is unresolved\. Retry this exact pair/)).not.toBeNull();
+  });
+
+  it.each(["generating_identity", "saving"] as const)(
+    "keeps discard visible but disabled while the current pair is %s",
+    (phase) => {
+      const pendingPair = {
+        pairId: `pair-${phase}`,
+        mode: "new_variation" as const,
+        targetGroupId: "11111111-1111-4111-8111-111111111111",
+        targetVariationId: null,
+        conditionToken: null,
+        priceAmount: 0.99 as const,
+        priceCurrency: "USD" as const,
+        frontSourceRef: "/camera/front.jpg",
+        startedAt: "2026-09-02T15:00:00.000Z",
+        expectedDesiredRevision: 3,
+      };
+
+      render(
+        <VariationListingsWorkspace
+          initialGroups={[buildGroup()]}
+          initialIntakeSession={buildSession({
+            mode: "new_variation",
+            targetGroupId: pendingPair.targetGroupId,
+            pendingPair,
+            processingStatus: {
+              captureSourceKey: "camera-1",
+              targetGroupId: pendingPair.targetGroupId,
+              pairId: pendingPair.pairId,
+              phase,
+              completionKind: "new_variation",
+              message: null,
+              failureKind: null,
+              retryable: false,
+              retryRequested: false,
+              updatedAt: "2026-09-02T15:01:00.000Z",
+            },
+          })}
+          refreshIntervalMs={0}
+        />,
+      );
+
+      expect(screen.getByRole("button", {name: "Discard pending pair"})).toHaveProperty("disabled", true);
+    },
+  );
+
+  it("allows discard while the current pair is waiting for its back image", () => {
+    const pendingPair = {
+      pairId: "pair-waiting",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "waiting_for_back",
+            completionKind: "new_variation",
+            message: null,
+            failureKind: null,
+            retryable: false,
+            retryRequested: false,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Discard pending pair"})).toHaveProperty("disabled", false);
+  });
+
+  it("allows discard for a terminal cleaned preparation failure", () => {
+    const pendingPair = {
+      pairId: "pair-terminal",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "failed",
+            completionKind: "new_variation",
+            message: "Cleanup: remote delete failed",
+            failureKind: "storage",
+            retryable: false,
+            retryRequested: false,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Discard pending pair"})).not.toBeNull();
+  });
+
+  it("remains compatible with legacy and missing processing status fields", () => {
+    const pendingPair = {
+      pairId: "pair-legacy",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    const {unmount} = render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({pendingPair})}
+        refreshIntervalMs={0}
+      />,
+    );
+    expect(screen.getByText("Pair pending")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Discard pending pair"})).not.toBeNull();
+
+    unmount();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "failed",
+            completionKind: "new_variation",
+            message: "Legacy capture failure",
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+    expect(screen.getByText("Legacy capture failure")).not.toBeNull();
+    expect(screen.queryByRole("button", {name: "Retry current pair"})).toBeNull();
+  });
+
   it("reconciles the selected bucket to an externally armed duplicate target during polling", async () => {
     const groupA = buildGroup({
       title: "Group A",

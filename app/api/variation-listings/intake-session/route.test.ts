@@ -3,15 +3,17 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 const getSessionMock = vi.hoisted(() => vi.fn());
 const configureMock = vi.hoisted(() => vi.fn());
 const discardMock = vi.hoisted(() => vi.fn());
+const retryMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/sidecar-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/sidecar-api")>()),
   getVariationListingIntakeSession: getSessionMock,
   configureVariationListingIntake: configureMock,
   discardVariationListingPendingPair: discardMock,
+  retryVariationListingPendingPair: retryMock,
 }));
 
-import {DELETE, GET, PATCH} from "@/app/api/variation-listings/intake-session/route";
+import {DELETE, GET, PATCH, POST} from "@/app/api/variation-listings/intake-session/route";
 import {SidecarApiError} from "@/lib/sidecar-api";
 
 describe("variation listing intake-session route", () => {
@@ -19,6 +21,7 @@ describe("variation listing intake-session route", () => {
     getSessionMock.mockReset();
     configureMock.mockReset();
     discardMock.mockReset();
+    retryMock.mockReset();
   });
 
   it("returns the durable session envelope", async () => {
@@ -84,5 +87,26 @@ describe("variation listing intake-session route", () => {
     expect(discardMock).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({session});
+  });
+
+  it("proxies POST retry requests without a client payload", async () => {
+    const session = {mode: "new_variation", pendingPair: {pairId: "pair-1"}};
+    retryMock.mockResolvedValue(session);
+
+    const response = await POST();
+
+    expect(retryMock).toHaveBeenCalledTimes(1);
+    expect(retryMock).toHaveBeenCalledWith();
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({session});
+  });
+
+  it("preserves Sidecar status for POST retry failures", async () => {
+    retryMock.mockRejectedValue(new SidecarApiError("retry already requested", 409));
+
+    const response = await POST();
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({error: "retry already requested"});
   });
 });

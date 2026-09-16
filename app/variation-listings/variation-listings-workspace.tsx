@@ -118,6 +118,23 @@ function formatProcessingPhase(
   }
 }
 
+function formatFailureKind(
+  failureKind: NonNullable<VariationListingIntakeSession["processingStatus"]>["failureKind"],
+): string | null {
+  switch (failureKind) {
+    case "gemini":
+      return "Identity failure";
+    case "storage":
+      return "Image storage failure";
+    case "gemini_and_storage":
+      return "Identity + image storage failure";
+    case "persistence":
+      return "Persistence failure";
+    default:
+      return null;
+  }
+}
+
 function creationDefaultsReady(
   defaults: VariationListingCreationDefaults,
 ): defaults is Record<keyof VariationListingCreationDefaults, string> {
@@ -417,6 +434,28 @@ export function VariationListingsWorkspace({
   const duplicateMode = intakeSession?.mode === "duplicate_copy";
   const pendingPair = intakeSession?.pendingPair ?? null;
   const processingStatus = intakeSession?.processingStatus ?? null;
+  const processingStatusMatchesPendingPair = Boolean(
+    pendingPair &&
+      processingStatus &&
+      processingStatus.pairId === pendingPair.pairId &&
+      processingStatus.targetGroupId === pendingPair.targetGroupId &&
+      processingStatus.completionKind === pendingPair.mode &&
+      processingStatus.captureSourceKey === intakeSession?.captureSourceKey,
+  );
+  const currentFailedPair = Boolean(
+    processingStatusMatchesPendingPair && processingStatus?.phase === "failed",
+  );
+  const persistenceFailure = Boolean(
+    currentFailedPair && processingStatus?.failureKind === "persistence",
+  );
+  const discardPendingPairBlocked = Boolean(
+    intakeStatus === "configuring" ||
+      (processingStatusMatchesPendingPair &&
+        (processingStatus?.phase === "generating_identity" ||
+          processingStatus?.phase === "saving" ||
+          persistenceFailure ||
+          processingStatus?.retryRequested === true)),
+  );
   const selectedGroupCaptureEligible = captureEligible(selectedGroup);
   const armedGroupCaptureEligible = captureEligible(armedGroup);
   const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null;
@@ -586,6 +625,35 @@ export function VariationListingsWorkspace({
       setIntakeStatus("idle");
     }
   }, [pendingPair]);
+
+  const retryPendingPair = useCallback(async () => {
+    if (!currentFailedPair || processingStatus?.retryable !== true || processingStatus.retryRequested === true || intakeWriteInFlightRef.current) return;
+    const generation = ++intakeGenerationRef.current;
+    intakeWriteInFlightRef.current = true;
+    setIntakeStatus("configuring");
+    try {
+      const response = await fetch("/api/variation-listings/intake-session", {method: "POST"});
+      const payload = (await response.json().catch(() => null)) as {
+        session?: VariationListingIntakeSession | null;
+        error?: string;
+      } | null;
+      if (!response.ok) throw new Error(payload?.error || `Capture retry request failed (${response.status}).`);
+      const session = payload?.session;
+      if (!session) throw new Error("Capture retry request returned no intake session.");
+      if (generation === intakeGenerationRef.current) {
+        setIntakeSession(session);
+        setStickyPriceAmount(session.stickyPriceAmount);
+        setIntakeError(null);
+      }
+    } catch (error) {
+      if (generation === intakeGenerationRef.current) {
+        setIntakeError(error instanceof Error ? error.message : "Unable to request capture retry.");
+      }
+    } finally {
+      intakeWriteInFlightRef.current = false;
+      setIntakeStatus("idle");
+    }
+  }, [currentFailedPair, processingStatus]);
 
   const armDuplicateCapture = useCallback(
     (variation: VariationListingVariation) => {
@@ -764,11 +832,18 @@ export function VariationListingsWorkspace({
                   <p className="mt-1 text-xs">Front image captured. Capture the back image to continue.</p>
                 ) : processingStatus.phase === "ready" ? (
                   <p className="mt-1 text-xs">The variation was saved successfully.</p>
-                ) : processingStatus.message ? (
-                  <p className="mt-1 text-xs">{processingStatus.message}</p>
-                ) : (
-                  <p className="mt-1 text-xs">The current variation pass failed. Check the watcher error before retrying.</p>
-                )}
+                ) : processingStatus.phase === "failed" ? (
+                  <>
+                    {formatFailureKind(processingStatus.failureKind) ? (
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em]">
+                        {formatFailureKind(processingStatus.failureKind)}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 text-xs">
+                      {processingStatus.message || "The current variation pass failed. Check the watcher error before retrying."}
+                    </p>
+                  </>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -812,17 +887,32 @@ export function VariationListingsWorkspace({
             >
               Disarm
             </button>
+            {currentFailedPair && processingStatus?.retryable === true ? (
+              <button
+                type="button"
+                onClick={() => void retryPendingPair()}
+                disabled={intakeStatus === "configuring" || processingStatus.retryRequested === true}
+                className="rounded-full border border-amber-400 bg-amber-100 px-5 py-2.5 text-sm font-bold text-amber-950 transition enabled:hover:border-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {processingStatus.retryRequested === true ? "Retry requested" : "Retry current pair"}
+              </button>
+            ) : null}
             {pendingPair ? (
               <button
                 type="button"
                 onClick={() => void discardPendingPair()}
-                disabled={intakeStatus === "configuring"}
+                disabled={discardPendingPairBlocked}
                 className="rounded-full border border-rose-300 bg-white px-5 py-2.5 text-sm font-bold text-rose-700 transition enabled:hover:border-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Discard pending pair
               </button>
             ) : null}
-            <p className="max-w-xl text-xs leading-5 text-stone-500">
+            <div className="max-w-xl text-xs leading-5 text-stone-500">
+              {persistenceFailure ? (
+                <p className="font-semibold text-rose-800">
+                  Persistence is unresolved. Retry this exact pair; do not discard it because its prepared images may already be referenced by a completed write.
+                </p>
+              ) : null}
               {pendingPair
                 ? `Pair ${pendingPair.pairId} is pending from ${pendingPair.frontSourceRef}. Target, mode, and price are locked until the pair completes or is discarded.`
                 : intakeError
@@ -830,7 +920,7 @@ export function VariationListingsWorkspace({
                   : isArmed
                     ? `Cards will target ${armedGroup?.title || intakeSession?.targetGroupId} at ${formatPrice(intakeSession?.stickyPriceAmount ?? stickyPriceAmount)}.`
                     : "Capture is idle. Arm the selected bucket to persist a durable target."}
-            </p>
+            </div>
             {pendingPair?.mode === "duplicate_copy" && !selectedGroup ? (
               <p className="mt-2 text-xs font-semibold text-amber-900">
                 Frozen pending condition: {formatCondition(pendingPair.conditionToken)}

@@ -362,6 +362,12 @@ export interface VariationListingIntakeProcessingStatus {
   phase: VariationListingIntakeProcessingPhase;
   completionKind: "new_variation" | "duplicate_copy";
   message: string | null;
+  /** Optional for status payloads emitted before F3 failure classification. */
+  failureKind?: "gemini" | "storage" | "gemini_and_storage" | "persistence" | null;
+  /** Optional for legacy status payloads; missing means not retryable. */
+  retryable?: boolean;
+  /** Optional for legacy status payloads; missing means no retry has been requested. */
+  retryRequested?: boolean;
   updatedAt: string;
 }
 

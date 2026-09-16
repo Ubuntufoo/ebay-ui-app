@@ -19,6 +19,7 @@ import {
   runVariationListingAction,
   retryPricing,
   retryPricingAnalysis,
+  retryVariationListingPendingPair,
   updateAppSettings,
   updateListing,
   updateVariationListingRepresentativeCopy,
@@ -128,6 +129,38 @@ describe("variation listing intake session", () => {
         }),
       }),
     );
+  });
+
+  it("posts an exact-pair retry request with no payload", async () => {
+    const session = {
+      captureSourceKey: "camera-1",
+      mode: "new_variation",
+      targetGroupId: "group-1",
+      targetVariationId: null,
+      copyConditionToken: null,
+      stickyPriceAmount: 1.49,
+      stickyPriceCurrency: "USD",
+      pendingPair: {pairId: "pair-1"},
+      processingStatus: null,
+      createdAt: "2026-09-02T15:00:00.000Z",
+      updatedAt: "2026-09-02T15:01:00.000Z",
+    };
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({session}), {status: 200}));
+
+    await expect(retryVariationListingPendingPair()).resolves.toEqual(session);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/intake-session/retry",
+      expect.objectContaining({
+        cache: "no-store",
+        method: "POST",
+        headers: expect.objectContaining({
+          Accept: "application/json",
+          Authorization: "Bearer secret-token",
+          "Content-Type": "application/json",
+        }),
+      }),
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
   });
 });
 

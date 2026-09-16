@@ -194,6 +194,17 @@ export async function discardVariationListingPendingPair(): Promise<VariationLis
   return response.session;
 }
 
+export async function retryVariationListingPendingPair(): Promise<VariationListingIntakeSession> {
+  const response = await sidecarFetch<VariationListingIntakeSessionResponse>(
+    "/api/variation-listings/intake-session/retry",
+    buildJsonRequestInit("POST"),
+  );
+  if (!response.session) {
+    throw new Error("Sidecar returned no intake session after requesting retry.");
+  }
+  return response.session;
+}
+
 export async function updateVariationListingRepresentativeCopy(
   groupId: string,
   variationId: string,
