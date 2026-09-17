@@ -24,12 +24,12 @@ describe("VariationPublicationPanel", () => {
     vi.stubGlobal("EventSource", EventSourceMock);
     const listing = group({listingId: "1234567890", listingUrl: "https://www.sandbox.ebay.com/itm/1234567890"});
     const view = render(<VariationPublicationPanel group={listing} capturePending={false} onGroupUpdated={vi.fn()} />);
-    const link = screen.getByRole("link", {name: "View on eBay Sandbox"});
+    const link = screen.getByRole("link", {name: "View on eBay"});
     expect(link.getAttribute("href")).toBe(listing.listingUrl);
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noreferrer noopener");
     view.rerender(<VariationPublicationPanel group={{...listing, updatedAt: "2026-09-03T00:01:00Z"}} capturePending={false} onGroupUpdated={vi.fn()} />);
-    expect(screen.getByRole("link", {name: "View on eBay Sandbox"}).getAttribute("href")).toBe(listing.listingUrl);
+    expect(screen.getByRole("link", {name: "View on eBay"}).getAttribute("href")).toBe(listing.listingUrl);
   });
   it("does not expose an unconfirmed or missing listing identity", () => {
     vi.stubGlobal("EventSource", EventSourceMock);

@@ -126,11 +126,11 @@ describe("VariationListingsWorkspace", () => {
     vi.useRealTimers();
   });
 
-  it("renders a clearly separate variation-listing workspace and group summary", () => {
+  it("renders the variation group summary without a redundant workspace header", () => {
     render(<VariationListingsWorkspace initialGroups={[buildGroup()]} />);
 
-    expect(screen.getByText("Separate mode")).not.toBeNull();
-    expect(screen.getByText("Variation listing workspace")).not.toBeNull();
+    expect(screen.queryByText("Separate mode")).toBeNull();
+    expect(screen.queryByText("Variation listing workspace")).toBeNull();
     expect(screen.getAllByText("Tracy McGrady Cards").length).toBeGreaterThan(0);
     expect(screen.getByText("Pending changes")).not.toBeNull();
     expect(screen.getByText("Live refresh")).not.toBeNull();
@@ -322,7 +322,7 @@ describe("VariationListingsWorkspace", () => {
       />,
     );
 
-    expect(screen.getByText("Capture armed")).not.toBeNull();
+    expect(screen.getByText("Armed target")).not.toBeNull();
     expect(screen.getByText("$1.99 · new variation")).not.toBeNull();
   });
 
@@ -359,9 +359,9 @@ describe("VariationListingsWorkspace", () => {
   });
 
   it.each([
-    ["gemini", "Gemini failure", "Gemini timed out"],
+    ["gemini", "Identity failure", "Gemini timed out"],
     ["storage", "Image storage failure", "Image storage: upload failed"],
-    ["gemini_and_storage", "Gemini + image storage failure", "Gemini: timed out | Image storage: upload failed"],
+    ["gemini_and_storage", "Identity + image storage failure", "Gemini: timed out | Image storage: upload failed"],
     ["persistence", "Persistence failure", "Persistence: completion response was lost"],
   ] as const)("labels %s failures and preserves the concise message", (failureKind, label, message) => {
     const pendingPair = {
@@ -704,7 +704,7 @@ describe("VariationListingsWorkspace", () => {
         refreshIntervalMs={0}
       />,
     );
-    expect(screen.getByText("Pair pending")).not.toBeNull();
+    expect(screen.getByText(/Pair pair-legacy is pending/)).not.toBeNull();
     expect(screen.getByRole("button", {name: "Discard pending pair"})).not.toBeNull();
 
     unmount();
@@ -911,6 +911,37 @@ describe("VariationListingsWorkspace", () => {
     );
   });
 
+  it("automatically disarms before selecting a different bucket", async () => {
+    const groupA = buildGroup({title: "Group A"});
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: groupA.groupId,
+          stickyPriceAmount: 1.49,
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Select bucket"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
+      JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.49}),
+    );
+    expect(screen.getByRole("button", {name: "Selected bucket"})).not.toBeNull();
+    expect(screen.getAllByText("Group B").length).toBeGreaterThan(0);
+  });
+
   it("arms and disarms duplicate capture for the exact variation price", async () => {
     const variation = buildVariation();
     const otherVariation = buildVariation({
@@ -953,7 +984,7 @@ describe("VariationListingsWorkspace", () => {
         stickyPriceAmount: 1.99,
       }),
     );
-    expect(screen.getByText("Duplicate mode")).not.toBeNull();
+    expect(screen.getByText(/Existing duplicate-copy mode is active/)).not.toBeNull();
     expect(screen.getByRole("button", {name: "Duplicate armed"})).toHaveProperty("disabled", true);
     expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", false);
 
@@ -1540,7 +1571,7 @@ describe("VariationListingsWorkspace", () => {
       }),
     );
     expect(screen.getAllByText("New Bucket").length).toBeGreaterThan(0);
-    expect(screen.getByText("Capture setup")).not.toBeNull();
+    expect(screen.getAllByText("Selected bucket").length).toBeGreaterThan(0);
   });
 
   it("blocks intake writes on initial read failure and hydrates after retry", async () => {
@@ -1576,7 +1607,7 @@ describe("VariationListingsWorkspace", () => {
       expect.objectContaining({cache: "no-store"}),
     );
     expect(screen.queryByText("Intake session unavailable.")).toBeNull();
-    expect(screen.getByText("Capture armed")).not.toBeNull();
+    expect(screen.getByText("Armed target")).not.toBeNull();
     expect(screen.getByText("$2.49 · new variation")).not.toBeNull();
   });
 
@@ -1611,7 +1642,7 @@ describe("VariationListingsWorkspace", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("Capture armed")).not.toBeNull();
+    expect(screen.getByText("Armed target")).not.toBeNull();
     expect(screen.queryByText("stale read failed")).toBeNull();
   });
 });

@@ -198,61 +198,61 @@ function GroupCard({
 
   return (
     <article
-      className={`rounded-[1.5rem] border bg-white p-5 shadow-[0_12px_32px_rgba(28,25,23,0.08)] transition ${
+      className={`rounded-2xl border bg-white p-4 shadow-[0_8px_24px_rgba(28,25,23,0.06)] transition ${
         isSelected
           ? "border-amber-400 ring-2 ring-amber-300/60"
           : "border-stone-950/10"
       }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-stone-500">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">
             {group.skuNamespace.categoryCode} · {group.skuNamespace.bucketToken}
           </p>
-          <h2 className="mt-1 truncate text-xl font-semibold tracking-[-0.02em] text-stone-950">
+          <h2 className="mt-0.5 truncate text-lg font-semibold tracking-[-0.02em] text-stone-950">
             {group.title || group.skuNamespace.bucketToken}
           </h2>
         </div>
-        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-stone-700">
+        <span className="rounded-full border border-stone-950/10 bg-stone-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-stone-700">
           {formatLifecycle(group.lifecycleState)}
         </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl bg-stone-50 px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Variations</p>
-          <p className="mt-1 text-lg font-semibold">{group.variationCount}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-stone-50 px-2.5 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-stone-500">Variations</p>
+          <p className="mt-0.5 text-base font-semibold">{group.variationCount}</p>
         </div>
-        <div className="rounded-xl bg-stone-50 px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Captured</p>
-          <p className="mt-1 text-lg font-semibold">{group.variations.reduce((sum, variation) => sum + variation.copyCount, 0)}</p>
+        <div className="rounded-lg bg-stone-50 px-2.5 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-stone-500">Captured</p>
+          <p className="mt-0.5 text-base font-semibold">{group.variations.reduce((sum, variation) => sum + variation.copyCount, 0)}</p>
         </div>
-        <div className="rounded-xl bg-stone-50 px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Desired rev</p>
-          <p className="mt-1 text-lg font-semibold">{group.desiredRevision}</p>
+        <div className="rounded-lg bg-stone-50 px-2.5 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-stone-500">Desired rev</p>
+          <p className="mt-0.5 text-base font-semibold">{group.desiredRevision}</p>
         </div>
-        <div className="rounded-xl bg-stone-50 px-3 py-2">
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-stone-500">Confirmed rev</p>
-          <p className="mt-1 text-lg font-semibold">{group.lastConfirmedRevision ?? "—"}</p>
+        <div className="rounded-lg bg-stone-50 px-2.5 py-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-stone-500">Confirmed rev</p>
+          <p className="mt-0.5 text-base font-semibold">{group.lastConfirmedRevision ?? "—"}</p>
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs font-semibold">
+      <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold">
         {group.validation.hasPendingChanges ? (
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">Pending changes</span>
+          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-amber-900">Pending changes</span>
         ) : (
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-900">No pending changes</span>
+          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-emerald-900">No pending changes</span>
         )}
         {group.validation.initialPublicationReady ? (
-          <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-900">Initial publish ready</span>
+          <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-emerald-900">Initial publish ready</span>
         ) : null}
         {blockerCount > 0 ? (
-          <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-900">
+          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-rose-900">
             {blockerCount} blocker{blockerCount === 1 ? "" : "s"}
           </span>
         ) : null}
         {latestRevision?.recovery?.requiresReconciliation ? (
-          <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-900">Reconciliation required</span>
+          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-rose-900">Reconciliation required</span>
         ) : null}
       </div>
 
@@ -261,7 +261,7 @@ function GroupCard({
         aria-pressed={isSelected}
         onClick={onSelect}
         disabled={selectionLocked}
-        className={`mt-5 rounded-full px-4 py-2 text-sm font-bold transition ${
+        className={`mt-3 rounded-full px-3 py-1.5 text-xs font-bold transition ${
           isSelected
             ? "bg-amber-300 text-stone-950"
             : "bg-stone-950 text-stone-50 hover:bg-stone-800"
@@ -465,7 +465,7 @@ export function VariationListingsWorkspace({
   );
   const copyConditionValid = copyConditionToken !== null && copyConditionOptions.some((option) => option.value === copyConditionToken);
   const conditionChangesLocked = duplicateMode || writesBlocked;
-  const selectionLocked = duplicateMode || writesBlocked;
+  const selectionLocked = writesBlocked;
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -502,7 +502,7 @@ export function VariationListingsWorkspace({
       copyConditionToken: VariationListingConditionToken | null;
       stickyPriceAmount: VariationListingManualPriceAmount;
     }) => {
-      if (writesBlocked || intakeWriteInFlightRef.current) return;
+      if (writesBlocked || intakeWriteInFlightRef.current) return false;
       const generation = ++intakeGenerationRef.current;
       intakeWriteInFlightRef.current = true;
       setIntakeStatus("configuring");
@@ -527,10 +527,12 @@ export function VariationListingsWorkspace({
           setStickyPriceAmount(session.stickyPriceAmount);
           setIntakeError(null);
         }
+        return true;
       } catch (error) {
         if (generation === intakeGenerationRef.current) {
           setIntakeError(error instanceof Error ? error.message : "Unable to configure intake session.");
         }
+        return false;
       } finally {
         intakeWriteInFlightRef.current = false;
         setIntakeStatus("idle");
@@ -594,6 +596,21 @@ export function VariationListingsWorkspace({
       stickyPriceAmount,
     });
   }, [persistIntake, stickyPriceAmount]);
+
+  const selectGroup = useCallback(async (groupId: string) => {
+    if (selectionLocked || groupId === selectedGroupId) return;
+    if (intakeSession?.mode !== "idle" && intakeSession?.targetGroupId !== groupId) {
+      const disarmed = await persistIntake({
+        mode: "idle",
+        targetGroupId: null,
+        targetVariationId: null,
+        copyConditionToken: null,
+        stickyPriceAmount: intakeSession?.stickyPriceAmount ?? stickyPriceAmount,
+      });
+      if (!disarmed) return;
+    }
+    setSelectedGroupId(groupId);
+  }, [intakeSession, persistIntake, selectedGroupId, selectionLocked, stickyPriceAmount]);
 
   const discardPendingPair = useCallback(async () => {
     if (!pendingPair || intakeWriteInFlightRef.current) return;
@@ -744,45 +761,9 @@ export function VariationListingsWorkspace({
 
   return (
     <div className="space-y-5">
-      <header className="rounded-[1.75rem] border border-stone-950/10 bg-stone-950 px-5 py-5 text-stone-50 shadow-[0_16px_42px_rgba(28,25,23,0.16)] sm:px-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-amber-300 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-stone-950">Separate mode</span>
-              <span className="text-xs font-bold uppercase tracking-[0.18em] text-stone-300">Variation listings</span>
-            </div>
-            <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Variation listing workspace</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-300 sm:text-base">
-              Select a long-lived inventory bucket and manual intake price before capturing cards. Variation intake stays isolated from Single/Lot.
-            </p>
-          </div>
-          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-stone-200">Manual pricing only</span>
-        </div>
-      </header>
-
       <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-        <div className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500">Capture setup</p>
-              <h2 className="mt-1 text-xl font-semibold">Sticky target and price</h2>
-            </div>
-            <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
-              {processingStatus
-                ? formatProcessingPhase(processingStatus.phase)
-                : pendingPair
-                  ? "Pair pending"
-                  : isArmed
-                    ? "Capture armed"
-                    : duplicateMode
-                      ? "Duplicate mode"
-                      : selectedGroup
-                        ? "Bucket selected"
-                        : "No bucket selected"}
-            </span>
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-stone-50 p-4">
+        <div className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-4">
+          <div className="rounded-xl bg-stone-50 px-3 py-2.5">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-stone-500">Selected bucket</p>
             <p className="mt-1 text-lg font-semibold text-stone-950">
               {selectedGroup ? selectedGroup.title || selectedGroup.skuNamespace.bucketToken : "Select a bucket below"}
@@ -794,83 +775,85 @@ export function VariationListingsWorkspace({
             ) : null}
           </div>
 
-          <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            {selectedGroup && !selectedGroupCaptureEligible ? (
-              <p className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800">
-                This bucket is {formatLifecycle(selectedGroup.lifecycleState)} and cannot accept new captures.
+          <div className="mt-3 flex flex-wrap items-start gap-3">
+            <div className="w-fit max-w-full rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+              {selectedGroup && !selectedGroupCaptureEligible ? (
+                <p className="mb-2 rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-800">
+                  This bucket is {formatLifecycle(selectedGroup.lifecycleState)} and cannot accept new captures.
+                </p>
+              ) : null}
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-amber-800">Armed target</p>
+              <p className="mt-0.5 text-base font-semibold text-amber-950">
+                {isArmed ? armedGroup?.title || armedGroup?.skuNamespace.bucketToken || intakeSession?.targetGroupId : "Idle"}
               </p>
-            ) : null}
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800">Armed target</p>
-            <p className="mt-1 text-lg font-semibold text-amber-950">
-              {isArmed ? armedGroup?.title || armedGroup?.skuNamespace.bucketToken || intakeSession?.targetGroupId : "Idle"}
-            </p>
-            {isArmed ? <p className="mt-1 text-sm text-amber-900">{formatPrice(intakeSession?.stickyPriceAmount ?? stickyPriceAmount)} · new variation</p> : null}
-            {duplicateMode ? (
-              <p className="mt-1 text-sm text-amber-900">
-                Existing duplicate-copy mode is active; this workspace can only disarm it.
-                {copyConditionToken ? ` Condition: ${formatCondition(copyConditionToken)}.` : ""}
-              </p>
-            ) : null}
-            {processingStatus ? (
-              <div
-                className={`mt-3 rounded-xl px-3 py-2 text-sm ${
-                  processingStatus.phase === "failed"
-                    ? "bg-rose-100 text-rose-900"
-                    : processingStatus.phase === "ready"
-                      ? "bg-emerald-100 text-emerald-900"
-                      : "bg-amber-100 text-amber-950"
-                }`}
-                role="status"
-                aria-live="polite"
-              >
-                <p className="font-semibold">{formatProcessingPhase(processingStatus.phase)}</p>
-                {processingStatus.phase === "generating_identity" ? (
-                  <p className="mt-1 text-xs">Front and back received. Gemini is analyzing this card.</p>
-                ) : processingStatus.phase === "saving" ? (
-                  <p className="mt-1 text-xs">Images and capture data are being saved.</p>
-                ) : processingStatus.phase === "waiting_for_back" ? (
-                  <p className="mt-1 text-xs">Front image captured. Capture the back image to continue.</p>
-                ) : processingStatus.phase === "ready" ? (
-                  <p className="mt-1 text-xs">The variation was saved successfully.</p>
-                ) : processingStatus.phase === "failed" ? (
-                  <>
-                    {formatFailureKind(processingStatus.failureKind) ? (
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em]">
-                        {formatFailureKind(processingStatus.failureKind)}
-                      </p>
-                    ) : null}
-                    <p className="mt-1 text-xs">
-                      {processingStatus.message || "The current variation pass failed. Check the watcher error before retrying."}
-                    </p>
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="mt-4">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-stone-500">New-card price tier</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {MANUAL_PRICE_TIERS.map((price) => (
-                <button
-                  key={price}
-                  type="button"
-                  aria-pressed={stickyPriceAmount === price}
-                  onClick={() => selectPrice(price)}
-                  disabled={writesBlocked || duplicateMode}
-                  className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
-                    stickyPriceAmount === price
-                      ? "border-stone-950 bg-stone-950 text-stone-50"
-                      : "border-stone-300 bg-white text-stone-700 hover:border-stone-500"
+              {isArmed ? <p className="mt-0.5 text-xs text-amber-900">{formatPrice(intakeSession?.stickyPriceAmount ?? stickyPriceAmount)} · new variation</p> : null}
+              {duplicateMode ? (
+                <p className="mt-1 max-w-md text-xs text-amber-900">
+                  Existing duplicate-copy mode is active; this workspace can only disarm it.
+                  {copyConditionToken ? ` Condition: ${formatCondition(copyConditionToken)}.` : ""}
+                </p>
+              ) : null}
+              {processingStatus ? (
+                <div
+                  className={`mt-2 rounded-lg px-2.5 py-1.5 text-xs ${
+                    processingStatus.phase === "failed"
+                      ? "bg-rose-100 text-rose-900"
+                      : processingStatus.phase === "ready"
+                        ? "bg-emerald-100 text-emerald-900"
+                        : "bg-amber-100 text-amber-950"
                   }`}
+                  role="status"
+                  aria-live="polite"
                 >
-                  {formatPrice(price)}
-                </button>
-              ))}
+                  <p className="font-semibold">{formatProcessingPhase(processingStatus.phase)}</p>
+                  {processingStatus.phase === "generating_identity" ? (
+                    <p className="mt-0.5 text-[11px]">Front and back received. Gemini is analyzing this card.</p>
+                  ) : processingStatus.phase === "saving" ? (
+                    <p className="mt-0.5 text-[11px]">Images and capture data are being saved.</p>
+                  ) : processingStatus.phase === "waiting_for_back" ? (
+                    <p className="mt-0.5 text-[11px]">Front image captured. Capture the back image to continue.</p>
+                  ) : processingStatus.phase === "ready" ? (
+                    <p className="mt-0.5 text-[11px]">The variation was saved successfully.</p>
+                  ) : processingStatus.phase === "failed" ? (
+                    <>
+                      {formatFailureKind(processingStatus.failureKind) ? (
+                        <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.1em]">
+                          {formatFailureKind(processingStatus.failureKind)}
+                        </p>
+                      ) : null}
+                      <p className="mt-0.5 text-[11px]">
+                        {processingStatus.message || "The current variation pass failed. Check the watcher error before retrying."}
+                      </p>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">New-card price tier</p>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {MANUAL_PRICE_TIERS.map((price) => (
+                  <button
+                    key={price}
+                    type="button"
+                    aria-pressed={stickyPriceAmount === price}
+                    onClick={() => selectPrice(price)}
+                    disabled={writesBlocked || duplicateMode}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                      stickyPriceAmount === price
+                        ? "border-stone-950 bg-stone-950 text-stone-50"
+                        : "border-stone-300 bg-white text-stone-700 hover:border-stone-500"
+                    }`}
+                  >
+                    {formatPrice(price)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={armCapture}
@@ -942,11 +925,16 @@ export function VariationListingsWorkspace({
             void createGroup();
           }}
         >
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500">New bucket</p>
-          <h2 className="mt-1 text-xl font-semibold">Create variation listing</h2>
-          <p className="mt-1 text-sm leading-6 text-stone-600">
-            Uses the configured eBay location and policy defaults. The bucket token becomes the stable middle segment of its inventory SKUs.
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold">Create variation listing bucket</h2>
+            <button
+              type="submit"
+              disabled={!canCreate}
+              className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-stone-50 transition enabled:hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600"
+            >
+              {createStatus === "creating" ? "Creating…" : "Create bucket"}
+            </button>
+          </div>
 
           <label className="mt-4 block text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
             Bucket / SKU token
@@ -974,9 +962,7 @@ export function VariationListingsWorkspace({
                 <option value="BSBL">Baseball sports cards</option>
                 <option value="OTHER" disabled>Other / non-sports — not configured yet</option>
               </select>
-              <p className="mt-1 text-[11px] font-medium normal-case tracking-normal text-stone-500">
-                Basketball and Baseball profiles set the trusted common Sport for the group. Non-sports profiles will use separately validated eBay category/aspect contracts.
-              </p>
+
             </div>
             <label className="text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
               Shared condition
@@ -1006,15 +992,16 @@ export function VariationListingsWorkspace({
             <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{createError}</p>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={!canCreate}
-            className="mt-4 rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-stone-50 transition enabled:hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600"
-          >
-            {createStatus === "creating" ? "Creating…" : "Create bucket"}
-          </button>
         </form>
       </section>
+
+      <VariationPublicationPanel
+        key={selectedGroup?.groupId ?? "empty"}
+        group={selectedGroup}
+        capturePending={pendingPair !== null}
+        onActionSettled={retryIntakeSession}
+        onGroupUpdated={replaceGroup}
+      />
 
       <VariationInventoryPanel
         group={selectedGroup}
@@ -1034,14 +1021,6 @@ export function VariationListingsWorkspace({
         key={selectedGroup ? `${selectedGroup.groupId}:${selectedGroup.desiredRevision}` : "empty-review"}
         group={selectedGroup}
         writesBlocked={writesBlocked}
-        onGroupUpdated={replaceGroup}
-      />
-
-      <VariationPublicationPanel
-        key={selectedGroup?.groupId ?? "empty"}
-        group={selectedGroup}
-        capturePending={pendingPair !== null}
-        onActionSettled={retryIntakeSession}
         onGroupUpdated={replaceGroup}
       />
 
@@ -1085,15 +1064,13 @@ export function VariationListingsWorkspace({
           </div>
         </section>
       ) : (
-        <section className="grid gap-4 xl:grid-cols-2">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {groups.map((group) => (
             <GroupCard
               key={group.groupId}
               group={group}
               isSelected={group.groupId === selectedGroupId}
-              onSelect={() => {
-                if (!selectionLocked) setSelectedGroupId(group.groupId);
-              }}
+              onSelect={() => void selectGroup(group.groupId)}
               selectionLocked={selectionLocked}
             />
           ))}

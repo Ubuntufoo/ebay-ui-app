@@ -116,35 +116,36 @@ export function VariationGroupReviewPanel({group, writesBlocked, onGroupUpdated}
   };
 
   return (
-    <section className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-5">
+    <section className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500">Group review</p>
-          <h2 className="mt-1 text-xl font-semibold">Listing title and description</h2>
-          <p className="mt-1 text-sm text-stone-600">Generate the shared listing draft from the current variations, then review or edit it before publication.</p>
+          <h2 className="mt-1 text-xl font-semibold">Listing details</h2>
         </div>
         <button type="button" onClick={() => void generate()} disabled={!editable || writesBlocked || status !== "idle" || group.variations.length < 2} className="rounded-full border border-stone-300 bg-white px-4 py-2 text-sm font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-50">
           {status === "generating" ? "Generating…" : "Generate group draft"}
         </button>
       </div>
 
-      <label className="mt-4 block text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
-        Group title
-        <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} disabled={!editable || writesBlocked || status !== "idle"} className="mt-2 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:bg-stone-100" />
-      </label>
-      <label className="mt-3 block text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
-        Group description
-        <textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={4000} rows={4} disabled={!editable || writesBlocked || status !== "idle"} className="mt-2 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:bg-stone-100" />
-      </label>
+      <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <label className="block text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
+          Title
+          <input aria-label="Group title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} disabled={!editable || writesBlocked || status !== "idle"} className="mt-1.5 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:bg-stone-100" />
+        </label>
+        <label className="block text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
+          Description
+          <textarea aria-label="Group description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={4000} rows={2} disabled={!editable || writesBlocked || status !== "idle"} className="mt-1.5 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:bg-stone-100" />
+        </label>
+      </div>
 
-      <div className="mt-4 rounded-xl border border-stone-200 bg-stone-50 px-3 py-3">
+      <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5">
         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">Group eBay aspects</p>
         {Object.keys(commonAspects).length > 0 ? (
-          <dl className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-[minmax(8rem,0.4fr)_1fr]">
+          <dl className="mt-2 grid gap-2 md:grid-cols-3">
             {Object.entries(commonAspects).map(([key, value]) => (
-              <div key={key} className="contents">
-                <dt className="text-xs font-semibold text-stone-600">{key}</dt>
-                <dd className="text-xs text-stone-900">
+              <div key={key} className="rounded-lg bg-white px-2.5 py-2">
+                <dt className="text-[10px] font-bold uppercase tracking-[0.1em] text-stone-500">{key}</dt>
+                <dd className="mt-0.5 text-xs text-stone-900">
                   {Array.isArray(value) ? value.join(", ") : String(value)}
                 </dd>
               </div>
@@ -158,7 +159,7 @@ export function VariationGroupReviewPanel({group, writesBlocked, onGroupUpdated}
       {warnings.length > 0 ? <p className="mt-3 text-xs text-amber-800">{warnings.join(" · ")}</p> : null}
       {error ? <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p> : null}
 
-      <button type="button" onClick={() => void save()} disabled={!editable || writesBlocked || status !== "idle" || !title.trim() || !description.trim()} className="mt-4 rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-stone-50 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600">
+      <button type="button" onClick={() => void save()} disabled={!editable || writesBlocked || status !== "idle" || !title.trim() || !description.trim()} className="mt-3 rounded-full bg-stone-950 px-4 py-2 text-sm font-bold text-stone-50 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600">
         {status === "saving" ? "Saving…" : "Save review draft"}
       </button>
     </section>

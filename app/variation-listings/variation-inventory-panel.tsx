@@ -32,7 +32,7 @@ function formatCondition(value: string): string {
     .join(" ");
 }
 
-function CopyImage({copyId, label, url, r2Key}: {copyId: string; label: string; url: string | null; r2Key: string}) {
+function CopyImage({copyId, label, url}: {copyId: string; label: string; url: string | null}) {
   return (
     <div className="min-w-0">
       <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-stone-500">{label}</p>
@@ -46,7 +46,7 @@ function CopyImage({copyId, label, url, r2Key}: {copyId: string; label: string; 
           Public image URL unavailable
         </div>
       )}
-      <p className="mt-1 truncate text-[10px] text-stone-400" title={r2Key}>{r2Key}</p>
+
     </div>
   );
 }
@@ -81,9 +81,9 @@ function CopyCard({
 
       {copy.conditionNotes ? <p className="mt-2 text-xs leading-5 text-stone-600">{copy.conditionNotes}</p> : null}
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <CopyImage copyId={copy.copyId} label="Front" url={copy.frontImageUrl} r2Key={copy.frontR2Key} />
-        <CopyImage copyId={copy.copyId} label="Back" url={copy.backImageUrl} r2Key={copy.backR2Key} />
+      <div className="mt-3 grid w-1/2 grid-cols-2 gap-2">
+        <CopyImage copyId={copy.copyId} label="Front" url={copy.frontImageUrl} />
+        <CopyImage copyId={copy.copyId} label="Back" url={copy.backImageUrl} />
       </div>
 
       {!copy.isRepresentative ? (
@@ -241,28 +241,19 @@ export function VariationInventoryPanel({
 
   return (
     <section className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-stone-500">Variation inventory</p>
           <h2 className="mt-1 text-xl font-semibold">{group.title || group.skuNamespace.bucketToken}</h2>
-          <p className="mt-1 text-sm text-stone-600">
-            Inspect each physical copy, its coarse condition and front/back image pair, or arm duplicate capture for an existing variation.
-          </p>
         </div>
-        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
-          Shared eBay condition: {formatCondition(group.conditionToken)}
-        </span>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-stone-200 bg-stone-50 p-3">
-        <label className="min-w-60 text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
+        <label className="min-w-52 text-[10px] font-bold uppercase tracking-[0.1em] text-stone-600">
           Duplicate-copy condition
           <select
             aria-label="Duplicate-copy condition"
             value={pendingConditionToken ?? copyConditionToken ?? ""}
             onChange={(event) => onCopyConditionChange(event.target.value as VariationListingConditionToken)}
             disabled={conditionChangesLocked || copyConditionOptions.length === 0}
-            className="mt-2 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
+            className="mt-1 block w-full rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-medium normal-case tracking-normal text-stone-950 disabled:cursor-not-allowed disabled:bg-stone-100"
           >
             {copyConditionOptions.length === 0 ? <option value="">No compatible condition</option> : null}
             {copyConditionOptions.map((option) => (
@@ -270,12 +261,16 @@ export function VariationInventoryPanel({
             ))}
           </select>
         </label>
-        {pendingConditionToken ? (
-          <p className="text-xs font-semibold text-amber-900">Frozen pending condition: {formatCondition(pendingConditionToken)}</p>
-        ) : copyConditionOptions.length === 0 ? (
-          <p className="text-xs font-semibold text-rose-800">Duplicate capture unavailable: bucket condition is unrecognized.</p>
-        ) : null}
+        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
+          Shared eBay condition: {formatCondition(group.conditionToken)}
+        </span>
       </div>
+
+      {pendingConditionToken ? (
+        <p className="mt-2 text-xs font-semibold text-amber-900">Frozen pending condition: {formatCondition(pendingConditionToken)}</p>
+      ) : copyConditionOptions.length === 0 ? (
+        <p className="mt-2 text-xs font-semibold text-rose-800">Duplicate capture unavailable: bucket condition is unrecognized.</p>
+      ) : null}
 
       {actionError ? (
         <p className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{actionError}</p>
@@ -317,8 +312,8 @@ export function VariationInventoryPanel({
                         </button>
                       </div>
                     </label>
-                    <p className="mt-1 text-xs text-stone-500">{variation.sku}</p>
-                    <p className="mt-1 text-[10px] font-medium normal-case tracking-normal text-stone-500">eBay Card selector · 65 characters maximum</p>
+                    <p className="mt-1 text-sm font-bold text-stone-700">{variation.sku}</p>
+
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">${variation.priceAmount.toFixed(2)}</span>
@@ -337,15 +332,16 @@ export function VariationInventoryPanel({
                 {variation.copies.length === 0 ? (
                   <p className="mt-3 text-xs text-stone-500">No physical copies are attached to this variation.</p>
                 ) : (
-                  <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                  <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
                     {variation.copies.map((copy) => (
-                      <CopyCard
-                        key={copy.copyId}
-                        copy={copy}
-                        updating={representativeWrite === `${variation.variationId}:${copy.copyId}`}
-                        writesBlocked={writesBlocked}
-                        onSetRepresentative={(copyId) => void setRepresentative(variation, copyId)}
-                      />
+                      <div key={copy.copyId} className="w-72 shrink-0">
+                        <CopyCard
+                          copy={copy}
+                          updating={representativeWrite === `${variation.variationId}:${copy.copyId}`}
+                          writesBlocked={writesBlocked}
+                          onSetRepresentative={(copyId) => void setRepresentative(variation, copyId)}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
