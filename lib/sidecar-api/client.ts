@@ -24,6 +24,7 @@ import type {
   UpdateAppSettingsInput,
   SidecarErrorResponse,
   VariationListingGroup,
+  VariationListingCreationDefaults,
   VariationListingIntakeSession,
   VariationListingIntakeSessionResponse,
   VariationListingGroupsResponse,
@@ -151,6 +152,13 @@ export async function listVariationListingGroups(): Promise<
     "/api/variation-listings",
   );
   return response.groups;
+}
+
+export async function getVariationListingCreationDefaults(): Promise<VariationListingCreationDefaults> {
+  const response = await sidecarFetch<{creationDefaults: VariationListingCreationDefaults}>(
+    "/api/variation-listings/creation-defaults",
+  );
+  return response.creationDefaults;
 }
 
 export async function createVariationListingGroup(

@@ -725,10 +725,6 @@ export function VariationListingsWorkspace({
     const input: CreateVariationListingGroupInput = {
       skuCategoryCode,
       skuBucketToken: normalizedBucketToken,
-      merchantLocationKey: creationDefaults.merchantLocationKey.trim(),
-      fulfillmentPolicyId: creationDefaults.fulfillmentPolicyId.trim(),
-      paymentPolicyId: creationDefaults.paymentPolicyId.trim(),
-      returnPolicyId: creationDefaults.returnPolicyId.trim(),
       conditionId: "4000",
       conditionToken,
     };

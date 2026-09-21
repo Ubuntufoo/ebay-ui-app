@@ -7,6 +7,7 @@ import {
   SidecarApiError,
   getAppSettings,
   getGeminiUsage,
+  getVariationListingCreationDefaults,
   getVariationListingIntakeSession,
   listListings,
   listVariationListingGroups,
@@ -54,22 +55,23 @@ type StatusBarData = {
 };
 
 async function loadStatusBarData(): Promise<StatusBarData> {
-  const [listingsResult, geminiResult, settingsResult, ordersResult] =
+  const [listingsResult, geminiResult, settingsResult, creationDefaultsResult, ordersResult] =
     await Promise.allSettled([
       listListings(),
       getGeminiUsage(),
       getAppSettings(),
+      getVariationListingCreationDefaults(),
       listUnshippedOrders(),
     ]);
 
   return {
     creationDefaults:
-      settingsResult.status === "fulfilled"
+      creationDefaultsResult.status === "fulfilled"
         ? {
-            merchantLocationKey: settingsResult.value.merchant_location_key,
-            fulfillmentPolicyId: settingsResult.value.default_fulfillment_policy_id,
-            paymentPolicyId: settingsResult.value.default_payment_policy_id,
-            returnPolicyId: settingsResult.value.default_return_policy_id,
+            merchantLocationKey: creationDefaultsResult.value.merchantLocationKey,
+            fulfillmentPolicyId: creationDefaultsResult.value.fulfillmentPolicyId,
+            paymentPolicyId: creationDefaultsResult.value.paymentPolicyId,
+            returnPolicyId: creationDefaultsResult.value.returnPolicyId,
           }
         : {
             merchantLocationKey: null,

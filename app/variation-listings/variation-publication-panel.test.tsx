@@ -89,7 +89,7 @@ describe("VariationPublicationPanel", () => {
   });
   it("exposes exact reconciliation for authoritative reconciliation-required recovery and renders blockers", async () => {
     vi.stubGlobal("EventSource", EventSourceMock); vi.stubGlobal("fetch", fetchMock);
-    const recoveryGroup = group({validation: {blockers: ["Missing title"], initialPublicationReady: false, hasPendingChanges: true}, journal: {latestRevision: {recovery: {revisionId: "r1", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, recommendedActions: ["reconcile_remote_state"]}, operations: []} as unknown as VariationListingGroup["journal"]["latestRevision"]}});
+    const recoveryGroup = group({validation: {blockers: ["Missing title"], initialPublicationReady: false, hasPendingChanges: true}, journal: {latestRevision: {recovery: {revisionId: "r1", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, reconciliationSupported: true, recommendedActions: ["reconcile_remote_state"]}, operations: []} as unknown as VariationListingGroup["journal"]["latestRevision"]}});
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({group: recoveryGroup}), {status: 200}));
     render(<VariationPublicationPanel group={recoveryGroup} capturePending={false} onGroupUpdated={vi.fn()} />);
     expect(screen.getByText("Missing title")).not.toBeNull();
@@ -97,7 +97,14 @@ describe("VariationPublicationPanel", () => {
     expect(reconcile).toHaveProperty("disabled", false);
     fireEvent.click(reconcile);
     await act(async () => await Promise.resolve());
-    expect(fetchMock).toHaveBeenCalledWith("/api/variation-listings/group-1/actions/retry", expect.objectContaining({body: JSON.stringify({})}));
+    expect(fetchMock).toHaveBeenCalledWith("/api/variation-listings/group-1/actions/reconcile", expect.objectContaining({body: JSON.stringify({})}));
+  });
+  it("fails closed when recovery needs reconciliation outside the supported initial revision", () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    const recoveryGroup = group({journal: {latestRevision: {recovery: {revisionId: "active-r1", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, reconciliationSupported: false, recommendedActions: ["inspect_remote_state", "resolve_manually"]}, operations: [{operationKey: "active-offer", operationKind: "active_offer_write", state: "unknown", observedRemoteState: "unknown", attemptNumber: 1, checkpointNumber: 2}]} as unknown as VariationListingGroup["journal"]["latestRevision"]}});
+    render(<VariationPublicationPanel group={recoveryGroup} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.getByRole("button", {name: "Reconcile unavailable"})).toHaveProperty("disabled", true);
+    expect(screen.getByText(/cannot be reconciled from this workspace/i)).not.toBeNull();
   });
   it("enables Return to Review only after unpublished recovery is fully reconciled", async () => {
     vi.stubGlobal("EventSource", EventSourceMock); vi.stubGlobal("fetch", fetchMock);

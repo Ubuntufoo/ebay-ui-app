@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 const ACTIONS = new Set<VariationListingActionRouteName>([
   "publish",
   "publish-changes",
+  "reconcile",
   "retry",
   "withdraw",
   "abandon",

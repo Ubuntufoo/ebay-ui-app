@@ -1522,7 +1522,7 @@ describe("VariationListingsWorkspace", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("creates a bucket with trimmed defaults and selects the created bucket", async () => {
+  it("creates a bucket without client-supplied publish defaults and selects the created bucket", async () => {
     const created = buildGroup({
       groupId: "22222222-2222-4222-8222-222222222222",
       title: "New Bucket",
@@ -1538,10 +1538,10 @@ describe("VariationListingsWorkspace", () => {
     render(
       <VariationListingsWorkspace
         creationDefaults={{
-          merchantLocationKey: " location-1 ",
-          fulfillmentPolicyId: " fulfillment-1 ",
-          paymentPolicyId: " payment-1 ",
-          returnPolicyId: " returns-1 ",
+          merchantLocationKey: "location-1",
+          fulfillmentPolicyId: "fulfillment-1",
+          paymentPolicyId: "payment-1",
+          returnPolicyId: "returns-1",
         }}
         initialGroups={[buildGroup()]}
         refreshIntervalMs={0}
@@ -1561,10 +1561,6 @@ describe("VariationListingsWorkspace", () => {
         body: JSON.stringify({
           skuCategoryCode: "BSKBL",
           skuBucketToken: "NewBucket",
-          merchantLocationKey: "location-1",
-          fulfillmentPolicyId: "fulfillment-1",
-          paymentPolicyId: "payment-1",
-          returnPolicyId: "returns-1",
           conditionId: "4000",
           conditionToken: "VERY_GOOD",
         }),

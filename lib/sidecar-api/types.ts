@@ -419,14 +419,16 @@ export type ConfigureVariationListingIntakeInput =
 export interface CreateVariationListingGroupInput {
   skuCategoryCode: VariationListingSkuCategoryCode;
   skuBucketToken: string;
-  categoryId?: "261328";
-  marketplaceId?: "EBAY_US";
-  merchantLocationKey: string;
-  fulfillmentPolicyId: string;
-  paymentPolicyId: string;
-  returnPolicyId: string;
   conditionId: string;
   conditionToken: VariationListingConditionToken;
+}
+
+export interface VariationListingCreationDefaults {
+  fulfillmentPolicyId: string;
+  marketplaceId: string;
+  merchantLocationKey: string;
+  paymentPolicyId: string;
+  returnPolicyId: string;
 }
 
 export interface UpdateVariationListingRepresentativeCopyInput {
@@ -462,6 +464,7 @@ export interface VariationListingGeneratedReviewDraft {
 export type VariationListingActionRouteName =
   | "publish"
   | "publish-changes"
+  | "reconcile"
   | "retry"
   | "withdraw"
   | "abandon"
@@ -471,6 +474,7 @@ export type VariationListingActionRouteName =
 export type VariationListingActionName =
   | "publish"
   | "publish_changes"
+  | "reconcile"
   | "retry"
   | "withdraw"
   | "abandon"
@@ -580,6 +584,7 @@ export interface VariationListingRecoverySummary {
   operationKey?: string;
   revisionId: string;
   requiresReconciliation: boolean;
+  reconciliationSupported?: boolean;
   remoteState: "known_unchanged" | "known_changed" | "unknown";
   recommendedActions: string[];
   retryStatus: "not_applicable" | "safe_to_retry" | "reconciliation_required" | "retry_exhausted";
