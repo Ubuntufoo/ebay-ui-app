@@ -1351,6 +1351,65 @@ describe("VariationListingsWorkspace", () => {
     expect(selectorInput.value).toBe("Unsaved selector");
   });
 
+  it("shows a live 65-character group title counter and blocks oversized values", () => {
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const titleInput = screen.getByLabelText("Group title") as HTMLInputElement;
+    const save = screen.getByRole("button", {name: "Save review draft"});
+    expect(titleInput.maxLength).toBe(65);
+    expect(screen.getByText(`${titleInput.value.length}/65`)).not.toBeNull();
+
+    fireEvent.change(titleInput, {target: {value: "T".repeat(65)}});
+    expect(screen.getByText("65/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", false);
+
+    // A generated or externally supplied draft can bypass the native maxLength.
+    // It must not be saved until its title is corrected.
+    fireEvent.change(titleInput, {target: {value: "T".repeat(66)}});
+    expect(screen.getByText("66/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", true);
+  });
+
+  it("does not truncate an oversized generated group title silently", async () => {
+    const variations = [
+      buildVariation(),
+      buildVariation({variationId: "variation-2", selectorValue: "2004 Topps", sku: "BSKBL-McGrady-000244", position: 1}),
+    ];
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      groupId: "11111111-1111-4111-8111-111111111111",
+      expectedDesiredRevision: 4,
+      title: "T".repeat(66),
+      description: "Choose your card.",
+      derivedCommonEbayAspects: {Sport: ["Basketball"]},
+      readiness: {ready: false, blockers: []},
+      warnings: [],
+    }), {status: 200}));
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations, variationCount: 2})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Generate group draft"}));
+    await act(async () => await Promise.resolve());
+
+    const titleInput = screen.getByLabelText("Group title") as HTMLInputElement;
+    const save = screen.getByRole("button", {name: "Save review draft"});
+    expect(titleInput.value).toBe("T".repeat(66));
+    expect(screen.getByText("66/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", true);
+
+    fireEvent.change(titleInput, {target: {value: "T".repeat(65)}});
+    expect(screen.getByText("65/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", false);
+  });
+
   it("locks group review inputs while generating and saves the generated draft with CAS", async () => {
     const variations = [
       buildVariation(),

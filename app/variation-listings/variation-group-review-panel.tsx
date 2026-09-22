@@ -4,6 +4,8 @@ import {useState} from "react";
 
 import type {JsonObject, VariationListingGeneratedReviewDraft, VariationListingGroup} from "@/lib/sidecar-api";
 
+const MAX_GROUP_TITLE_LENGTH = 65;
+
 type Props = {
   group: VariationListingGroup | null;
   writesBlocked: boolean;
@@ -93,6 +95,10 @@ export function VariationGroupReviewPanel({group, writesBlocked, onGroupUpdated}
       setError("Group title and description are required.");
       return;
     }
+    if (normalizedTitle.length > MAX_GROUP_TITLE_LENGTH) {
+      setError(`Group title must be at most ${MAX_GROUP_TITLE_LENGTH} characters.`);
+      return;
+    }
     setStatus("saving");
     setError(null);
     try {
@@ -129,8 +135,13 @@ export function VariationGroupReviewPanel({group, writesBlocked, onGroupUpdated}
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
         <label className="block text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
-          Title
-          <input aria-label="Group title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={80} disabled={!editable || writesBlocked || status !== "idle"} className="mt-1.5 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:bg-stone-100" />
+          <span className="flex flex-wrap items-baseline gap-3">
+            <span>Title</span>
+            <span className={`font-mono text-xs font-semibold normal-case tracking-normal ${title.length > MAX_GROUP_TITLE_LENGTH ? "text-rose-700" : "text-stone-400"}`} aria-live="polite">
+              {title.length}/{MAX_GROUP_TITLE_LENGTH}
+            </span>
+          </span>
+          <input aria-label="Group title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={MAX_GROUP_TITLE_LENGTH} disabled={!editable || writesBlocked || status !== "idle"} className="mt-1.5 block w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-stone-950 disabled:bg-stone-100" />
         </label>
         <label className="block text-xs font-bold uppercase tracking-[0.12em] text-stone-600">
           Description
@@ -159,7 +170,7 @@ export function VariationGroupReviewPanel({group, writesBlocked, onGroupUpdated}
       {warnings.length > 0 ? <p className="mt-3 text-xs text-amber-800">{warnings.join(" · ")}</p> : null}
       {error ? <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p> : null}
 
-      <button type="button" onClick={() => void save()} disabled={!editable || writesBlocked || status !== "idle" || !title.trim() || !description.trim()} className="mt-3 rounded-full bg-stone-950 px-4 py-2 text-sm font-bold text-stone-50 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600">
+      <button type="button" onClick={() => void save()} disabled={!editable || writesBlocked || status !== "idle" || !title.trim() || title.trim().length > MAX_GROUP_TITLE_LENGTH || !description.trim()} className="mt-3 rounded-full bg-stone-950 px-4 py-2 text-sm font-bold text-stone-50 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600">
         {status === "saving" ? "Saving…" : "Save review draft"}
       </button>
     </section>
