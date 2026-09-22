@@ -1315,7 +1315,7 @@ describe("VariationListingsWorkspace", () => {
     const selectorInput = screen.getByDisplayValue("2003 Topps") as HTMLInputElement;
     expect(selectorInput.disabled).toBe(false);
     fireEvent.change(selectorInput, {target: {value: "2003 Topps Chrome"}});
-    fireEvent.click(screen.getByRole("button", {name: "Save title"}));
+    fireEvent.click(screen.getByRole("button", {name: "Save selector"}));
     await act(async () => await Promise.resolve());
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -1351,7 +1351,57 @@ describe("VariationListingsWorkspace", () => {
     expect(selectorInput.value).toBe("Unsaved selector");
   });
 
-  it("shows a live 65-character group title counter and blocks oversized values", () => {
+  it("shows selector length, marks persisted over-limit values, and allows correction", async () => {
+    const persistedSelector = "P".repeat(66);
+    const correctedSelector = "C".repeat(64);
+    const updatedGroup = buildGroup({
+      desiredRevision: 4,
+      variations: [buildVariation({selectorValue: correctedSelector})],
+      variationCount: 1,
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(updatedGroup), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [buildVariation({selectorValue: persistedSelector})], variationCount: 1})]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const selectorInput = screen.getByDisplayValue(persistedSelector) as HTMLInputElement;
+    const save = screen.getByRole("button", {name: "Save selector"});
+    expect(selectorInput.maxLength).toBe(65);
+    expect(selectorInput.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText("66/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", true);
+
+    fireEvent.change(selectorInput, {target: {value: "S".repeat(64)}});
+    expect(selectorInput.getAttribute("aria-invalid")).toBe("false");
+    expect(screen.getByText("64/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", false);
+
+    fireEvent.change(selectorInput, {target: {value: "T".repeat(65)}});
+    expect(screen.getByText("65/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", false);
+
+    fireEvent.change(selectorInput, {target: {value: "U".repeat(66)}});
+    expect(selectorInput.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText("66/65")).not.toBeNull();
+    expect(save).toHaveProperty("disabled", true);
+
+    fireEvent.change(selectorInput, {target: {value: correctedSelector}});
+    fireEvent.click(save);
+    await act(async () => await Promise.resolve());
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/11111111-1111-4111-8111-111111111111/variations/variation-1/selector-value",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, selectorValue: correctedSelector}),
+      }),
+    );
+  });
+
+  it("shows a live 80-character group title counter and blocks oversized values", () => {
     render(
       <VariationListingsWorkspace
         initialGroups={[buildGroup()]}
@@ -1361,17 +1411,19 @@ describe("VariationListingsWorkspace", () => {
 
     const titleInput = screen.getByLabelText("Group title") as HTMLInputElement;
     const save = screen.getByRole("button", {name: "Save review draft"});
-    expect(titleInput.maxLength).toBe(65);
-    expect(screen.getByText(`${titleInput.value.length}/65`)).not.toBeNull();
+    expect(titleInput.maxLength).toBe(80);
+    expect(screen.getByText(`${titleInput.value.length}/80`)).not.toBeNull();
 
-    fireEvent.change(titleInput, {target: {value: "T".repeat(65)}});
-    expect(screen.getByText("65/65")).not.toBeNull();
-    expect(save).toHaveProperty("disabled", false);
+    for (const length of [65, 77, 79, 80]) {
+      fireEvent.change(titleInput, {target: {value: "T".repeat(length)}});
+      expect(screen.getByText(`${length}/80`)).not.toBeNull();
+      expect(save).toHaveProperty("disabled", false);
+    }
 
-    // A generated or externally supplied draft can bypass the native maxLength.
+    // An externally supplied draft can bypass the native maxLength.
     // It must not be saved until its title is corrected.
-    fireEvent.change(titleInput, {target: {value: "T".repeat(66)}});
-    expect(screen.getByText("66/65")).not.toBeNull();
+    fireEvent.change(titleInput, {target: {value: "T".repeat(81)}});
+    expect(screen.getByText("81/80")).not.toBeNull();
     expect(save).toHaveProperty("disabled", true);
   });
 
@@ -1383,7 +1435,7 @@ describe("VariationListingsWorkspace", () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
       groupId: "11111111-1111-4111-8111-111111111111",
       expectedDesiredRevision: 4,
-      title: "T".repeat(66),
+      title: "T".repeat(81),
       description: "Choose your card.",
       derivedCommonEbayAspects: {Sport: ["Basketball"]},
       readiness: {ready: false, blockers: []},
@@ -1401,12 +1453,12 @@ describe("VariationListingsWorkspace", () => {
 
     const titleInput = screen.getByLabelText("Group title") as HTMLInputElement;
     const save = screen.getByRole("button", {name: "Save review draft"});
-    expect(titleInput.value).toBe("T".repeat(66));
-    expect(screen.getByText("66/65")).not.toBeNull();
+    expect(titleInput.value).toBe("T".repeat(81));
+    expect(screen.getByText("81/80")).not.toBeNull();
     expect(save).toHaveProperty("disabled", true);
 
-    fireEvent.change(titleInput, {target: {value: "T".repeat(65)}});
-    expect(screen.getByText("65/65")).not.toBeNull();
+    fireEvent.change(titleInput, {target: {value: "T".repeat(80)}});
+    expect(screen.getByText("80/80")).not.toBeNull();
     expect(save).toHaveProperty("disabled", false);
   });
 

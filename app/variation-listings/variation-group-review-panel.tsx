@@ -4,7 +4,7 @@ import {useState} from "react";
 
 import type {JsonObject, VariationListingGeneratedReviewDraft, VariationListingGroup} from "@/lib/sidecar-api";
 
-const MAX_GROUP_TITLE_LENGTH = 65;
+const MAX_GROUP_TITLE_LENGTH = 80;
 
 type Props = {
   group: VariationListingGroup | null;

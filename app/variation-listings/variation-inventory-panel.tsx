@@ -288,27 +288,38 @@ export function VariationInventoryPanel({
               duplicateMode &&
               intakeSession.targetGroupId === group.groupId &&
               intakeSession.targetVariationId === variation.variationId;
+            const selectorValue = selectorDrafts[variation.variationId] ?? variation.selectorValue;
+            const selectorOverLimit = selectorValue.length > 65;
             return (
               <article key={variation.variationId} className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <label className="block text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">
-                      Card selector
+                      <span className="flex flex-wrap items-baseline gap-3">
+                        <span>Card selector</span>
+                        <span
+                          className={`font-mono text-xs font-semibold normal-case tracking-normal ${selectorOverLimit ? "text-rose-700" : "text-stone-400"}`}
+                          aria-live="polite"
+                        >
+                          {selectorValue.length}/65
+                        </span>
+                      </span>
                       <div className="mt-1 flex gap-2">
                         <input
-                          value={selectorDrafts[variation.variationId] ?? variation.selectorValue}
+                          value={selectorValue}
                           onChange={(event) => setSelectorDrafts((current) => ({...current, [variation.variationId]: event.target.value}))}
                           maxLength={65}
+                          aria-invalid={selectorOverLimit}
                           disabled={writesBlocked || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null}
-                          className="min-w-0 flex-1 rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-stone-950 disabled:bg-stone-100"
+                          className={`min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold normal-case tracking-normal text-stone-950 disabled:bg-stone-100 ${selectorOverLimit ? "border-rose-500 bg-rose-50" : "border-stone-300 bg-white"}`}
                         />
                         <button
                           type="button"
                           onClick={() => void saveSelectorValue(variation)}
-                          disabled={writesBlocked || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null || !(selectorDrafts[variation.variationId] ?? "").trim() || (selectorDrafts[variation.variationId] ?? variation.selectorValue).trim() === variation.selectorValue}
+                          disabled={writesBlocked || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null || selectorOverLimit || !(selectorDrafts[variation.variationId] ?? "").trim() || selectorValue.trim() === variation.selectorValue}
                           className="rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {selectorWrite === variation.variationId ? "Saving…" : "Save title"}
+                          {selectorWrite === variation.variationId ? "Saving…" : "Save selector"}
                         </button>
                       </div>
                     </label>
