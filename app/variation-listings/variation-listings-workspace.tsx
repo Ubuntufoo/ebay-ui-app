@@ -38,6 +38,11 @@ const MANUAL_PRICE_TIERS: readonly VariationListingManualPriceAmount[] = [
   1.49,
   1.99,
   2.49,
+  2.99,
+  3.49,
+  3.99,
+  4.49,
+  4.99,
 ];
 
 const CAPTURE_ELIGIBLE_LIFECYCLES = new Set([
@@ -316,6 +321,9 @@ export function VariationListingsWorkspace({
   const [createStatus, setCreateStatus] = useState<"idle" | "creating" | "error">("idle");
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // Selection is a local view decision. A durable capture target supplies the
+  // initial selection only; subsequent intake polling updates the armed target,
+  // never the selected publication/review bucket.
   const refreshIntakeSession = useCallback(async (signal?: AbortSignal) => {
     if (intakeWriteInFlightRef.current) return;
     const generation = ++intakeGenerationRef.current;
@@ -339,9 +347,6 @@ export function VariationListingsWorkspace({
       ) {
         setIntakeSession(payload.session ?? null);
         setStickyPriceAmount(payload.session?.stickyPriceAmount ?? 0.99);
-        if (payload.session?.targetGroupId) {
-          setSelectedGroupId(payload.session.targetGroupId);
-        }
         setIntakeError(null);
       }
     } catch (error) {

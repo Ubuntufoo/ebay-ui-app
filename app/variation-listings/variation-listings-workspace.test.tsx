@@ -6,6 +6,7 @@ import type {
   VariationListingCopy,
   VariationListingGroup,
   VariationListingIntakeSession,
+  VariationListingManualPriceAmount,
   VariationListingVariation,
 } from "@/lib/sidecar-api";
 
@@ -730,7 +731,7 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.queryByRole("button", {name: "Retry current pair"})).toBeNull();
   });
 
-  it("reconciles the selected bucket to an externally armed duplicate target during polling", async () => {
+  it("keeps the viewed bucket independent of an externally armed duplicate target during polling", async () => {
     const groupA = buildGroup({
       title: "Group A",
       conditionToken: "EXCELLENT",
@@ -768,18 +769,18 @@ describe("VariationListingsWorkspace", () => {
 
     await act(async () => await vi.advanceTimersByTimeAsync(20));
 
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group A");
     expect(screen.getAllByText("Group B").length).toBeGreaterThan(0);
     const selector = screen.getByRole("combobox", {name: "Duplicate-copy condition"}) as HTMLSelectElement;
     expect(selector.value).toBe("EXCELLENT");
     expect(Array.from(selector.options).map((option) => option.value)).toEqual([
       "NEAR_MINT_OR_BETTER",
       "EXCELLENT",
-      "VERY_GOOD",
     ]);
     expect(screen.getByText(/Existing duplicate-copy mode is active; this workspace can only disarm it\. Condition: Excellent\./)).not.toBeNull();
   });
 
-  it("reconciles the selected bucket to an externally armed new-variation target", async () => {
+  it("keeps the viewed bucket independent of an externally armed new-variation target", async () => {
     const groupA = buildGroup({title: "Group A"});
     const groupB = buildGroup({
       groupId: "22222222-2222-4222-8222-222222222222",
@@ -810,8 +811,136 @@ describe("VariationListingsWorkspace", () => {
 
     await act(async () => await vi.advanceTimersByTimeAsync(20));
 
-    expect(screen.getAllByText("Group B").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group A");
     expect(screen.getByText(/Cards will target Group B/)).not.toBeNull();
+  });
+
+  it("preserves an explicitly selected publication bucket when polling reports another armed target", async () => {
+    const sandbox = buildGroup({title: "SandboxTest"});
+    const pilot = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "ProductionPilot02",
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [sandbox, pilot]}), {status: 200}))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          session: buildSession({
+            mode: "new_variation",
+            targetGroupId: sandbox.groupId,
+          }),
+        }), {status: 200}),
+      );
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[sandbox, pilot]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Select bucket"}));
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("ProductionPilot02");
+
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+
+    // The authoritative capture target is still visible, but cannot replace
+    // the explicitly selected group's publication and review identity.
+    expect(screen.getByText(/Cards will target SandboxTest/)).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("ProductionPilot02");
+    expect(screen.getAllByText("ProductionPilot02").length).toBeGreaterThan(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers all nine Variation price tiers and persists $2.99 while idle", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 2.99})}), {status: 200}),
+    );
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    for (const [index, price] of ["$0.99", "$1.49", "$1.99", "$2.49", "$2.99", "$3.49", "$3.99", "$4.49", "$4.99"].entries()) {
+      const button = screen.getByRole("button", {name: price});
+      expect(button).toHaveProperty("disabled", false);
+      expect(button.getAttribute("aria-pressed")).toBe(index === 0 ? "true" : "false");
+    }
+    fireEvent.click(screen.getByRole("button", {name: "$2.99"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/intake-session",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          mode: "idle",
+          targetGroupId: null,
+          targetVariationId: null,
+          copyConditionToken: null,
+          stickyPriceAmount: 2.99,
+        }),
+      }),
+    );
+    expect(screen.getByRole("button", {name: "$2.99"}).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("changes the armed new-variation price to $4.99 without changing its target", async () => {
+    const targetGroupId = "11111111-1111-4111-8111-111111111111";
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        session: buildSession({mode: "new_variation", targetGroupId, stickyPriceAmount: 4.99}),
+      }), {status: 200}),
+    );
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({mode: "new_variation", targetGroupId})}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "$4.99"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/variation-listings/intake-session",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({
+          mode: "new_variation",
+          targetGroupId,
+          targetVariationId: null,
+          copyConditionToken: null,
+          stickyPriceAmount: 4.99,
+        }),
+      }),
+    );
+    expect(screen.getByText("$4.99 · new variation")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "$4.99"}).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("rejects unsupported manual price tiers at the FE type boundary", () => {
+    const supported: VariationListingManualPriceAmount[] = [
+      0.99,
+      1.49,
+      1.99,
+      2.49,
+      2.99,
+      3.49,
+      3.99,
+      4.49,
+      4.99,
+    ];
+    expect(supported).toHaveLength(9);
+
+    // @ts-expect-error 5.49 is intentionally outside the exact FE tier contract.
+    const unsupported: VariationListingManualPriceAmount = 5.49;
+    expect(unsupported).toBe(5.49);
   });
 
   it("persists price changes through the local intake API", async () => {
@@ -1000,7 +1129,7 @@ describe("VariationListingsWorkspace", () => {
     const secondVariation = buildVariation({
       variationId: "variation-2",
       selectorValue: "2004 Topps",
-      priceAmount: 2.49,
+      priceAmount: 2.99,
     });
     fetchMock.mockResolvedValueOnce(
       new Response(
@@ -1046,7 +1175,7 @@ describe("VariationListingsWorkspace", () => {
         targetGroupId: "11111111-1111-4111-8111-111111111111",
         targetVariationId: secondVariation.variationId,
         copyConditionToken: "EXCELLENT",
-        stickyPriceAmount: 2.49,
+        stickyPriceAmount: 2.99,
       }),
     );
     expect(screen.getByRole("button", {name: "Duplicate armed"})).toHaveProperty("disabled", true);

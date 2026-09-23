@@ -314,7 +314,7 @@ export interface ListingsResponse {
   listings: Listing[];
 }
 
-export type VariationListingManualPriceAmount = 0.99 | 1.49 | 1.99 | 2.49;
+export type VariationListingManualPriceAmount = 0.99 | 1.49 | 1.99 | 2.49 | 2.99 | 3.49 | 3.99 | 4.49 | 4.99;
 export type VariationListingSkuCategoryCode = "BSKBL" | "BSBL" | "OTHER";
 export type VariationListingConditionToken =
   | "NEAR_MINT_OR_BETTER"
