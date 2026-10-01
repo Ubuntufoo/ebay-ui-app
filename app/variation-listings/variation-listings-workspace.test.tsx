@@ -327,6 +327,90 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getByText("$1.99 · new variation")).not.toBeNull();
   });
 
+  it("makes active Gemini generation unmistakable and keeps capture controls suspended", () => {
+    const pendingPair = {
+      pairId: "pair-visual-generating",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "generating_identity",
+            completionKind: "new_variation",
+            message: null,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const processingSurface = document.querySelector('[data-processing-state="processing"]');
+    expect(processingSurface).not.toBeNull();
+    expect(processingSurface?.className).toContain("border-amber-400");
+    expect(screen.getByText(/Generating card identity — processing in progress/)).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "$0.99"})).toHaveProperty("disabled", true);
+  });
+
+  it("makes active capture saving unmistakable and keeps capture controls suspended", () => {
+    const pendingPair = {
+      pairId: "pair-visual-saving",
+      mode: "new_variation" as const,
+      targetGroupId: "11111111-1111-4111-8111-111111111111",
+      targetVariationId: null,
+      conditionToken: null,
+      priceAmount: 0.99 as const,
+      priceCurrency: "USD" as const,
+      frontSourceRef: "/camera/front.jpg",
+      startedAt: "2026-09-02T15:00:00.000Z",
+      expectedDesiredRevision: 3,
+    };
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession({
+          mode: "new_variation",
+          targetGroupId: pendingPair.targetGroupId,
+          pendingPair,
+          processingStatus: {
+            captureSourceKey: "camera-1",
+            targetGroupId: pendingPair.targetGroupId,
+            pairId: pendingPair.pairId,
+            phase: "saving",
+            completionKind: "new_variation",
+            message: null,
+            updatedAt: "2026-09-02T15:01:00.000Z",
+          },
+        })}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const processingSurface = document.querySelector('[data-processing-state="processing"]');
+    expect(processingSurface).not.toBeNull();
+    expect(processingSurface?.className).toContain("border-amber-400");
+    expect(screen.getByText(/Saving captured card — processing in progress/)).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "$0.99"})).toHaveProperty("disabled", true);
+  });
+
   it.each([
     ["waiting_for_back", "Waiting for back image"],
     ["generating_identity", "Generating card identity…"],
@@ -354,6 +438,7 @@ describe("VariationListingsWorkspace", () => {
 
     expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     expect(document.querySelector('[aria-live="polite"]')).not.toBeNull();
+    expect(document.querySelector('[data-processing-state="idle"]')).not.toBeNull();
     if (phase === "failed") {
       expect(screen.getByText("Gemini timed out")).not.toBeNull();
     }

@@ -454,6 +454,16 @@ export function VariationListingsWorkspace({
   const persistenceFailure = Boolean(
     currentFailedPair && processingStatus?.failureKind === "persistence",
   );
+  const captureTransitionActive = Boolean(
+    processingStatusMatchesPendingPair &&
+      (processingStatus?.phase === "generating_identity" || processingStatus?.phase === "saving"),
+  );
+  const captureTransitionLabel =
+    processingStatus?.phase === "generating_identity"
+      ? "Generating card identity"
+      : processingStatus?.phase === "saving"
+        ? "Saving captured card"
+        : null;
   const discardPendingPairBlocked = Boolean(
     intakeStatus === "configuring" ||
       (processingStatusMatchesPendingPair &&
@@ -764,7 +774,31 @@ export function VariationListingsWorkspace({
   return (
     <div className="space-y-5">
       <section className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-        <div className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-4">
+        <div
+          data-processing-state={captureTransitionActive ? "processing" : currentFailedPair ? "failed" : "idle"}
+          className={`rounded-[1.5rem] bg-white/90 p-4 transition-all ${
+            captureTransitionActive
+              ? "border-4 border-amber-400 shadow-[0_0_0_5px_rgba(251,191,36,0.22)]"
+              : currentFailedPair
+                ? "border-2 border-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.12)]"
+                : "border border-stone-950/10"
+          }`}
+        >
+          {captureTransitionActive ? (
+            <div
+              className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-100 px-4 py-3 text-amber-950"
+              role="status"
+              aria-live="polite"
+            >
+              <p className="text-sm font-extrabold uppercase tracking-[0.12em]">
+                {captureTransitionLabel} — processing in progress
+              </p>
+              <p className="mt-1 text-xs font-semibold">
+                Capture and editing actions are temporarily suspended while this card finishes processing
+                {armedGroup ? ` for ${armedGroup.title || armedGroup.skuNamespace.bucketToken}` : ""}.
+              </p>
+            </div>
+          ) : null}
           <div className="rounded-xl bg-stone-50 px-3 py-2.5">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-stone-500">Selected bucket</p>
             <p className="mt-1 text-lg font-semibold text-stone-950">

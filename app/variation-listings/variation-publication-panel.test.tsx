@@ -11,7 +11,7 @@ class EventSourceMock {
   addEventListener = (kind: string, listener: EventListener) => { this.listeners.set(kind, listener); };
   removeEventListener = (kind: string) => { this.listeners.delete(kind); };
   constructor() { EventSourceMock.instances.push(this); }
-  emit(kind: string, data: unknown) { this.listeners.get(kind)?.({data: JSON.stringify(data)} as MessageEvent); }
+  emit(kind: string, data: unknown) { this.listeners.get(kind)?.({type: kind, data: JSON.stringify(data)} as MessageEvent); }
 }
 
 function group(overrides: Partial<VariationListingGroup> = {}): VariationListingGroup {
@@ -48,6 +48,95 @@ describe("VariationPublicationPanel", () => {
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(JSON.stringify({expectedDesiredRevision: 4}));
     expect(updated).toHaveBeenCalled();
   });
+  it("uses an unmistakable amber processing state while Publish Changes is in flight", async () => {
+    vi.stubGlobal("fetch", fetchMock);
+    let resolve!: (response: Response) => void;
+    fetchMock.mockReturnValueOnce(new Promise<Response>((done) => { resolve = done; }));
+    render(<VariationPublicationPanel group={group()} capturePending={false} onGroupUpdated={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", {name: "Publish Changes"}));
+    await act(async () => await Promise.resolve());
+
+    const processingSurface = document.querySelector('[data-operation-state="processing"]');
+    expect(processingSurface).not.toBeNull();
+    expect(processingSurface?.className).toContain("border-amber-400");
+    expect(screen.getByText(/Publishing changes \/ replenishment — in progress/)).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Publishing…"})).toHaveProperty("disabled", true);
+
+    resolve(new Response(JSON.stringify({group: group({desiredRevision: 5, lastConfirmedRevision: 5, validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false}})}), {status: 200}));
+    await act(async () => await Promise.resolve());
+  });
+
+  it("keeps unresolved recovery red, then switches to amber while reconciliation runs", async () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    vi.stubGlobal("fetch", fetchMock);
+    const recoveryGroup = group({
+      journal: {
+        latestRevision: {
+          recovery: {
+            revisionId: "r1",
+            retryStatus: "reconciliation_required",
+            remoteState: "unknown",
+            requiresReconciliation: true,
+            reconciliationSupported: true,
+            recommendedActions: ["reconcile_remote_state"],
+          },
+          operations: [],
+        } as unknown as VariationListingGroup["journal"]["latestRevision"],
+      },
+    });
+    let resolve!: (response: Response) => void;
+    fetchMock.mockReturnValueOnce(new Promise<Response>((done) => { resolve = done; }));
+    render(<VariationPublicationPanel group={recoveryGroup} capturePending={false} onGroupUpdated={vi.fn()} />);
+
+    const attentionSurface = document.querySelector('[data-operation-state="attention"]');
+    expect(attentionSurface).not.toBeNull();
+    expect(attentionSurface?.className).toContain("border-rose-500");
+    expect(screen.getByText("Publication action requires attention")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", {name: "Reconcile"}));
+    await act(async () => await Promise.resolve());
+
+    const processingSurface = document.querySelector('[data-operation-state="processing"]');
+    expect(processingSurface).not.toBeNull();
+    expect(processingSurface?.className).toContain("border-amber-400");
+    expect(screen.getByText(/Reconciling remote state — in progress/)).not.toBeNull();
+
+    resolve(new Response(JSON.stringify({group: recoveryGroup}), {status: 200}));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(document.querySelector('[data-operation-state="attention"]')).not.toBeNull();
+    expect(screen.getByText("Publication action requires attention")).not.toBeNull();
+  });
+
+  it("marks retry-exhausted recovery as an attention state", () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    const exhaustedGroup = group({
+      journal: {
+        latestRevision: {
+          recovery: {
+            revisionId: "r-exhausted",
+            retryStatus: "retry_exhausted",
+            remoteState: "known_unchanged",
+            requiresReconciliation: false,
+            reconciliationSupported: false,
+            recommendedActions: ["inspect_remote_state", "resolve_manually"],
+          },
+          operations: [],
+        } as unknown as VariationListingGroup["journal"]["latestRevision"],
+      },
+    });
+
+    render(<VariationPublicationPanel group={exhaustedGroup} capturePending={false} onGroupUpdated={vi.fn()} />);
+
+    const attentionSurface = document.querySelector('[data-operation-state="attention"]');
+    expect(attentionSurface).not.toBeNull();
+    expect(attentionSurface?.className).toContain("border-rose-500");
+    expect(screen.getByText("Publication action requires attention")).not.toBeNull();
+  });
+
   it("locks a successful group-refresh-required action until authoritative group state changes", async () => {
     vi.stubGlobal("fetch", fetchMock);
     const warning = {
@@ -180,6 +269,17 @@ describe("VariationPublicationPanel", () => {
     expect(screen.getByText("Live action progress: action progress")).not.toBeNull();
     unmount();
     expect(source.close).toHaveBeenCalled();
+  });
+  it("clears supplemental progress when the selected group emits a terminal SSE event", () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    render(<VariationPublicationPanel group={group()} capturePending={false} onGroupUpdated={vi.fn()} />);
+    const source = EventSourceMock.instances[0]!;
+
+    act(() => source.emit("action_progress", {groupId: "group-1", kind: "action_progress", stage: "execute_publication"}));
+    expect(screen.getByText("Live action progress: action progress")).not.toBeNull();
+
+    act(() => source.emit("action_succeeded", {groupId: "group-1", kind: "action_succeeded", stage: "complete"}));
+    expect(screen.queryByText("Live action progress: action progress")).toBeNull();
   });
   it("posts a safe retry once and locks controls during the request", async () => {
     vi.stubGlobal("EventSource", EventSourceMock); vi.stubGlobal("fetch", fetchMock);

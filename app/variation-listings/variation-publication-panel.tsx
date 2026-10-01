@@ -68,7 +68,12 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     const onEvent = (event: Event) => {
       try {
         const value = JSON.parse((event as MessageEvent).data) as Record<string, unknown>;
-        if (value.groupId === groupId && typeof value.kind === "string" && typeof value.stage === "string") setProgress({kind: value.kind, stage: value.stage});
+        if (value.groupId !== groupId) return;
+        if (event.type === "action_succeeded" || event.type === "action_failed") {
+          setProgress(null);
+          return;
+        }
+        if (typeof value.kind === "string" && typeof value.stage === "string") setProgress({kind: value.kind, stage: value.stage});
       } catch { /* supplemental progress is best effort */ }
     };
     kinds.forEach((kind) => source.addEventListener(kind, onEvent));
@@ -116,7 +121,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     actionRequestInFlightRef.current = true;
     refreshBaselineRef.current = groupStateSignature;
     onActionStateChange?.(true);
-    setRunningAction(action); setStatus(null); setError(null); setConfirming(null);
+    setRunningAction(action); setStatus(null); setError(null); setProgress(null); setConfirming(null);
     try {
       const body = action === "retry" || action === "reconcile" ? {} : {expectedDesiredRevision: group.desiredRevision};
       const response = await fetch(`/api/variation-listings/${encodeURIComponent(group.groupId)}/actions/${action}`, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
@@ -145,6 +150,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     finally {
       actionRequestInFlightRef.current = false;
       setRunningAction(null);
+      setProgress(null);
       if (!actionLockRef.current) onActionStateChange?.(false);
       onActionSettled?.();
     }
@@ -173,10 +179,69 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     group.lifecycleState === "publish-ready" ||
     group.lifecycleState === "abandoned" && hasTerminalCleanupEvidence(latest)
   );
+  const publicationProcessing = runningAction !== null || awaitingGroupRefresh;
+  const publicationAttention = !publicationProcessing && Boolean(
+    ambiguous ||
+    recovery?.remoteState === "unknown" ||
+    recovery?.requiresReconciliation ||
+    recovery?.retryStatus === "retry_exhausted" ||
+    status?.retryStatus === "retry_exhausted" ||
+    status?.severity === "error",
+  );
+  const processingLabel =
+    runningAction === "publish"
+      ? "Publishing listing"
+      : runningAction === "publish-changes"
+        ? "Publishing changes / replenishment"
+        : runningAction === "reconcile"
+          ? "Reconciling remote state"
+          : runningAction === "retry"
+            ? "Retrying publication"
+            : runningAction === "withdraw"
+              ? "Withdrawing listing"
+              : runningAction === "return-to-review"
+                ? "Returning listing to review"
+                : runningAction === "abandon"
+                  ? "Abandoning unpublished listing"
+                  : runningAction === "cleanup"
+                    ? "Cleaning unpublished resources"
+                    : awaitingGroupRefresh
+                      ? "Waiting for authoritative refresh"
+                      : null;
   const destructive = (action: "withdraw" | "abandon" | "cleanup" | "return-to-review") => confirming === action ? void runAction(action) : setConfirming(action);
   const listingUrl = confirmed && typeof group.listingUrl === "string" && group.listingUrl.trim() !== "" ? group.listingUrl : null;
   const listingLinkLabel = "View on eBay";
-  return <section className="rounded-[1.5rem] border border-stone-950/10 bg-white/90 p-3">
+  return <section
+    data-operation-state={publicationProcessing ? "processing" : publicationAttention ? "attention" : "idle"}
+    className={`rounded-[1.5rem] bg-white/90 p-3 transition-all ${
+      publicationProcessing
+        ? "border-4 border-amber-400 shadow-[0_0_0_5px_rgba(251,191,36,0.22)]"
+        : publicationAttention
+          ? "border-2 border-rose-500 shadow-[0_0_0_4px_rgba(244,63,94,0.12)]"
+          : "border border-stone-950/10"
+    }`}
+  >
+    {publicationProcessing && processingLabel ? (
+      <div
+        className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-100 px-4 py-3 text-amber-950"
+        role="status"
+        aria-live="polite"
+      >
+        <p className="text-sm font-extrabold uppercase tracking-[0.12em]">{processingLabel} — in progress</p>
+        <p className="mt-1 text-xs font-semibold">
+          Mutating controls are temporarily suspended for {group.title || group.skuNamespace?.bucketToken || group.groupId}.
+          {awaitingGroupRefresh && !runningAction ? " Waiting for refreshed authoritative group state before controls are released." : ""}
+        </p>
+      </div>
+    ) : null}
+    {publicationAttention ? (
+      <div className="mb-3 rounded-xl border-2 border-rose-400 bg-rose-50 px-4 py-3 text-rose-900" role="alert">
+        <p className="text-sm font-extrabold uppercase tracking-[0.12em]">Publication action requires attention</p>
+        <p className="mt-1 text-xs font-semibold">
+          Remote state is unresolved or recovery is required. Mutating controls remain locked until the state is reconciled or authoritatively refreshed.
+        </p>
+      </div>
+    ) : null}
     {capturePending ? <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Publication is locked while an intake image pair is pending.</p> : null}
     {group.validation.blockers.length > 0 || recovery && recovery.retryStatus !== "not_applicable" ? (
       <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -201,7 +266,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     ) : null}
     {status ? <div className={`mt-3 rounded-xl px-4 py-3 text-xs ${status.severity === "error" ? "bg-rose-50 text-rose-900" : "bg-amber-50 text-amber-900"}`}><p className="font-bold">{status.summary}</p><p className="mt-1">Stage: {token(status.stage)} · remote: {token(status.remoteState)} · retry: {token(status.retryStatus)} · reconciliation: {status.requiresReconciliation ? "required" : "not required"}</p>{status.diagnostic ? <p className="mt-1">{status.diagnostic}</p> : null}{status.recommendedActions.length > 0 ? <p className="mt-1">Recommended: {status.recommendedActions.join(", ")}</p> : null}{status.issues.length > 0 ? <ul className="mt-2 list-disc pl-5">{status.issues.map((issue, index) => <li key={`${issue.code ?? "issue"}-${index}`}>{issue.message}</li>)}</ul> : null}</div> : null}
     <div className="flex flex-wrap items-center gap-3"><button type="button" onClick={() => void runAction("publish")} disabled={!initialReady} className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300">{runningAction === "publish" ? "Publishing…" : "Publish"}</button><button type="button" onClick={() => void runAction("publish-changes")} disabled={!changesReady} className="rounded-full bg-stone-950 px-5 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-300">{runningAction === "publish-changes" ? "Publishing…" : "Publish Changes"}</button>{reconcileReady ? <button type="button" onClick={() => void runAction("reconcile")} disabled={!reconcileReady} className="rounded-full border border-amber-500 px-4 py-2 text-sm font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-40">{runningAction === "reconcile" ? "Reconciling…" : "Reconcile"}</button> : reconcileUnavailable ? <button type="button" disabled className="rounded-full border border-amber-500 px-4 py-2 text-sm font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-40">Reconcile unavailable</button> : <button type="button" onClick={() => void runAction("retry")} disabled={!retryReady} className="rounded-full border border-amber-500 px-4 py-2 text-sm font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-40">{runningAction === "retry" ? "Retrying…" : "Retry"}</button>}<button type="button" onClick={() => destructive("return-to-review")} disabled={!returnToReviewReady} className="rounded-full border border-stone-400 px-4 py-2 text-sm font-bold text-stone-800 disabled:cursor-not-allowed disabled:opacity-40">{runningAction === "return-to-review" ? "Cleaning and reopening…" : confirming === "return-to-review" ? "Confirm Return to Review" : "Return to Review"}</button><button type="button" onClick={() => destructive("withdraw")} disabled={!withdrawReady} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "withdraw" ? "Confirm Withdraw" : "Withdraw"}</button><button type="button" onClick={() => destructive("abandon")} disabled={!abandonReady || capturePending || !!runningAction} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "abandon" ? "Confirm Abandon" : "Abandon"}</button><button type="button" onClick={() => destructive("cleanup")} disabled={!cleanupReady || capturePending || !!runningAction} className="rounded-full border border-stone-300 px-4 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:opacity-40">{confirming === "cleanup" ? "Confirm Cleanup" : "Cleanup"}</button><span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">{group.validation.hasPendingChanges ? "Changes staged" : "Remote revision synced"}</span><span aria-hidden="true" className="mx-1 h-8 w-px shrink-0 bg-stone-300" />{[["Lifecycle", token(group.lifecycleState)], ["Desired revision", String(group.desiredRevision)], ["Confirmed revision", group.lastConfirmedRevision === null ? "Not published" : String(group.lastConfirmedRevision)]].map(([label, value]) => <div key={label} className="rounded-lg border border-stone-200 bg-stone-50 px-2.5 py-1.5"><p className="text-[9px] font-bold uppercase tracking-[0.1em] text-stone-500">{label}</p><p className="mt-0.5 text-xs font-semibold text-stone-800">{value}</p></div>)}{listingUrl ? <a href={listingUrl} target="_blank" rel="noreferrer noopener" className="ml-auto inline-flex rounded-xl border-2 border-sky-300 bg-sky-50 px-4 py-2.5 text-sm font-bold text-sky-800 shadow-sm transition hover:border-sky-500 hover:bg-sky-100">{listingLinkLabel}</a> : null}</div>
-    {progress ? <div className="mt-3 rounded-xl bg-sky-50 px-4 py-3 text-xs text-sky-900"><p className="font-bold">Live action progress: {token(progress.kind)}</p><p className="mt-1">Stage: {token(progress.stage)}</p></div> : null}
+    {progress ? <div className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-950" role="status" aria-live="polite"><p className="font-bold">Live action progress: {token(progress.kind)}</p><p className="mt-1">Stage: {token(progress.stage)}</p></div> : null}
 
     {error ? <p className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800">{error}</p> : null}
     {latest && Array.isArray(latest.operations) ? <div className="mt-3"><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-stone-500">Latest durable operation plan</p><div className="mt-1.5 flex flex-nowrap gap-1.5">{latest.operations.map((operation) => { const complete = operation.state === "confirmed_complete" || operation.state === "confirmed_no_op"; return <div key={operation.operationKey} className={`min-w-0 w-fit max-w-full shrink overflow-hidden rounded-lg border border-stone-200 bg-stone-50 px-2 py-1.5 text-[10px] ${complete ? "font-bold text-stone-900" : "text-stone-600"}`}><span className="block truncate">{token(operation.operationKind)}</span><span className={`mt-0.5 block truncate text-[9px] ${complete ? "text-stone-900" : "text-stone-500"}`}>{token(operation.state)} · {operation.attemptNumber || "—"}</span></div>; })}</div></div> : null}
