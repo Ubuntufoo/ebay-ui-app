@@ -3,7 +3,13 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import type {SidecarErrorResponse, VariationListingActionResponse, VariationListingActionRouteName, VariationListingActionStatus, VariationListingGroup} from "@/lib/sidecar-api";
 
-type Props = {group: VariationListingGroup | null; capturePending: boolean; onGroupUpdated: (group: VariationListingGroup) => void; onActionSettled?: () => void};
+type Props = {
+  group: VariationListingGroup | null;
+  capturePending: boolean;
+  onGroupUpdated: (group: VariationListingGroup) => void;
+  onActionSettled?: () => void;
+  onActionStateChange?: (inFlight: boolean) => void;
+};
 type Progress = {kind: string; stage: string};
 const token = (value: string) => value.replaceAll("_", " ").replaceAll("-", " ");
 
@@ -42,7 +48,7 @@ function isStatus(value: unknown): value is VariationListingActionStatus {
     ["error", "warning"].includes(s.severity as string) && typeof s.requiresReconciliation === "boolean" && typeof s.userActionRequired === "boolean" && Array.isArray(s.issues) && Array.isArray(s.recommendedActions);
 }
 
-export function VariationPublicationPanel({group, capturePending, onGroupUpdated, onActionSettled}: Props) {
+export function VariationPublicationPanel({group, capturePending, onGroupUpdated, onActionSettled, onActionStateChange}: Props) {
   const [runningAction, setRunningAction] = useState<VariationListingActionRouteName | null>(null);
   const [status, setStatus] = useState<VariationListingActionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +57,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
   const [ambiguous, setAmbiguous] = useState(false);
   const [awaitingGroupRefresh, setAwaitingGroupRefresh] = useState(false);
   const actionLockRef = useRef(false);
+  const actionRequestInFlightRef = useRef(false);
   const refreshBaselineRef = useRef<string | null>(null);
 
   const groupId = group?.groupId;
@@ -83,6 +90,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     : null;
 
   useEffect(() => {
+    if (actionRequestInFlightRef.current) return;
     const baseline = refreshBaselineRef.current;
     if (baseline !== null) {
       if (groupStateSignature !== null && groupStateSignature !== baseline) {
@@ -90,12 +98,13 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
         actionLockRef.current = false;
         setAwaitingGroupRefresh(false);
         setAmbiguous(false);
+        onActionStateChange?.(false);
       }
       return;
     }
-    actionLockRef.current = false;
+    if (actionLockRef.current) return;
     setAmbiguous(false);
-  }, [groupStateSignature]);
+  }, [groupStateSignature, onActionStateChange, runningAction]);
 
   const refreshRequiredWarning = (value: VariationListingActionStatus) =>
     value.code === "group_refresh_required" ||
@@ -104,6 +113,9 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
   const runAction = useCallback(async (action: VariationListingActionRouteName) => {
     if (!group || runningAction || actionLockRef.current || awaitingGroupRefresh) return;
     actionLockRef.current = true;
+    actionRequestInFlightRef.current = true;
+    refreshBaselineRef.current = groupStateSignature;
+    onActionStateChange?.(true);
     setRunningAction(action); setStatus(null); setError(null); setConfirming(null);
     try {
       const body = action === "retry" || action === "reconcile" ? {} : {expectedDesiredRevision: group.desiredRevision};
@@ -130,8 +142,13 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
         }
       }
     } catch (caught) { if (actionLockRef.current) setAmbiguous(true); setError(caught instanceof Error ? caught.message : "Unable to run variation listing action."); }
-    finally { setRunningAction(null); onActionSettled?.(); }
-  }, [awaitingGroupRefresh, group, groupStateSignature, onActionSettled, onGroupUpdated, runningAction]);
+    finally {
+      actionRequestInFlightRef.current = false;
+      setRunningAction(null);
+      if (!actionLockRef.current) onActionStateChange?.(false);
+      onActionSettled?.();
+    }
+  }, [awaitingGroupRefresh, group, groupStateSignature, onActionSettled, onActionStateChange, onGroupUpdated, runningAction]);
 
   if (!group) return <section className="rounded-[1.5rem] border border-dashed border-stone-300 bg-white/65 p-6 text-center text-sm text-stone-500">Select a bucket to review publication readiness and revision state.</section>;
   const latest = group.journal.latestRevision;

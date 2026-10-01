@@ -309,6 +309,7 @@ export function VariationListingsWorkspace({
   const [intakeStatus, setIntakeStatus] = useState<"idle" | "loading" | "configuring">(
     "idle",
   );
+  const [publicationActionInFlight, setPublicationActionInFlight] = useState(false);
   const intakeWriteInFlightRef = useRef(false);
   const intakeGenerationRef = useRef(0);
   const [skuBucketToken, setSkuBucketToken] = useState("");
@@ -463,7 +464,7 @@ export function VariationListingsWorkspace({
   );
   const selectedGroupCaptureEligible = captureEligible(selectedGroup);
   const armedGroupCaptureEligible = captureEligible(armedGroup);
-  const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null;
+  const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null || publicationActionInFlight;
   const copyConditionOptions = useMemo(
     () => compatibleCopyConditionOptions(selectedGroup?.conditionToken),
     [selectedGroup?.conditionToken],
@@ -1001,6 +1002,7 @@ export function VariationListingsWorkspace({
         group={selectedGroup}
         capturePending={pendingPair !== null}
         onActionSettled={retryIntakeSession}
+        onActionStateChange={setPublicationActionInFlight}
         onGroupUpdated={replaceGroup}
       />
 

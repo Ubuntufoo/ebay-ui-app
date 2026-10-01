@@ -7,8 +7,19 @@ import type {
   VariationListingCopy,
   VariationListingGroup,
   VariationListingIntakeSession,
+  VariationListingManualPriceAmount,
   VariationListingVariation,
 } from "@/lib/sidecar-api";
+
+const MANUAL_PRICE_TIERS: readonly VariationListingManualPriceAmount[] = [
+  0.99, 1.49, 1.99, 2.49, 2.99, 3.49, 3.99, 4.49, 4.99,
+];
+
+type PriceDraft = {
+  amount: VariationListingManualPriceAmount;
+  baseRevision: number;
+  groupId: string;
+};
 
 type VariationInventoryPanelProps = {
   group: VariationListingGroup | null;
@@ -116,6 +127,8 @@ export function VariationInventoryPanel({
   const [representativeWrite, setRepresentativeWrite] = useState<string | null>(null);
   const [selectorDrafts, setSelectorDrafts] = useState<Record<string, string>>({});
   const [selectorWrite, setSelectorWrite] = useState<string | null>(null);
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, PriceDraft>>({});
+  const [priceWrite, setPriceWrite] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   // Preserve edits across same-revision polling, but never carry a draft over
@@ -124,6 +137,11 @@ export function VariationInventoryPanel({
   useEffect(() => {
     setSelectorDrafts({});
   }, [group?.groupId, group?.desiredRevision]);
+
+  // Preserve unsaved price choices across polling; clear them on bucket switches.
+  useEffect(() => {
+    setPriceDrafts({});
+  }, [group?.groupId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const setRepresentative = useCallback(
@@ -231,6 +249,90 @@ export function VariationInventoryPanel({
     [group, onGroupUpdated, selectorDrafts, selectorWrite],
   );
 
+  const savePrice = useCallback(
+    async (variation: VariationListingVariation) => {
+      if (!group || writesBlocked || priceWrite !== null || selectorWrite !== null || representativeWrite !== null) return;
+      const draft = priceDrafts[variation.variationId]?.groupId === group.groupId
+        ? priceDrafts[variation.variationId]
+        : undefined;
+      if (!draft || draft.amount === variation.priceAmount) return;
+      if (!["intake", "draft", "review", "active"].includes(group.lifecycleState)) return;
+      const recovery = group.journal.latestRevision?.recovery;
+      if (
+        (recovery && (recovery.requiresReconciliation || recovery.remoteState === "unknown" || recovery.retryStatus !== "not_applicable")) ||
+        group.journal.latestRevision?.operations.some((operation) => ["started", "unknown", "retry_authorized"].includes(operation.state))
+      ) return;
+      if (draft.baseRevision !== group.desiredRevision) {
+        setActionError("This bucket changed since you selected the price. Select the price again against the latest revision.");
+        return;
+      }
+      setPriceWrite(variation.variationId);
+      setActionError(null);
+      try {
+        const response = await fetch(
+          `/api/variation-listings/${encodeURIComponent(group.groupId)}/variations/${encodeURIComponent(variation.variationId)}/price`,
+          {
+            method: "PATCH",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+              expectedDesiredRevision: draft.baseRevision,
+              priceAmount: draft.amount,
+            }),
+          },
+        );
+        const payload = (await response.json().catch(() => null)) as VariationListingGroup | {error?: string} | null;
+        const updatedVariation = payload && typeof payload === "object" && "variations" in payload && Array.isArray(payload.variations)
+          ? payload.variations.find((candidate) => candidate && typeof candidate === "object" && "variationId" in candidate && candidate.variationId === variation.variationId)
+          : null;
+        if (
+          !response.ok ||
+          !payload || typeof payload !== "object" || !("groupId" in payload) || payload.groupId !== group.groupId ||
+          !("desiredRevision" in payload) || payload.desiredRevision !== draft.baseRevision + 1 ||
+          !updatedVariation || !("priceAmount" in updatedVariation) || updatedVariation.priceAmount !== draft.amount ||
+          !("priceCurrency" in updatedVariation) || updatedVariation.priceCurrency !== "USD"
+        ) {
+          throw new Error(
+            payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" && payload.error
+              ? payload.error
+              : `Variation price update returned a malformed or stale group (${response.status}).`,
+          );
+        }
+        setPriceDrafts((current) => {
+          const next = {...current};
+          delete next[variation.variationId];
+          return next;
+        });
+        onGroupUpdated(payload);
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : "Unable to update variation price.");
+      } finally {
+        setPriceWrite(null);
+      }
+    },
+    [group, onGroupUpdated, priceDrafts, priceWrite, representativeWrite, selectorWrite, writesBlocked],
+  );
+
+  const rebasePriceDraft = useCallback(
+    (variation: VariationListingVariation) => {
+      if (!group) return;
+      setPriceDrafts((current) => {
+        const draft = current[variation.variationId];
+        if (!draft || draft.groupId !== group.groupId) return current;
+        if (draft.amount === variation.priceAmount) {
+          const next = {...current};
+          delete next[variation.variationId];
+          return next;
+        }
+        return {
+          ...current,
+          [variation.variationId]: {...draft, baseRevision: group.desiredRevision},
+        };
+      });
+      setActionError(null);
+    },
+    [group],
+  );
+
   if (!group) {
     return (
       <section className="rounded-[1.5rem] border border-dashed border-stone-300 bg-white/65 p-6 text-center text-sm text-stone-500">
@@ -290,6 +392,17 @@ export function VariationInventoryPanel({
               intakeSession.targetVariationId === variation.variationId;
             const selectorValue = selectorDrafts[variation.variationId] ?? variation.selectorValue;
             const selectorOverLimit = selectorValue.length > 65;
+            const priceDraft = priceDrafts[variation.variationId]?.groupId === group.groupId
+              ? priceDrafts[variation.variationId]
+              : undefined;
+            const selectedPrice = priceDraft?.amount ?? variation.priceAmount;
+            const priceChanged = selectedPrice !== variation.priceAmount;
+            const recovery = group.journal.latestRevision?.recovery;
+            const priceLocked = writesBlocked || priceWrite !== null || selectorWrite !== null || representativeWrite !== null ||
+              !["intake", "draft", "review", "active"].includes(group.lifecycleState) ||
+              Boolean(recovery && (recovery.requiresReconciliation || recovery.remoteState === "unknown" || recovery.retryStatus !== "not_applicable")) ||
+              Boolean(group.journal.latestRevision?.operations.some((operation) => ["started", "unknown", "retry_authorized"].includes(operation.state)));
+            const priceRevisionStale = priceDraft !== undefined && priceDraft.baseRevision !== group.desiredRevision;
             return (
               <article key={variation.variationId} className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -327,7 +440,37 @@ export function VariationInventoryPanel({
 
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">${variation.priceAmount.toFixed(2)}</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="text-[10px] font-bold uppercase tracking-[0.1em] text-stone-600">
+                        Price
+                        <select
+                          aria-label={`Price for ${variation.sku}`}
+                          value={selectedPrice}
+                          disabled={priceLocked}
+                          onChange={(event) => {
+                            const amount = Number(event.target.value) as VariationListingManualPriceAmount;
+                            setPriceDrafts((current) => ({
+                              ...current,
+                              [variation.variationId]: {amount, baseRevision: group.desiredRevision, groupId: group.groupId},
+                            }));
+                            setActionError(null);
+                          }}
+                          className="ml-2 rounded-lg border border-stone-300 bg-white px-2.5 py-1.5 text-xs font-bold normal-case tracking-normal text-stone-900 disabled:cursor-not-allowed disabled:bg-stone-100"
+                        >
+                          {MANUAL_PRICE_TIERS.map((amount) => (
+                            <option key={amount} value={amount}>${amount.toFixed(2)}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => void savePrice(variation)}
+                        disabled={priceLocked || !priceChanged || priceRevisionStale}
+                        className="rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {priceWrite === variation.variationId ? "Saving…" : "Save price"}
+                      </button>
+                    </div>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700">{variation.copyCount} captured</span>
                     <button
                       type="button"
@@ -339,6 +482,25 @@ export function VariationInventoryPanel({
                     </button>
                   </div>
                 </div>
+
+                {priceRevisionStale ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-amber-900">
+                    <p>Bucket revision changed. Reconfirm this price against the latest revision before saving.</p>
+                    <button
+                      type="button"
+                      onClick={() => rebasePriceDraft(variation)}
+                      disabled={priceLocked}
+                      className="rounded-full border border-amber-400 bg-amber-50 px-2.5 py-1 text-[10px] font-bold text-amber-900 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Keep ${priceDraft?.amount.toFixed(2)} and use latest revision
+                    </button>
+                  </div>
+                ) : null}
+                {group.lifecycleState === "active" ? (
+                  <p className="mt-2 text-xs font-semibold text-amber-900">
+                    Price edits are staged locally. Use Publish Changes to update eBay.
+                  </p>
+                ) : null}
 
                 {variation.copies.length === 0 ? (
                   <p className="mt-3 text-xs text-stone-500">No physical copies are attached to this variation.</p>

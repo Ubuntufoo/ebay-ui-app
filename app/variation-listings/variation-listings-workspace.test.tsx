@@ -1426,6 +1426,234 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getAllByRole("button", {name: "Use as representative"})).toHaveLength(1);
   });
 
+  it("stages an active variation price through the nine-tier dropdown without publishing", async () => {
+    const original = buildVariation({priceAmount: 0.99});
+    const active = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations: [original],
+      variationCount: 1,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+    });
+    const updated = buildGroup({
+      ...active,
+      desiredRevision: 4,
+      lastConfirmedRevision: 3,
+      variations: [buildVariation({priceAmount: 1.49})],
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(updated), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[active]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const priceSelect = screen.getByRole("combobox", {name: `Price for ${original.sku}`}) as HTMLSelectElement;
+    expect(Array.from(priceSelect.options).map((option) => option.textContent)).toEqual([
+      "$0.99", "$1.49", "$1.99", "$2.49", "$2.99", "$3.49", "$3.99", "$4.49", "$4.99",
+    ]);
+    expect(priceSelect.value).toBe("0.99");
+    expect(screen.getByRole("button", {name: "Save price"})).toHaveProperty("disabled", true);
+
+    fireEvent.change(priceSelect, {target: {value: "1.49"}});
+    fireEvent.click(screen.getByRole("button", {name: "Save price"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/variation-listings/${active.groupId}/variations/${original.variationId}/price`,
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, priceAmount: 1.49}),
+      }),
+    );
+    expect(priceSelect.value).toBe("1.49");
+    expect(screen.getByText(/Price edits are staged locally\. Use Publish Changes to update eBay/)).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", false);
+  });
+
+  it("keeps a failed price edit selected and does not mutate other variations", async () => {
+    const original = buildVariation({priceAmount: 0.99});
+    const sibling = buildVariation({
+      variationId: "variation-2",
+      sku: "BSKBL-McGrady-000244",
+      priceAmount: 2.49,
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({error: "Revision conflict"}), {status: 409}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [original, sibling], variationCount: 2})]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    const priceSelect = screen.getByRole("combobox", {name: `Price for ${original.sku}`}) as HTMLSelectElement;
+    fireEvent.change(priceSelect, {target: {value: "4.99"}});
+    fireEvent.click(screen.getAllByRole("button", {name: "Save price"})[0]!);
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByText("Revision conflict")).not.toBeNull();
+    expect(priceSelect.value).toBe("4.99");
+    expect((screen.getByRole("combobox", {name: `Price for ${sibling.sku}`}) as HTMLSelectElement).value).toBe("2.49");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires explicit rebasing before saving a price draft after a revision change", async () => {
+    const variation = buildVariation({priceAmount: 0.99});
+    const refreshed = buildGroup({
+      desiredRevision: 4,
+      variations: [variation],
+      variationCount: 1,
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [refreshed]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify(buildGroup({
+        ...refreshed,
+        desiredRevision: 5,
+        variations: [buildVariation({priceAmount: 4.99})],
+      })), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup({variations: [variation], variationCount: 1})]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    const priceSelect = screen.getByRole("combobox", {name: `Price for ${variation.sku}`}) as HTMLSelectElement;
+    fireEvent.change(priceSelect, {target: {value: "4.99"}});
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+
+    expect(screen.getByText(/reconfirm this price against the latest revision/i)).not.toBeNull();
+    expect(screen.getByRole("button", {name: /Keep \$4\.99 and use latest revision/})).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Save price"})).toHaveProperty("disabled", true);
+
+    fireEvent.click(screen.getByRole("button", {name: /Keep \$4\.99 and use latest revision/}));
+    expect(screen.getByRole("button", {name: "Save price"})).toHaveProperty("disabled", false);
+    fireEvent.click(screen.getByRole("button", {name: "Save price"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/variation-listings/${refreshed.groupId}/variations/${variation.variationId}/price`,
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 4, priceAmount: 4.99}),
+      }),
+    );
+  });
+
+  it("blocks variation writes while Publish Changes is in flight", async () => {
+    const variation = buildVariation({priceAmount: 0.99});
+    const active = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations: [variation],
+      variationCount: 1,
+    });
+    let resolveAction: ((response: Response) => void) | undefined;
+    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAction = resolve; }));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[active]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Publish Changes"}));
+    await act(async () => await Promise.resolve());
+    const priceSelect = screen.getByRole("combobox", {name: `Price for ${variation.sku}`}) as HTMLSelectElement;
+    expect(priceSelect).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Save price"})).toHaveProperty("disabled", true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveAction?.(new Response(JSON.stringify({group: {...active, desiredRevision: 4, validation: {...active.validation, hasPendingChanges: false}}}), {status: 200}));
+      await Promise.resolve();
+    });
+  });
+
+  it("keeps price writes locked when polling changes the group before an ambiguous publish response", async () => {
+    const variation = buildVariation({priceAmount: 0.99});
+    const active = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations: [variation],
+      variationCount: 1,
+    });
+    const polled = buildGroup({
+      ...active,
+      desiredRevision: 4,
+      updatedAt: "2026-09-02T15:06:00.000Z",
+      journal: {
+        latestRevision: {
+          revisionId: "publish-r1",
+          capturedDesiredRevision: 4,
+          operations: [],
+          recovery: {
+            revisionId: "publish-r1",
+            retryStatus: "reconciliation_required",
+            remoteState: "unknown",
+            requiresReconciliation: true,
+            reconciliationSupported: true,
+            recommendedActions: ["reconcile_remote_state"],
+          },
+        },
+      } as unknown as VariationListingGroup["journal"],
+    });
+    const cleanRefresh = buildGroup({
+      ...active,
+      desiredRevision: 5,
+      updatedAt: "2026-09-02T15:07:00.000Z",
+    });
+    let resolveAction: ((response: Response) => void) | undefined;
+    fetchMock
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAction = resolve; }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [polled]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [cleanRefresh]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[active]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Publish Changes"}));
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+    expect(screen.getByRole("combobox", {name: `Price for ${variation.sku}`})).toHaveProperty("disabled", true);
+
+    await act(async () => {
+      resolveAction?.(new Response("not json", {status: 200}));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Variation listing action returned a malformed response.")).not.toBeNull();
+    expect(screen.getByRole("combobox", {name: `Price for ${variation.sku}`})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Save price"})).toHaveProperty("disabled", true);
+    expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.endsWith("/price"))).toBe(false);
+
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+    expect(screen.getByRole("combobox", {name: `Price for ${variation.sku}`})).toHaveProperty("disabled", false);
+  });
+
   it("edits the buyer-facing Card selector before publication with CAS", async () => {
     const variation = buildVariation();
     const updatedGroup = buildGroup({
