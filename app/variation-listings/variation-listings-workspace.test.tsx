@@ -104,6 +104,7 @@ function buildVariation(
     selectorValue: "2003 Topps",
     priceAmount: 1.99,
     priceCurrency: "USD",
+    quantityAdjustmentCounter: 0,
     representativeCopyId: "copy-1",
     copyCount: 2,
     variationMetadata: {},
@@ -1511,6 +1512,233 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getAllByRole("button", {name: "Use as representative"})).toHaveLength(1);
   });
 
+  it("refreshes authoritative quantity and stages +1 locally without publishing", async () => {
+    const original = buildVariation({quantityAdjustmentCounter: 0});
+    const active = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations: [original],
+      variationCount: 1,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+    });
+    const quantityStatus = {
+      groupId: active.groupId,
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations: [{
+        variationId: original.variationId,
+        sku: original.sku,
+        ebayQuantity: 1,
+        pendingAdjustment: 0,
+        afterPublish: 1,
+      }],
+    };
+    const updated = buildGroup({
+      ...active,
+      desiredRevision: 4,
+      variations: [buildVariation({quantityAdjustmentCounter: 1})],
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    let resolveAdjustment: ((response: Response) => void) | undefined;
+    const adjustmentResponse = new Promise<Response>((resolve) => { resolveAdjustment = resolve; });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(quantityStatus), {status: 200}))
+      .mockReturnValueOnce(adjustmentResponse);
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[active]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.queryByRole("button", {name: `Increase sellable quantity for ${original.sku}`})).toBeNull();
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByLabelText(`eBay quantity for ${original.sku}`).textContent).toContain("1");
+    expect(screen.getByLabelText(`Pending quantity adjustment for ${original.sku}`).textContent).toContain("+0");
+    expect(screen.getByLabelText(`Projected quantity after publish for ${original.sku}`).textContent).toContain("1");
+
+    fireEvent.click(screen.getByRole("button", {name: `Increase sellable quantity for ${original.sku}`}));
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", true);
+    resolveAdjustment?.(new Response(JSON.stringify(updated), {status: 200}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/variation-listings/${active.groupId}/variations/${original.variationId}/quantity-adjustment`,
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, delta: 1}),
+      }),
+    );
+    expect(screen.getByLabelText(`eBay quantity for ${original.sku}`).textContent).toContain("1");
+    expect(screen.getByLabelText(`Pending quantity adjustment for ${original.sku}`).textContent).toContain("+1");
+    expect(screen.getByLabelText(`Projected quantity after publish for ${original.sku}`).textContent).toContain("2");
+    expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", false);
+    expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/actions/publish-changes"))).toBe(false);
+  });
+
+  it("does not expose manual quantity controls for an unconfirmed active variation", async () => {
+    const variation = buildVariation();
+    const active = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 4,
+      lastConfirmedRevision: 3,
+      variations: [variation],
+      variationCount: 1,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      groupId: active.groupId,
+      desiredRevision: 4,
+      lastConfirmedRevision: 3,
+      variations: [],
+    }), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[active]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByText("Quantity controls available after first remote confirmation")).not.toBeNull();
+    expect(screen.queryByRole("button", {name: `Increase sellable quantity for ${variation.sku}`})).toBeNull();
+    expect(screen.queryByRole("button", {name: `Decrease sellable quantity for ${variation.sku}`})).toBeNull();
+  });
+
+  it("fails closed on an out-of-range authoritative quantity payload", async () => {
+    const variation = buildVariation();
+    const active = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations: [variation],
+      variationCount: 1,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      groupId: active.groupId,
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations: [{
+        variationId: variation.variationId,
+        sku: variation.sku,
+        ebayQuantity: 2147483648,
+        pendingAdjustment: 0,
+        afterPublish: 2147483648,
+      }],
+    }), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[active]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByText(/eBay quantity unavailable:/)).not.toBeNull();
+    expect(screen.queryByRole("button", {name: `Increase sellable quantity for ${variation.sku}`})).toBeNull();
+    expect(screen.queryByRole("button", {name: `Decrease sellable quantity for ${variation.sku}`})).toBeNull();
+  });
+
+  it("ignores quantity responses from a previous group selection", async () => {
+    const groupA = buildGroup({
+      lifecycleState: "active",
+      lastConfirmedRevision: 3,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+      variations: [buildVariation({sku: "BSKBL-A-000243"})],
+      variationCount: 1,
+    });
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      groupKey: "VL-G-22222222222242228222222222222222",
+      lifecycleState: "active",
+      lastConfirmedRevision: 3,
+      title: "Other cards",
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+      variations: [buildVariation({sku: "BSKBL-B-000243"})],
+      variationCount: 1,
+    });
+    let resolveFirst: ((response: Response) => void) | undefined;
+    let resolveSecond: ((response: Response) => void) | undefined;
+    let resolveThird: ((response: Response) => void) | undefined;
+    const first = new Promise<Response>((resolve) => { resolveFirst = resolve; });
+    const second = new Promise<Response>((resolve) => { resolveSecond = resolve; });
+    const third = new Promise<Response>((resolve) => { resolveThird = resolve; });
+    const status = (group: VariationListingGroup, variation: VariationListingVariation, ebayQuantity: number) => ({
+      groupId: group.groupId,
+      desiredRevision: group.desiredRevision,
+      lastConfirmedRevision: group.lastConfirmedRevision,
+      variations: [{variationId: variation.variationId, sku: variation.sku, ebayQuantity, pendingAdjustment: 0, afterPublish: ebayQuantity}],
+    });
+    fetchMock.mockReturnValueOnce(first).mockReturnValueOnce(second).mockReturnValueOnce(third);
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getByRole("button", {name: "Select bucket"}));
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getByRole("button", {name: "Select bucket"}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    resolveFirst?.(new Response(JSON.stringify(status(groupA, groupA.variations[0], 9)), {status: 200}));
+    resolveSecond?.(new Response(JSON.stringify(status(groupB, groupB.variations[0], 8)), {status: 200}));
+    await act(async () => await Promise.resolve());
+    expect(screen.queryByLabelText(`eBay quantity for ${groupA.variations[0].sku}`)).toBeNull();
+    expect(screen.queryByLabelText(`eBay quantity for ${groupB.variations[0].sku}`)).toBeNull();
+
+    resolveThird?.(new Response(JSON.stringify(status(groupA, groupA.variations[0], 1)), {status: 200}));
+    await act(async () => await Promise.resolve());
+    expect(screen.getByLabelText(`eBay quantity for ${groupA.variations[0].sku}`).textContent).toContain("1");
+  });
+
+  it("fails closed when authoritative quantity identity does not match the selected variation", async () => {
+    const variation = buildVariation();
+    const active = buildGroup({
+      lifecycleState: "active",
+      lastConfirmedRevision: 3,
+      variations: [variation],
+      variationCount: 1,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      groupId: active.groupId,
+      desiredRevision: active.desiredRevision,
+      lastConfirmedRevision: active.lastConfirmedRevision,
+      variations: [{variationId: variation.variationId, sku: "wrong-sku", ebayQuantity: 1, pendingAdjustment: 0, afterPublish: 1}],
+    }), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[active]}
+        initialIntakeSession={buildSession()}
+        refreshIntervalMs={0}
+      />,
+    );
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByText(/eBay quantity unavailable:/)).not.toBeNull();
+    expect(screen.queryByRole("button", {name: `Increase sellable quantity for ${variation.sku}`})).toBeNull();
+    expect(screen.queryByRole("button", {name: `Decrease sellable quantity for ${variation.sku}`})).toBeNull();
+  });
+
   it("stages an active variation price through the nine-tier dropdown without publishing", async () => {
     const original = buildVariation({priceAmount: 0.99});
     const active = buildGroup({
@@ -1528,7 +1756,16 @@ describe("VariationListingsWorkspace", () => {
       variations: [buildVariation({priceAmount: 1.49})],
       validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
     });
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(updated), {status: 200}));
+    let resolvePrice: ((response: Response) => void) | undefined;
+    const priceResponse = new Promise<Response>((resolve) => { resolvePrice = resolve; });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        groupId: active.groupId,
+        desiredRevision: active.desiredRevision,
+        lastConfirmedRevision: active.lastConfirmedRevision,
+        variations: [{variationId: original.variationId, sku: original.sku, ebayQuantity: 1, pendingAdjustment: 0, afterPublish: 1}],
+      }), {status: 200}))
+      .mockReturnValueOnce(priceResponse);
 
     render(
       <VariationListingsWorkspace
@@ -1537,6 +1774,7 @@ describe("VariationListingsWorkspace", () => {
         refreshIntervalMs={0}
       />,
     );
+    await act(async () => await Promise.resolve());
 
     const priceSelect = screen.getByRole("combobox", {name: `Price for ${original.sku}`}) as HTMLSelectElement;
     expect(Array.from(priceSelect.options).map((option) => option.textContent)).toEqual([
@@ -1549,7 +1787,14 @@ describe("VariationListingsWorkspace", () => {
     fireEvent.click(screen.getByRole("button", {name: "Save price"}));
     await act(async () => await Promise.resolve());
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Capture duplicate"})).toHaveProperty("disabled", true);
+    fireEvent.click(screen.getByRole("button", {name: "Use as representative"}));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    resolvePrice?.(new Response(JSON.stringify(updated), {status: 200}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/variation-listings/${active.groupId}/variations/${original.variationId}/price`,
       expect.objectContaining({
@@ -1558,8 +1803,30 @@ describe("VariationListingsWorkspace", () => {
       }),
     );
     expect(priceSelect.value).toBe("1.49");
-    expect(screen.getByText(/Price edits are staged locally\. Use Publish Changes to update eBay/)).not.toBeNull();
+    expect(screen.getByLabelText(`eBay quantity for ${original.sku}`).textContent).toContain("1");
+    expect(screen.getByText(/Price and quantity edits are staged locally\. Use Publish Changes to update eBay/)).not.toBeNull();
     expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", false);
+
+    const quantityUpdated = buildGroup({
+      ...updated,
+      desiredRevision: 5,
+      variations: [buildVariation({priceAmount: 1.49, quantityAdjustmentCounter: 1})],
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(quantityUpdated), {status: 200}));
+    fireEvent.click(screen.getByRole("button", {name: `Increase sellable quantity for ${original.sku}`}));
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.filter(([url]) => typeof url === "string" && url.includes("/quantity-status"))).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/variation-listings/${active.groupId}/variations/${original.variationId}/quantity-adjustment`,
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 4, delta: 1}),
+      }),
+    );
+    expect(screen.getByLabelText(`Pending quantity adjustment for ${original.sku}`).textContent).toContain("+1");
   });
 
   it("keeps a failed price edit selected and does not mutate other variations", async () => {
@@ -1646,7 +1913,21 @@ describe("VariationListingsWorkspace", () => {
       variationCount: 1,
     });
     let resolveAction: ((response: Response) => void) | undefined;
-    fetchMock.mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAction = resolve; }));
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        groupId: active.groupId,
+        desiredRevision: active.desiredRevision,
+        lastConfirmedRevision: active.lastConfirmedRevision,
+        variations: [{variationId: variation.variationId, sku: variation.sku, ebayQuantity: 1, pendingAdjustment: 0, afterPublish: 1}],
+      }), {status: 200}))
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAction = resolve; }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        groupId: active.groupId,
+        desiredRevision: 4,
+        lastConfirmedRevision: 4,
+        variations: [{variationId: variation.variationId, sku: variation.sku, ebayQuantity: 2, pendingAdjustment: 0, afterPublish: 2}],
+      }), {status: 200}));
 
     render(
       <VariationListingsWorkspace
@@ -1661,12 +1942,16 @@ describe("VariationListingsWorkspace", () => {
     const priceSelect = screen.getByRole("combobox", {name: `Price for ${variation.sku}`}) as HTMLSelectElement;
     expect(priceSelect).toHaveProperty("disabled", true);
     expect(screen.getByRole("button", {name: "Save price"})).toHaveProperty("disabled", true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", {name: "Refresh eBay qty"})).toHaveProperty("disabled", true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      resolveAction?.(new Response(JSON.stringify({group: {...active, desiredRevision: 4, validation: {...active.validation, hasPendingChanges: false}}}), {status: 200}));
+      resolveAction?.(new Response(JSON.stringify({group: {...active, desiredRevision: 4, lastConfirmedRevision: 4, validation: {...active.validation, hasPendingChanges: false}}}), {status: 200}));
+      await Promise.resolve();
       await Promise.resolve();
     });
+    expect(fetchMock.mock.calls.filter(([url]) => typeof url === "string" && url.includes("/quantity-status"))).toHaveLength(2);
+    expect(screen.getByLabelText(`eBay quantity for ${variation.sku}`).textContent).toContain("2");
   });
 
   it("keeps price writes locked when polling changes the group before an ambiguous publish response", async () => {
@@ -1705,6 +1990,12 @@ describe("VariationListingsWorkspace", () => {
     });
     let resolveAction: ((response: Response) => void) | undefined;
     fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        groupId: active.groupId,
+        desiredRevision: active.desiredRevision,
+        lastConfirmedRevision: active.lastConfirmedRevision,
+        variations: [{variationId: variation.variationId, sku: variation.sku, ebayQuantity: 1, pendingAdjustment: 0, afterPublish: 1}],
+      }), {status: 200}))
       .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAction = resolve; }))
       .mockResolvedValueOnce(new Response(JSON.stringify({groups: [polled]}), {status: 200}))
       .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))

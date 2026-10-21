@@ -6,6 +6,7 @@ import type {SidecarErrorResponse, VariationListingActionResponse, VariationList
 type Props = {
   group: VariationListingGroup | null;
   capturePending: boolean;
+  mutationInFlight?: boolean;
   onGroupUpdated: (group: VariationListingGroup) => void;
   onActionSettled?: () => void;
   onActionStateChange?: (inFlight: boolean) => void;
@@ -48,7 +49,7 @@ function isStatus(value: unknown): value is VariationListingActionStatus {
     ["error", "warning"].includes(s.severity as string) && typeof s.requiresReconciliation === "boolean" && typeof s.userActionRequired === "boolean" && Array.isArray(s.issues) && Array.isArray(s.recommendedActions);
 }
 
-export function VariationPublicationPanel({group, capturePending, onGroupUpdated, onActionSettled, onActionStateChange}: Props) {
+export function VariationPublicationPanel({group, capturePending, mutationInFlight = false, onGroupUpdated, onActionSettled, onActionStateChange}: Props) {
   const [runningAction, setRunningAction] = useState<VariationListingActionRouteName | null>(null);
   const [status, setStatus] = useState<VariationListingActionStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +117,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
     (value.remoteState === "known_changed" && value.recommendedActions.some((action) => /refresh/i.test(action)));
 
   const runAction = useCallback(async (action: VariationListingActionRouteName) => {
-    if (!group || runningAction || actionLockRef.current || awaitingGroupRefresh) return;
+    if (!group || mutationInFlight || runningAction || actionLockRef.current || awaitingGroupRefresh) return;
     actionLockRef.current = true;
     actionRequestInFlightRef.current = true;
     refreshBaselineRef.current = groupStateSignature;
@@ -154,7 +155,7 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
       if (!actionLockRef.current) onActionStateChange?.(false);
       onActionSettled?.();
     }
-  }, [awaitingGroupRefresh, group, groupStateSignature, onActionSettled, onActionStateChange, onGroupUpdated, runningAction]);
+  }, [awaitingGroupRefresh, group, groupStateSignature, mutationInFlight, onActionSettled, onActionStateChange, onGroupUpdated, runningAction]);
 
   if (!group) return <section className="rounded-[1.5rem] border border-dashed border-stone-300 bg-white/65 p-6 text-center text-sm text-stone-500">Select a bucket to review publication readiness and revision state.</section>;
   const latest = group.journal.latestRevision;
@@ -163,19 +164,19 @@ export function VariationPublicationPanel({group, capturePending, onGroupUpdated
   const active = group.lifecycleState === "active" && confirmed;
   const blockedByRecovery = !!recovery && (recovery.retryStatus !== "not_applicable" || recovery.requiresReconciliation || recovery.remoteState === "unknown");
   const actionStateLocked = awaitingGroupRefresh || ambiguous;
-  const initialReady = !capturePending && !runningAction && !blockedByRecovery && !actionStateLocked && !confirmed && (group.lifecycleState === "review" || group.lifecycleState === "publish-ready") && group.validation.initialPublicationReady;
-  const changesReady = !capturePending && !runningAction && !blockedByRecovery && !actionStateLocked && active && group.validation.hasPendingChanges;
-  const retryReady = !capturePending && !runningAction && !actionStateLocked && recovery?.retryStatus === "safe_to_retry";
-  const reconcileReady = !capturePending && !runningAction && !actionStateLocked && recovery?.retryStatus === "reconciliation_required" && recovery.requiresReconciliation && recovery.reconciliationSupported === true;
+  const initialReady = !capturePending && !mutationInFlight && !runningAction && !blockedByRecovery && !actionStateLocked && !confirmed && (group.lifecycleState === "review" || group.lifecycleState === "publish-ready") && group.validation.initialPublicationReady;
+  const changesReady = !capturePending && !mutationInFlight && !runningAction && !blockedByRecovery && !actionStateLocked && active && group.validation.hasPendingChanges;
+  const retryReady = !capturePending && !mutationInFlight && !runningAction && !actionStateLocked && recovery?.retryStatus === "safe_to_retry";
+  const reconcileReady = !capturePending && !mutationInFlight && !runningAction && !actionStateLocked && recovery?.retryStatus === "reconciliation_required" && recovery.requiresReconciliation && recovery.reconciliationSupported === true;
   const reconcileUnavailable = recovery?.retryStatus === "reconciliation_required" && recovery.requiresReconciliation && recovery.reconciliationSupported === false;
-  const withdrawReady = !capturePending && !runningAction && !blockedByRecovery && !actionStateLocked && active && group.desiredRevision === group.lastConfirmedRevision;
-  const unpublishedBase = !confirmed && !blockedByRecovery && !actionStateLocked && !["abandoned", "withdrawn", "cleanup", "terminal-absent"].includes(group.lifecycleState);
+  const withdrawReady = !capturePending && !mutationInFlight && !runningAction && !blockedByRecovery && !actionStateLocked && active && group.desiredRevision === group.lastConfirmedRevision;
+  const unpublishedBase = !mutationInFlight && !confirmed && !blockedByRecovery && !actionStateLocked && !["abandoned", "withdrawn", "cleanup", "terminal-absent"].includes(group.lifecycleState);
   const hasClearRecoveryState = !!recovery && recovery.retryStatus === "not_applicable" && !recovery.requiresReconciliation && recovery.remoteState !== "unknown";
   const hasFrozenUnpublishedRevision = unpublishedBase && hasClearRecoveryState && latest !== null && latest.revisionId.length > 0 && latest.capturedDesiredRevision === group.desiredRevision;
   const abandonReady = unpublishedBase && (group.desiredRevision === 0 || hasFrozenUnpublishedRevision);
   const cleanupReady = unpublishedBase && hasFrozenUnpublishedRevision;
   const currentRevision = latest !== null && typeof latest.revisionId === "string" && latest.revisionId.trim() !== "" && latest.capturedDesiredRevision === group.desiredRevision;
-  const returnToReviewReady = !capturePending && !runningAction && !actionStateLocked && !confirmed && currentRevision && hasClearRecoveryState && (
+  const returnToReviewReady = !capturePending && !mutationInFlight && !runningAction && !actionStateLocked && !confirmed && currentRevision && hasClearRecoveryState && (
     group.lifecycleState === "publish-ready" ||
     group.lifecycleState === "abandoned" && hasTerminalCleanupEvidence(latest)
   );

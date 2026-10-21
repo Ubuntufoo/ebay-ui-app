@@ -1035,6 +1035,7 @@ export function VariationListingsWorkspace({
         key={selectedGroup?.groupId ?? "empty"}
         group={selectedGroup}
         capturePending={pendingPair !== null}
+        mutationInFlight={publicationActionInFlight}
         onActionSettled={retryIntakeSession}
         onActionStateChange={setPublicationActionInFlight}
         onGroupUpdated={replaceGroup}
@@ -1044,6 +1045,7 @@ export function VariationListingsWorkspace({
         group={selectedGroup}
         intakeSession={intakeSession}
         writesBlocked={writesBlocked}
+        onMutationStateChange={setPublicationActionInFlight}
         onArmDuplicate={armDuplicateCapture}
         onGroupUpdated={replaceGroup}
         duplicateCaptureAvailable={copyConditionValid && selectedGroupCaptureEligible}
