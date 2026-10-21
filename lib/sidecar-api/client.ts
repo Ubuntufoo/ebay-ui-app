@@ -19,6 +19,7 @@ import type {
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
   UpdateVariationListingRepresentativeCopyInput,
+  UpdateVariationListingQuantityAdjustmentInput,
   UpdateVariationListingReviewDraftInput,
   UpdateVariationListingSelectorValueInput,
   UpdateAppSettingsInput,
@@ -28,6 +29,7 @@ import type {
   VariationListingIntakeSession,
   VariationListingIntakeSessionResponse,
   VariationListingGroupsResponse,
+  VariationListingQuantityStatus,
   VariationListingGeneratedReviewDraft,
   VariationListingActionInput,
   VariationListingActionResponse,
@@ -161,6 +163,14 @@ export async function getVariationListingCreationDefaults(): Promise<VariationLi
   return response.creationDefaults;
 }
 
+export async function getVariationListingQuantityStatus(
+  groupId: string,
+): Promise<VariationListingQuantityStatus> {
+  return await sidecarFetch<VariationListingQuantityStatus>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/quantity-status`,
+  );
+}
+
 export async function createVariationListingGroup(
   input: CreateVariationListingGroupInput,
 ): Promise<VariationListingGroup> {
@@ -220,6 +230,17 @@ export async function updateVariationListingRepresentativeCopy(
 ): Promise<VariationListingGroup> {
   return await sidecarFetch<VariationListingGroup>(
     `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/representative-copy`,
+    buildJsonRequestInit("PATCH", input),
+  );
+}
+
+export async function updateVariationListingQuantityAdjustment(
+  groupId: string,
+  variationId: string,
+  input: UpdateVariationListingQuantityAdjustmentInput,
+): Promise<VariationListingGroup> {
+  return await sidecarFetch<VariationListingGroup>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/quantity-adjustment`,
     buildJsonRequestInit("PATCH", input),
   );
 }

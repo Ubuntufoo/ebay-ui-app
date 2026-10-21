@@ -436,6 +436,26 @@ export interface UpdateVariationListingRepresentativeCopyInput {
   copyId: string;
 }
 
+export interface UpdateVariationListingQuantityAdjustmentInput {
+  expectedDesiredRevision: number;
+  delta: -1 | 1;
+}
+
+export interface VariationListingQuantityStatusVariation {
+  variationId: string;
+  sku: string;
+  ebayQuantity: number;
+  pendingAdjustment: number;
+  afterPublish: number;
+}
+
+export interface VariationListingQuantityStatus {
+  groupId: string;
+  desiredRevision: number;
+  lastConfirmedRevision: number;
+  variations: VariationListingQuantityStatusVariation[];
+}
+
 export interface UpdateVariationListingSelectorValueInput {
   expectedDesiredRevision: number;
   selectorValue: string;
@@ -546,6 +566,7 @@ export interface VariationListingVariation {
   selectorValue: string;
   priceAmount: VariationListingManualPriceAmount;
   priceCurrency: "USD";
+  quantityAdjustmentCounter: number;
   representativeCopyId: string | null;
   copyCount: number;
   variationMetadata: JsonObject;

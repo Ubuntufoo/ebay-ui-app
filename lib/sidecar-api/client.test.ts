@@ -14,6 +14,7 @@ import {
   dismissPricingAnalysisWarnings,
   enqueueGenerateAi,
   getVariationListingIntakeSession,
+  getVariationListingQuantityStatus,
   generateVariationListingReviewDraft,
   listVariationListingGroups,
   runVariationListingAction,
@@ -23,6 +24,7 @@ import {
   updateAppSettings,
   updateListing,
   updateVariationListingRepresentativeCopy,
+  updateVariationListingQuantityAdjustment,
   updateVariationListingReviewDraft,
   updateVariationListingSelectorValue,
 } from "@/lib/sidecar-api/client";
@@ -161,6 +163,73 @@ describe("variation listing intake session", () => {
       }),
     );
     expect(fetchMock.mock.calls[0]?.[1]).not.toHaveProperty("body");
+  });
+});
+
+describe("variation listing quantity status", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads the encoded authoritative quantity status endpoint", async () => {
+    const status = {
+      groupId: "group/1",
+      desiredRevision: 4,
+      lastConfirmedRevision: 3,
+      variations: [{variationId: "variation/2", sku: "SKU-2", ebayQuantity: 1, pendingAdjustment: 1, afterPublish: 2}],
+    };
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(status), {status: 200}));
+
+    await expect(getVariationListingQuantityStatus("group/1")).resolves.toEqual(status);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/quantity-status",
+      expect.objectContaining({cache: "no-store"}),
+    );
+  });
+});
+
+describe("variation listing quantity adjustment", () => {
+  beforeEach(() => {
+    getSidecarConfigMock.mockReset();
+    fetchMock.mockReset();
+    getSidecarConfigMock.mockReturnValue({
+      apiUrl: "http://sidecar.example",
+      bearerToken: "secret-token",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("patches the encoded quantity adjustment endpoint with CAS input", async () => {
+    const group = {groupId: "group/1", desiredRevision: 4};
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(group), {status: 200}));
+
+    await expect(
+      updateVariationListingQuantityAdjustment("group/1", "variation/2", {
+        expectedDesiredRevision: 3,
+        delta: -1,
+      }),
+    ).resolves.toEqual(group);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/variations/variation%2F2/quantity-adjustment",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({expectedDesiredRevision: 3, delta: -1}),
+      }),
+    );
   });
 });
 
