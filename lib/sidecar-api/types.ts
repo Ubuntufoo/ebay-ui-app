@@ -441,12 +441,19 @@ export interface UpdateVariationListingQuantityAdjustmentInput {
   delta: -1 | 1;
 }
 
+export interface StageVariationListingPermanentRemovalInput {
+  expectedDesiredRevision: number;
+  remove: boolean;
+}
+
 export interface VariationListingQuantityStatusVariation {
   variationId: string;
   sku: string;
   ebayQuantity: number;
   pendingAdjustment: number;
   afterPublish: number;
+  /** True only when fresh eBay Item and Offer quantities both equal zero. */
+  soldOutRemovalEligible?: boolean;
 }
 
 export interface VariationListingQuantityStatus {
@@ -567,6 +574,7 @@ export interface VariationListingVariation {
   priceAmount: VariationListingManualPriceAmount;
   priceCurrency: "USD";
   quantityAdjustmentCounter: number;
+  pendingRemovalAt?: string | null;
   representativeCopyId: string | null;
   copyCount: number;
   variationMetadata: JsonObject;

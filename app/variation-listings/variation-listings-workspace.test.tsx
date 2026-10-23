@@ -115,6 +115,44 @@ function buildVariation(
   };
 }
 
+function buildSoldOutRemovalFixture() {
+  const target = buildVariation();
+  const survivorA = buildVariation({
+    variationId: "variation-2",
+    position: 1,
+    sku: "BSKBL-McGrady-000244",
+    selectorValue: "2004 Topps",
+  });
+  const survivorB = buildVariation({
+    variationId: "variation-3",
+    position: 2,
+    sku: "BSKBL-McGrady-000245",
+    selectorValue: "2005 Topps",
+  });
+  const group = buildGroup({
+    lifecycleState: "active",
+    desiredRevision: 3,
+    lastConfirmedRevision: 3,
+    variations: [target, survivorA, survivorB],
+    variationCount: 3,
+    validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+  });
+  const status = (desiredRevision: number, eligible: unknown) => ({
+    groupId: group.groupId,
+    desiredRevision,
+    lastConfirmedRevision: 3,
+    variations: group.variations.map((variation) => ({
+      variationId: variation.variationId,
+      sku: variation.sku,
+      ebayQuantity: variation.variationId === target.variationId ? 0 : 1,
+      pendingAdjustment: 0,
+      afterPublish: variation.variationId === target.variationId ? 0 : 1,
+      ...(variation.variationId === target.variationId ? {soldOutRemovalEligible: eligible} : {soldOutRemovalEligible: false}),
+    })),
+  });
+  return {group, status, survivorA, survivorB, target};
+}
+
 describe("VariationListingsWorkspace", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -1580,6 +1618,251 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getByLabelText(`Projected quantity after publish for ${original.sku}`).textContent).toContain("2");
     expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", false);
     expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/actions/publish-changes"))).toBe(false);
+  });
+
+  it("requires exact zero eligibility and two explicit confirmations before staging, then allows local cancellation without publishing", async () => {
+    const {group, status, survivorA, survivorB, target} = buildSoldOutRemovalFixture();
+    const staged = buildGroup({
+      ...group,
+      desiredRevision: 4,
+      variations: [{...target, pendingRemovalAt: "2026-10-22T20:00:00.000Z"}, survivorA, survivorB],
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    const cancelled = buildGroup({
+      ...staged,
+      desiredRevision: 5,
+      variations: [{...target, pendingRemovalAt: null}, survivorA, survivorB],
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    let resolveReload: ((response: Response) => void) | undefined;
+    const reload = new Promise<Response>((resolve) => { resolveReload = resolve; });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(status(3, true)), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify(staged), {status: 200}))
+      .mockReturnValueOnce(reload)
+      .mockResolvedValueOnce(new Response(JSON.stringify(cancelled), {status: 200}))
+      .mockResolvedValue(new Response(JSON.stringify(status(5, false)), {status: 200}));
+
+    render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
+    await act(async () => await Promise.resolve());
+
+    const remove = screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!;
+    expect(remove).toHaveProperty("disabled", false);
+    fireEvent.click(remove);
+    const confirm = screen.getByRole("button", {name: "Confirm stage removal"});
+    expect(confirm).toHaveProperty("disabled", true);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
+    expect(confirm).toHaveProperty("disabled", true);
+    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(confirm);
+    await act(async () => await Promise.resolve());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/variation-listings/${group.groupId}/variations/${target.variationId}/permanent-removal`,
+      expect.objectContaining({method: "PATCH", body: JSON.stringify({expectedDesiredRevision: 3, remove: true})}),
+    );
+    expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/actions/publish-changes"))).toBe(false);
+    expect(screen.getByText(`Removal staged locally for ${target.sku}. No eBay change yet. Use Publish Changes to remove the zero-stock SKU, or Cancel removal.`)).not.toBeNull();
+    expect(screen.getAllByRole("button", {name: "Save price"}).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+
+    const cancel = screen.getByRole("button", {name: "Cancel removal"}) as HTMLButtonElement;
+    expect(cancel.disabled).toBe(false);
+    fireEvent.click(cancel);
+    await act(async () => await Promise.resolve());
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/variation-listings/${group.groupId}/variations/${target.variationId}/permanent-removal`,
+      expect.objectContaining({method: "PATCH", body: JSON.stringify({expectedDesiredRevision: 4, remove: false})}),
+    );
+    resolveReload?.(new Response(JSON.stringify(status(4, false)), {status: 200}));
+  });
+
+  it.each([
+    ["missing", undefined],
+    ["non-boolean", "true"],
+    ["false", false],
+  ])("fails closed when the zero-quantity removal hint is %s", async (_label, eligible) => {
+    const {group, status} = buildSoldOutRemovalFixture();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(status(3, eligible)), {status: 200}));
+
+    render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getAllByRole("button", {name: "Remove sold-out SKU"}).every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+    expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/permanent-removal"))).toBe(false);
+  });
+
+  it("reloads eligibility after a Sidecar conflict without auto-publishing", async () => {
+    const {group, status, target} = buildSoldOutRemovalFixture();
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(status(3, true)), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({error: "eBay quantities no longer zero"}), {status: 409}))
+      .mockResolvedValueOnce(new Response(JSON.stringify(status(3, true)), {status: 200}));
+
+    render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
+    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByText("eBay quantities no longer zero")).not.toBeNull();
+    expect(fetchMock.mock.calls.filter(([url]) => typeof url === "string" && url.includes("/quantity-status"))).toHaveLength(2);
+    expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/actions/publish-changes"))).toBe(false);
+    expect(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]).toHaveProperty("disabled", false);
+  });
+
+  it("rejects a malformed staged survivor set and reloads the bucket before releasing locks", async () => {
+    const {group, status, survivorA, target} = buildSoldOutRemovalFixture();
+    const malformed = {
+      ...group,
+      desiredRevision: 4,
+      variations: [{...target, pendingRemovalAt: "2026-10-22T20:00:00.000Z"}, survivorA, survivorA],
+    };
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(status(3, true)), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify(malformed), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [group]}), {status: 200}))
+      .mockResolvedValue(new Response(JSON.stringify(status(3, true)), {status: 200}));
+
+    render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
+    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/variation-listings", expect.objectContaining({cache: "no-store"}));
+    expect(screen.getByText("Removal staging outcome was unknown; current bucket state was reloaded. Review it before retrying.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Refresh eBay qty"})).toHaveProperty("disabled", false);
+  });
+
+  it("disables Arm capture for a pending-removal bucket while preserving Disarm", () => {
+    const {group, target} = buildSoldOutRemovalFixture();
+    const pending = buildGroup({
+      ...group,
+      variations: [{...target, pendingRemovalAt: "2026-10-22T20:00:00.000Z"}, ...group.variations.slice(1)],
+      desiredRevision: 4,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[pending]}
+        initialIntakeSession={buildSession({mode: "new_variation", targetGroupId: pending.groupId})}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Disarm"})).toHaveProperty("disabled", false);
+    expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/intake-session"))).toBe(false);
+  });
+
+  it.each([
+    ["omitted group", () => ({groups: []})],
+    ["stale revision", (group: VariationListingGroup) => ({groups: [buildGroup({...group, desiredRevision: group.desiredRevision - 1})]})],
+    ["foreign group", () => ({groups: [buildGroup({groupId: "22222222-2222-4222-8222-222222222222"})]})],
+    ["survivor identity change", (group: VariationListingGroup) => ({groups: [buildGroup({
+      ...group,
+      desiredRevision: group.desiredRevision + 1,
+      variations: group.variations.map((variation, index) => index === 1 ? {...variation, variationId: "foreign-survivor"} : index === 0 ? {...variation, pendingRemovalAt: "2026-10-22T20:00:00.000Z"} : variation),
+    })]})],
+    ["survivor SKU change", (group: VariationListingGroup) => ({groups: [buildGroup({
+      ...group,
+      desiredRevision: group.desiredRevision + 1,
+      variations: group.variations.map((variation, index) => index === 1 ? {...variation, sku: "BSKBL-McGrady-foreign"} : index === 0 ? {...variation, pendingRemovalAt: "2026-10-22T20:00:00.000Z"} : variation),
+    })]})],
+    ["contradictory staged marker", (group: VariationListingGroup) => ({groups: [buildGroup({
+      ...group,
+      desiredRevision: group.desiredRevision + 1,
+      variations: group.variations.map((variation, index) => index === 0 ? {...variation, pendingRemovalAt: null} : variation),
+    })]})],
+  ])("keeps the removal lock for an ambiguous %s refresh", async (_label, buildRefreshPayload) => {
+    const {group, status, target} = buildSoldOutRemovalFixture();
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(status(3, true)), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify(buildRefreshPayload(group)), {status: 200}));
+
+    render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
+    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Removal staging outcome is unknown or its authoritative group revision/removal state could not be verified. Controls remain locked; reload the page and inspect the SKU before any further action.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+    expect(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]).toHaveProperty("disabled", true);
+  });
+
+  it("keeps the removal lock when local state advances during an ambiguous response", async () => {
+    const {group, status, target} = buildSoldOutRemovalFixture();
+    let resolveStage: ((response: Response) => void) | undefined;
+    const pendingStage = new Promise<Response>((resolve) => { resolveStage = resolve; });
+    const collision = buildGroup({
+      ...group,
+      desiredRevision: 4,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(status(3, true)), {status: 200}))
+      .mockReturnValueOnce(pendingStage)
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [collision]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [group]}), {status: 200}));
+
+    render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={20} />);
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
+    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+    resolveStage?.(new Response(JSON.stringify({}), {status: 200}));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Removal staging outcome is unknown or its authoritative group revision/removal state could not be verified. Controls remain locked; reload the page and inspect the SKU before any further action.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+  });
+
+  it("accepts an exact +1 staged target from a fresh authoritative refresh", async () => {
+    const {group, status, target} = buildSoldOutRemovalFixture();
+    const staged = buildGroup({
+      ...group,
+      desiredRevision: 4,
+      variations: [{...target, pendingRemovalAt: "2026-10-22T20:00:00.000Z"}, ...group.variations.slice(1)],
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(status(3, true)), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [staged]}), {status: 200}));
+
+    render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
+    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Removal staging outcome was unknown; current bucket state was reloaded. Review it before retrying.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", {name: "Cancel removal"})).toHaveProperty("disabled", false);
   });
 
   it("does not expose manual quantity controls for an unconfirmed active variation", async () => {

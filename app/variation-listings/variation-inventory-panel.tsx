@@ -58,6 +58,7 @@ function isQuantityStatus(
       typeof entry.sku !== "string" || entry.sku.length === 0 ||
       expectedSkus.get(entry.variationId) !== entry.sku ||
       !isSignedInt32(entry.ebayQuantity) || entry.ebayQuantity < 0 ||
+      (entry.soldOutRemovalEligible !== undefined && typeof entry.soldOutRemovalEligible !== "boolean") ||
       !isQuantityAdjustment(entry.pendingAdjustment) ||
       !isProjectedQuantity(entry.afterPublish) ||
       entry.afterPublish !== entry.ebayQuantity + entry.pendingAdjustment
@@ -65,6 +66,33 @@ function isQuantityStatus(
     ids.add(entry.variationId);
   }
   return true;
+}
+
+function isUpdatedRemovalGroup(
+  value: unknown,
+  group: VariationListingGroup,
+  variation: VariationListingVariation,
+  remove: boolean,
+): value is VariationListingGroup {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<VariationListingGroup>;
+  if (
+    candidate.groupId !== group.groupId ||
+    candidate.desiredRevision !== group.desiredRevision + 1 ||
+    typeof candidate.lifecycleState !== "string" ||
+    typeof candidate.updatedAt !== "string" ||
+    !candidate.validation || typeof candidate.validation !== "object" ||
+    !candidate.journal || typeof candidate.journal !== "object" ||
+    !Array.isArray(candidate.variations)
+  ) return false;
+  if (candidate.variations.length !== group.variations.length) return false;
+  const expectedSkus = new Map(group.variations.map((row) => [row.variationId, row.sku]));
+  const returnedIds = new Set(candidate.variations.map((row) => row?.variationId));
+  if (returnedIds.size !== expectedSkus.size || candidate.variations.some((row) => !row || typeof row !== "object" || expectedSkus.get(row.variationId) !== row.sku)) return false;
+  const target = candidate.variations.find((row) =>
+    row && typeof row === "object" && row.variationId === variation.variationId && row.sku === variation.sku,
+  );
+  return Boolean(target && (target.pendingRemovalAt != null) === remove);
 }
 
 function rebaseQuantityStatus(
@@ -91,11 +119,23 @@ function rebaseQuantityStatus(
   return {...status, desiredRevision: after.desiredRevision};
 }
 
+export type RemovalRefreshExpectation = {
+  groupId: string;
+  variationId: string;
+  sku: string;
+  originalRevision: number;
+  originalConfirmedRevision: number;
+  originalPending: boolean;
+  requestedPending: boolean;
+  variationIdentities: ReadonlyArray<{variationId: string; sku: string}>;
+};
+
 type VariationInventoryPanelProps = {
   group: VariationListingGroup | null;
   intakeSession: VariationListingIntakeSession | null;
   writesBlocked: boolean;
   onMutationStateChange: (inFlight: boolean) => void;
+  onRefreshGroup: (expected: RemovalRefreshExpectation) => Promise<boolean>;
   onArmDuplicate: (variation: VariationListingVariation) => void;
   onGroupUpdated: (group: VariationListingGroup) => void;
   duplicateCaptureAvailable: boolean;
@@ -187,6 +227,7 @@ export function VariationInventoryPanel({
   intakeSession,
   writesBlocked,
   onMutationStateChange,
+  onRefreshGroup,
   onArmDuplicate,
   onGroupUpdated,
   duplicateCaptureAvailable,
@@ -202,6 +243,8 @@ export function VariationInventoryPanel({
   const [priceDrafts, setPriceDrafts] = useState<Record<string, PriceDraft>>({});
   const [priceWrite, setPriceWrite] = useState<string | null>(null);
   const [quantityWrite, setQuantityWrite] = useState<string | null>(null);
+  const [removalWrite, setRemovalWrite] = useState<string | null>(null);
+  const [removalConfirm, setRemovalConfirm] = useState<{groupId: string; variationId: string; sku: string; revision: number; stock: boolean; noRestock: boolean} | null>(null);
   const [quantityStatus, setQuantityStatus] = useState<VariationListingQuantityStatus | null>(null);
   const [quantityStatusLoading, setQuantityStatusLoading] = useState(false);
   const [quantityStatusError, setQuantityStatusError] = useState<string | null>(null);
@@ -215,6 +258,7 @@ export function VariationInventoryPanel({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setSelectorDrafts({});
+    setRemovalConfirm(null);
   }, [group?.groupId, group?.desiredRevision]);
 
   // Preserve unsaved price choices across polling; clear them on bucket switches.
@@ -298,7 +342,7 @@ export function VariationInventoryPanel({
 
   const setRepresentative = useCallback(
     async (variation: VariationListingVariation, copyId: string) => {
-      if (!group || writesBlocked || representativeWrite || selectorWrite || priceWrite || quantityWrite) return;
+      if (!group || writesBlocked || group.variations.some((item) => item.pendingRemovalAt != null) || representativeWrite || selectorWrite || priceWrite || quantityWrite || removalWrite) return;
       const writeKey = `${variation.variationId}:${copyId}`;
       setRepresentativeWrite(writeKey);
       onMutationStateChange(true);
@@ -348,12 +392,12 @@ export function VariationInventoryPanel({
         onMutationStateChange(false);
       }
     },
-    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, representativeWrite, selectorWrite, writesBlocked],
+    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, removalWrite, representativeWrite, selectorWrite, writesBlocked],
   );
 
   const saveSelectorValue = useCallback(
     async (variation: VariationListingVariation) => {
-      if (!group || writesBlocked || selectorWrite || quantityWrite || priceWrite || representativeWrite) return;
+      if (!group || writesBlocked || group.variations.some((item) => item.pendingRemovalAt != null) || selectorWrite || quantityWrite || priceWrite || representativeWrite || removalWrite) return;
       const selectorValue = (selectorDrafts[variation.variationId] ?? variation.selectorValue).trim();
       if (selectorValue.length > 65) {
         setActionError("Card selector must be 65 characters or fewer for eBay.");
@@ -410,12 +454,12 @@ export function VariationInventoryPanel({
         onMutationStateChange(false);
       }
     },
-    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, representativeWrite, selectorDrafts, selectorWrite, writesBlocked],
+    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, removalWrite, representativeWrite, selectorDrafts, selectorWrite, writesBlocked],
   );
 
   const savePrice = useCallback(
     async (variation: VariationListingVariation) => {
-      if (!group || writesBlocked || priceWrite !== null || quantityWrite !== null || selectorWrite !== null || representativeWrite !== null) return;
+      if (!group || writesBlocked || group.variations.some((item) => item.pendingRemovalAt != null) || removalWrite !== null || priceWrite !== null || quantityWrite !== null || selectorWrite !== null || representativeWrite !== null) return;
       const draft = priceDrafts[variation.variationId]?.groupId === group.groupId
         ? priceDrafts[variation.variationId]
         : undefined;
@@ -479,13 +523,13 @@ export function VariationInventoryPanel({
         onMutationStateChange(false);
       }
     },
-    [group, onGroupUpdated, onMutationStateChange, priceDrafts, priceWrite, quantityWrite, representativeWrite, selectorWrite, writesBlocked],
+    [group, onGroupUpdated, onMutationStateChange, priceDrafts, priceWrite, quantityWrite, removalWrite, representativeWrite, selectorWrite, writesBlocked],
   );
 
   const stageQuantityAdjustment = useCallback(
     async (variation: VariationListingVariation, delta: -1 | 1) => {
       if (!group || group.lifecycleState !== "active" || quantityWrite !== null) return;
-      if (writesBlocked || priceWrite !== null || selectorWrite !== null || representativeWrite !== null) return;
+      if (writesBlocked || group.variations.some((item) => item.pendingRemovalAt != null) || removalWrite !== null || priceWrite !== null || selectorWrite !== null || representativeWrite !== null) return;
       if (!isSignedInt32(variation.quantityAdjustmentCounter) || !isSignedInt32(variation.quantityAdjustmentCounter + delta)) return;
       const recovery = group.journal.latestRevision?.recovery;
       if (
@@ -541,8 +585,71 @@ export function VariationInventoryPanel({
         onMutationStateChange(false);
       }
     },
-    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, representativeWrite, selectorWrite, writesBlocked],
+    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, removalWrite, representativeWrite, selectorWrite, writesBlocked],
   );
+
+  const stageRemoval = useCallback(async (variation: VariationListingVariation, remove: boolean) => {
+    if (!group || writesBlocked || removalWrite !== null || quantityWrite !== null || priceWrite !== null || selectorWrite !== null || representativeWrite !== null) return;
+    if (group.lifecycleState !== "active" || group.lastConfirmedRevision === null) return;
+    const pending = variation.pendingRemovalAt != null;
+    const status = quantityStatus?.groupId === group.groupId && quantityStatus.desiredRevision === group.desiredRevision && quantityStatus.lastConfirmedRevision === group.lastConfirmedRevision
+      ? quantityStatus.variations.find((v) => v.variationId === variation.variationId && v.sku === variation.sku)
+      : null;
+    if (remove ? pending || status?.soldOutRemovalEligible !== true || group.variations.length < 3 || group.desiredRevision !== group.lastConfirmedRevision : !pending) return;
+    const current = removalConfirm;
+    if (remove && (!current || current.groupId !== group.groupId || current.variationId !== variation.variationId || current.sku !== variation.sku || current.revision !== group.desiredRevision || !current.stock || !current.noRestock)) return;
+    setRemovalWrite(variation.variationId);
+    onMutationStateChange(true);
+    setActionError(null);
+    setRemovalConfirm(null);
+    let response: Response | null = null;
+    let releaseWriteLock = false;
+    try {
+      response = await fetch(`/api/variation-listings/${encodeURIComponent(group.groupId)}/variations/${encodeURIComponent(variation.variationId)}/permanent-removal`, {
+        method: "PATCH", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({expectedDesiredRevision: group.desiredRevision, remove}),
+      });
+      const payload = (await response.json().catch(() => null)) as VariationListingGroup | {error?: string} | null;
+      if (!response.ok || !isUpdatedRemovalGroup(payload, group, variation, remove)) {
+        throw new Error(payload && "error" in payload && typeof payload.error === "string" ? payload.error : "Removal staging returned an invalid or stale response.");
+      }
+      releaseWriteLock = true;
+      quantityRequestIdRef.current += 1;
+      setQuantityStatus(null);
+      quantityAutoRefreshKeyRef.current = null;
+      onGroupUpdated(payload);
+    } catch (error) {
+      quantityRequestIdRef.current += 1;
+      setQuantityStatus(null);
+      quantityAutoRefreshKeyRef.current = null;
+      const rejected = response !== null && response.status >= 400 && response.status < 500;
+      if (rejected) {
+        setActionError(error instanceof Error ? error.message : "Unable to update removal intent. Refresh the bucket before retrying.");
+        quantityAutoRefreshKeyRef.current = `${group.groupId}:${group.lastConfirmedRevision}`;
+        void loadQuantityStatus();
+      } else {
+        const refreshed = await onRefreshGroup({
+          groupId: group.groupId,
+          variationId: variation.variationId,
+          sku: variation.sku,
+          originalRevision: group.desiredRevision,
+          originalConfirmedRevision: group.lastConfirmedRevision,
+          originalPending: pending,
+          requestedPending: remove,
+          variationIdentities: group.variations.map((row) => ({variationId: row.variationId, sku: row.sku})),
+        });
+        if (refreshed) {
+          releaseWriteLock = true;
+          setActionError("Removal staging outcome was unknown; current bucket state was reloaded. Review it before retrying.");
+        } else {
+          setActionError("Removal staging outcome is unknown or its authoritative group revision/removal state could not be verified. Controls remain locked; reload the page and inspect the SKU before any further action.");
+        }
+      }
+    } finally {
+      setRemovalWrite(null);
+      if (releaseWriteLock || (response !== null && response.status >= 400 && response.status < 500)) onMutationStateChange(false);
+    }
+  }, [group, writesBlocked, removalWrite, quantityWrite, priceWrite, selectorWrite, representativeWrite, quantityStatus, removalConfirm, loadQuantityStatus, onMutationStateChange, onGroupUpdated, onRefreshGroup]);
 
   const rebasePriceDraft = useCallback(
     (variation: VariationListingVariation) => {
@@ -643,12 +750,12 @@ export function VariationInventoryPanel({
             const selectedPrice = priceDraft?.amount ?? variation.priceAmount;
             const priceChanged = selectedPrice !== variation.priceAmount;
             const recovery = group.journal.latestRevision?.recovery;
-            const priceLocked = writesBlocked || priceWrite !== null || quantityWrite !== null || selectorWrite !== null || representativeWrite !== null ||
+            const priceLocked = group.variations.some((item) => item.pendingRemovalAt != null) || removalWrite !== null || writesBlocked || priceWrite !== null || quantityWrite !== null || selectorWrite !== null || representativeWrite !== null ||
               !["intake", "draft", "review", "active"].includes(group.lifecycleState) ||
               Boolean(recovery && (recovery.requiresReconciliation || recovery.remoteState === "unknown" || recovery.retryStatus !== "not_applicable")) ||
               Boolean(group.journal.latestRevision?.operations.some((operation) => ["started", "unknown", "retry_authorized"].includes(operation.state)));
             const priceRevisionStale = priceDraft !== undefined && priceDraft.baseRevision !== group.desiredRevision;
-            const quantityLocked = writesBlocked || quantityWrite !== null || priceWrite !== null || selectorWrite !== null || representativeWrite !== null ||
+            const quantityLocked = group.variations.some((item) => item.pendingRemovalAt != null) || removalWrite !== null || writesBlocked || quantityWrite !== null || priceWrite !== null || selectorWrite !== null || representativeWrite !== null ||
               group.lifecycleState !== "active" ||
               Boolean(recovery && (recovery.requiresReconciliation || recovery.remoteState === "unknown" || recovery.retryStatus !== "not_applicable")) ||
               Boolean(group.journal.latestRevision?.operations.some((operation) => ["started", "unknown", "retry_authorized"].includes(operation.state)));
@@ -660,7 +767,15 @@ export function VariationInventoryPanel({
             const remoteQuantity = quantityStatusCurrent
               ? quantityStatus.variations.find((entry) => entry.variationId === variation.variationId && entry.sku === variation.sku) ?? null
               : null;
-            const quantityAdjustmentLocked = quantityLocked || quantityStatusLoading || remoteQuantity === null || !quantityCounterValid;
+            const anyRemovalPending = group.variations.some((item) => item.pendingRemovalAt != null);
+            const pendingRemoval = variation.pendingRemovalAt != null;
+            const completeQuantityStatus = quantityStatusCurrent && quantityStatus.variations.length === group.variations.length;
+            const removalLocked = writesBlocked || removalWrite !== null || quantityWrite !== null || priceWrite !== null || selectorWrite !== null || representativeWrite !== null ||
+              Boolean(recovery && (recovery.requiresReconciliation || recovery.remoteState === "unknown" || recovery.retryStatus !== "not_applicable")) ||
+              Boolean(group.journal.latestRevision?.operations.some((operation) => ["started", "unknown", "retry_authorized"].includes(operation.state)));
+            const removalEligible = !removalLocked && !quantityStatusLoading && completeQuantityStatus && !anyRemovalPending && group.desiredRevision === group.lastConfirmedRevision && group.variations.length >= 3 && remoteQuantity?.soldOutRemovalEligible === true;
+            const confirmation = removalConfirm?.groupId === group.groupId && removalConfirm.variationId === variation.variationId && removalConfirm.sku === variation.sku && removalConfirm.revision === group.desiredRevision ? removalConfirm : null;
+            const quantityAdjustmentLocked = quantityLocked || anyRemovalPending || removalWrite !== null || quantityStatusLoading || remoteQuantity === null || !quantityCounterValid;
             return (
               <article key={variation.variationId} className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -681,13 +796,13 @@ export function VariationInventoryPanel({
                           onChange={(event) => setSelectorDrafts((current) => ({...current, [variation.variationId]: event.target.value}))}
                           maxLength={65}
                           aria-invalid={selectorOverLimit}
-                          disabled={writesBlocked || quantityWrite !== null || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null}
+                          disabled={writesBlocked || removalWrite !== null || group.variations.some((item) => item.pendingRemovalAt != null) || quantityWrite !== null || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null}
                           className={`min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm font-semibold normal-case tracking-normal text-stone-950 disabled:bg-stone-100 ${selectorOverLimit ? "border-rose-500 bg-rose-50" : "border-stone-300 bg-white"}`}
                         />
                         <button
                           type="button"
                           onClick={() => void saveSelectorValue(variation)}
-                          disabled={writesBlocked || quantityWrite !== null || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null || selectorOverLimit || !(selectorDrafts[variation.variationId] ?? "").trim() || selectorValue.trim() === variation.selectorValue}
+                          disabled={writesBlocked || removalWrite !== null || group.variations.some((item) => item.pendingRemovalAt != null) || quantityWrite !== null || !["intake", "draft", "review"].includes(group.lifecycleState) || selectorWrite !== null || selectorOverLimit || !(selectorDrafts[variation.variationId] ?? "").trim() || selectorValue.trim() === variation.selectorValue}
                           className="rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {selectorWrite === variation.variationId ? "Saving…" : "Save selector"}
@@ -765,10 +880,21 @@ export function VariationInventoryPanel({
                         </span>
                       )
                     ) : null}
+                    {group.lifecycleState === "active" && group.lastConfirmedRevision !== null ? (
+                      pendingRemoval ? (
+                        <button type="button" onClick={() => void stageRemoval(variation, false)} disabled={removalLocked}
+                          className="rounded-full border border-amber-600 px-3 py-1.5 text-xs font-bold text-amber-900 disabled:opacity-40">
+                          {removalWrite === variation.variationId ? "Cancelling…" : "Cancel removal"}
+                        </button>
+                      ) : (
+                        <button type="button" disabled={!removalEligible} onClick={() => setRemovalConfirm({groupId: group.groupId, variationId: variation.variationId, sku: variation.sku, revision: group.desiredRevision, stock: false, noRestock: false})}
+                          className="rounded-full border border-rose-400 px-3 py-1.5 text-xs font-bold text-rose-800 disabled:opacity-40">Remove sold-out SKU</button>
+                      )
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => onArmDuplicate(variation)}
-                      disabled={writesBlocked || quantityWrite !== null || duplicateArmed || !duplicateCaptureAvailable}
+                      disabled={writesBlocked || anyRemovalPending || removalWrite !== null || quantityWrite !== null || duplicateArmed || !duplicateCaptureAvailable}
                       className="rounded-full bg-stone-950 px-3 py-1.5 text-xs font-bold text-white transition enabled:hover:bg-stone-800 disabled:cursor-not-allowed disabled:bg-stone-300 disabled:text-stone-600"
                     >
                       {duplicateArmed ? "Duplicate armed" : "Capture duplicate"}
@@ -776,6 +902,16 @@ export function VariationInventoryPanel({
                   </div>
                 </div>
 
+                {pendingRemoval ? <p className="mt-2 text-xs font-bold text-amber-900">Removal staged locally for {variation.sku}. No eBay change yet. Use Publish Changes to remove the zero-stock SKU, or Cancel removal.</p> : null}
+                {confirmation ? (
+                  <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-950">
+                    <p className="font-bold">Stage removal for exact SKU: {variation.sku}</p>
+                    <p className="mt-1">This stages removal only. Publish Changes will later remove this SKU from the eBay variation listing and hard-delete its local Variation/copy rows. Image files are not purged.</p>
+                    <label className="mt-2 flex gap-2"><input type="checkbox" checked={confirmation.stock} onChange={(e) => setRemovalConfirm({...confirmation, stock: e.target.checked})}/>I confirm no physical copies of {variation.sku} remain.</label>
+                    <label className="mt-2 flex gap-2"><input type="checkbox" checked={confirmation.noRestock} onChange={(e) => setRemovalConfirm({...confirmation, noRestock: e.target.checked})}/>I do not intend to restock this SKU.</label>
+                    <div className="mt-2 flex gap-2"><button type="button" disabled={!removalEligible || !confirmation.stock || !confirmation.noRestock} onClick={() => void stageRemoval(variation, true)} className="rounded-full bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-40">Confirm stage removal</button><button type="button" onClick={() => setRemovalConfirm(null)} className="rounded-full border px-3 py-1.5">Keep SKU</button></div>
+                  </div>
+                ) : null}
                 {priceRevisionStale ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-amber-900">
                     <p>Bucket revision changed. Reconfirm this price against the latest revision before saving.</p>
@@ -804,7 +940,7 @@ export function VariationInventoryPanel({
                         <CopyCard
                           copy={copy}
                           updating={representativeWrite === `${variation.variationId}:${copy.copyId}`}
-                          writesBlocked={writesBlocked || quantityWrite !== null}
+                          writesBlocked={writesBlocked || removalWrite !== null || group.variations.some((item) => item.pendingRemovalAt != null) || quantityWrite !== null}
                           onSetRepresentative={(copyId) => void setRepresentative(variation, copyId)}
                         />
                       </div>

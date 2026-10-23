@@ -19,6 +19,7 @@ import type {
   UpdateListingImageUrlsInput,
   UpdateListingWorkflowStateInput,
   UpdateVariationListingRepresentativeCopyInput,
+  StageVariationListingPermanentRemovalInput,
   UpdateVariationListingQuantityAdjustmentInput,
   UpdateVariationListingReviewDraftInput,
   UpdateVariationListingSelectorValueInput,
@@ -241,6 +242,17 @@ export async function updateVariationListingQuantityAdjustment(
 ): Promise<VariationListingGroup> {
   return await sidecarFetch<VariationListingGroup>(
     `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/quantity-adjustment`,
+    buildJsonRequestInit("PATCH", input),
+  );
+}
+
+export async function stageVariationListingPermanentRemoval(
+  groupId: string,
+  variationId: string,
+  input: StageVariationListingPermanentRemovalInput,
+): Promise<VariationListingGroup> {
+  return await sidecarFetch<VariationListingGroup>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/permanent-removal`,
     buildJsonRequestInit("PATCH", input),
   );
 }

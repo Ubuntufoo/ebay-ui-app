@@ -2,7 +2,7 @@
 
 import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 
-import {VariationInventoryPanel} from "@/app/variation-listings/variation-inventory-panel";
+import {VariationInventoryPanel, type RemovalRefreshExpectation} from "@/app/variation-listings/variation-inventory-panel";
 import {VariationGroupReviewPanel} from "@/app/variation-listings/variation-group-review-panel";
 import {VariationPublicationPanel} from "@/app/variation-listings/variation-publication-panel";
 
@@ -54,7 +54,7 @@ const CAPTURE_ELIGIBLE_LIFECYCLES = new Set([
 ]);
 
 function captureEligible(group: VariationListingGroup | null | undefined): boolean {
-  return Boolean(group && CAPTURE_ELIGIBLE_LIFECYCLES.has(group.lifecycleState));
+  return Boolean(group && CAPTURE_ELIGIBLE_LIFECYCLES.has(group.lifecycleState) && !group.variations.some((variation) => variation.pendingRemovalAt != null));
 }
 
 const CONDITION_OPTIONS: ReadonlyArray<{
@@ -172,6 +172,7 @@ function isVariationListingGroup(value: unknown): value is VariationListingGroup
     Number.isInteger(group.desiredRevision) && (group.desiredRevision ?? -1) >= 0 &&
     (confirmed === null || (typeof confirmed === "number" && Number.isInteger(confirmed) && confirmed >= 0)) &&
     typeof group.lifecycleState === "string" && typeof group.updatedAt === "string" && Number.isFinite(Date.parse(group.updatedAt)) &&
+    Array.isArray(group.variations) && group.variations.every((variation) => variation && typeof variation === "object" && typeof variation.variationId === "string" && typeof variation.sku === "string") &&
     !!group.validation && Array.isArray(group.validation.blockers) && typeof group.validation.initialPublicationReady === "boolean" && typeof group.validation.hasPendingChanges === "boolean" &&
     !!group.journal && (latest === null || (typeof latest === "object" && typeof latest.revisionId === "string" && Number.isInteger(latest.capturedDesiredRevision) && Array.isArray(latest.operations)));
 }
@@ -294,6 +295,12 @@ export function VariationListingsWorkspace({
       ? initialGroupCondition
       : null;
   const [groups, setGroups] = useState(() => initialGroups);
+  const groupsRef = useRef(initialGroups);
+  const commitGroups = useCallback((update: (current: VariationListingGroup[]) => VariationListingGroup[]) => {
+    const next = update(groupsRef.current);
+    groupsRef.current = next;
+    setGroups(next);
+  }, []);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
     () => initialIntakeSession?.targetGroupId ?? initialGroups[0]?.groupId ?? null,
@@ -365,28 +372,71 @@ export function VariationListingsWorkspace({
     }
   }, []);
 
-  const refreshGroups = useCallback(async (signal: AbortSignal) => {
+  const refreshGroups = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
     try {
       const response = await fetch(refreshPath, {cache: "no-store", signal});
       if (!response.ok) {
-        if (!signal.aborted) setRefreshFailed(true);
-        return;
+        if (!signal?.aborted) setRefreshFailed(true);
+        return false;
       }
 
       const payload = (await response.json()) as VariationListingGroupsResponse;
       const incomingGroups = payload && Array.isArray(payload.groups) && payload.groups.every(isVariationListingGroup)
         ? payload.groups
         : null;
-      if (!signal.aborted && incomingGroups) {
-        setGroups((current) => mergeGroupsByDesiredRevision(current, incomingGroups));
+      if (!signal?.aborted && incomingGroups) {
+        commitGroups((current) => mergeGroupsByDesiredRevision(current, incomingGroups));
         setRefreshFailed(false);
-      } else if (!signal.aborted) {
+        return true;
+      } else if (!signal?.aborted) {
         setRefreshFailed(true);
       }
+      return false;
     } catch {
-      if (!signal.aborted) setRefreshFailed(true);
+      if (!signal?.aborted) setRefreshFailed(true);
+      return false;
     }
-  }, [refreshPath]);
+  }, [commitGroups, refreshPath]);
+
+  const refreshVerifiedRemovalGroup = useCallback(async (expected: RemovalRefreshExpectation): Promise<boolean> => {
+    try {
+      const response = await fetch(refreshPath, {cache: "no-store"});
+      if (!response.ok) return false;
+      const payload = (await response.json()) as VariationListingGroupsResponse;
+      if (!payload || !Array.isArray(payload.groups) || !payload.groups.every(isVariationListingGroup)) return false;
+      const matches = payload.groups.filter((item) => item.groupId === expected.groupId);
+      if (matches.length !== 1) return false;
+      const authoritative = matches[0]!;
+      const byId = new Map(authoritative.variations.map((variation) => [variation.variationId, variation.sku]));
+      if (byId.size !== expected.variationIdentities.length || expected.variationIdentities.some((item) => byId.get(item.variationId) !== item.sku)) return false;
+      const target = authoritative.variations.find((item) => item.variationId === expected.variationId && item.sku === expected.sku);
+      if (!target || authoritative.lifecycleState !== "active" || authoritative.lastConfirmedRevision !== expected.originalConfirmedRevision) return false;
+      const unchanged = authoritative.desiredRevision === expected.originalRevision && (target.pendingRemovalAt != null) === expected.originalPending;
+      const completed = authoritative.desiredRevision === expected.originalRevision + 1 && (target.pendingRemovalAt != null) === expected.requestedPending;
+      if (!unchanged && !completed) return false;
+      // The refresh is only authoritative for the request if local state did
+      // not advance while the ambiguous write was in flight. A separate local
+      // revision must not be mistaken for this removal outcome.
+      const current = groupsRef.current;
+      const local = current.find((item) => item.groupId === expected.groupId);
+      if (!local || local.desiredRevision !== expected.originalRevision || local.lastConfirmedRevision !== expected.originalConfirmedRevision) return false;
+      const localById = new Map(local.variations.map((variation) => [variation.variationId, variation.sku]));
+      if (localById.size !== expected.variationIdentities.length || expected.variationIdentities.some((item) => localById.get(item.variationId) !== item.sku)) return false;
+      const localTarget = local.variations.find((item) => item.variationId === expected.variationId && item.sku === expected.sku);
+      if (!localTarget || (localTarget.pendingRemovalAt != null) !== expected.originalPending) return false;
+      commitGroups((latest) => {
+        const latestGroup = latest.find((item) => item.groupId === expected.groupId);
+        if (!latestGroup || latestGroup.desiredRevision !== expected.originalRevision || latestGroup.lastConfirmedRevision !== expected.originalConfirmedRevision) return latest;
+        const latestById = new Map(latestGroup.variations.map((variation) => [variation.variationId, variation.sku]));
+        if (latestById.size !== expected.variationIdentities.length || expected.variationIdentities.some((item) => latestById.get(item.variationId) !== item.sku)) return latest;
+        const latestTarget = latestGroup.variations.find((item) => item.variationId === expected.variationId && item.sku === expected.sku);
+        if (!latestTarget || (latestTarget.pendingRemovalAt != null) !== expected.originalPending) return latest;
+        return mergeGroupsByDesiredRevision(latest, payload.groups);
+      });
+      setRefreshFailed(false);
+      return true;
+    } catch { return false; }
+  }, [commitGroups, refreshPath]);
 
   useEffect(() => {
     if (refreshIntervalMs <= 0) return;
@@ -474,6 +524,7 @@ export function VariationListingsWorkspace({
   );
   const selectedGroupCaptureEligible = captureEligible(selectedGroup);
   const armedGroupCaptureEligible = captureEligible(armedGroup);
+  const armedGroupHasPendingRemoval = Boolean(armedGroup?.variations.some((variation) => variation.pendingRemovalAt != null));
   const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null || publicationActionInFlight;
   const copyConditionOptions = useMemo(
     () => compatibleCopyConditionOptions(selectedGroup?.conditionToken),
@@ -570,6 +621,7 @@ export function VariationListingsWorkspace({
       intakeStatus === "configuring" ||
       intakeError !== null ||
       intakeSession.targetGroupId === null ||
+      armedGroupHasPendingRemoval ||
       (armedGroup !== null && armedGroupCaptureEligible)
     ) {
       return;
@@ -583,6 +635,7 @@ export function VariationListingsWorkspace({
     });
   }, [
     armedGroup,
+    armedGroupHasPendingRemoval,
     armedGroupCaptureEligible,
     intakeError,
     intakeSession,
@@ -708,14 +761,14 @@ export function VariationListingsWorkspace({
   );
 
   const replaceGroup = useCallback((updatedGroup: VariationListingGroup) => {
-    setGroups((current) =>
+    commitGroups((current) =>
       current.map((group) =>
         group.groupId === updatedGroup.groupId && !preferCurrentGroup(group, updatedGroup)
           ? updatedGroup
           : group,
       ),
     );
-  }, []);
+  }, [commitGroups]);
 
   const selectPrice = useCallback(
     (price: VariationListingManualPriceAmount) => {
@@ -757,7 +810,7 @@ export function VariationListingsWorkspace({
       }
 
       const created = (await response.json()) as VariationListingGroup;
-      setGroups((current) => [created, ...current.filter((group) => group.groupId !== created.groupId)]);
+      commitGroups((current) => [created, ...current.filter((group) => group.groupId !== created.groupId)]);
       setSelectedGroupId(created.groupId);
       setSkuBucketToken("");
       setCreateStatus("idle");
@@ -769,7 +822,7 @@ export function VariationListingsWorkspace({
           : "An unexpected error occurred while creating the bucket.",
       );
     }
-  }, [canCreate, conditionToken, creationDefaults, normalizedBucketToken, skuCategoryCode]);
+  }, [canCreate, commitGroups, conditionToken, creationDefaults, normalizedBucketToken, skuCategoryCode]);
 
   return (
     <div className="space-y-5">
@@ -1046,6 +1099,7 @@ export function VariationListingsWorkspace({
         intakeSession={intakeSession}
         writesBlocked={writesBlocked}
         onMutationStateChange={setPublicationActionInFlight}
+        onRefreshGroup={refreshVerifiedRemovalGroup}
         onArmDuplicate={armDuplicateCapture}
         onGroupUpdated={replaceGroup}
         duplicateCaptureAvailable={copyConditionValid && selectedGroupCaptureEligible}

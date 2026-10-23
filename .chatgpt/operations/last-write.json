@@ -1,29 +1,26 @@
 {
   "schema_version": 1,
-  "operation_id": "write-2026-10-01T19-33-08-496Z-e1651d8c",
+  "operation_id": "write-2026-10-22T19-58-27-565Z-71505d8f",
   "tool": "repo_write_changes",
   "repo_id": "ebay-ui-app-you-pick",
-  "timestamp": "2026-10-01T19:33:08.496Z",
-  "head_sha_before": "f8570578ec1581282bc77909e95f54b816c7e19f",
-  "head_sha_after": "f8570578ec1581282bc77909e95f54b816c7e19f",
+  "timestamp": "2026-10-22T19:58:27.565Z",
+  "head_sha_before": "c9449126662f78e2872a77fdc682795d91950872",
+  "head_sha_after": "c9449126662f78e2872a77fdc682795d91950872",
   "touched_paths": [
-    "app/variation-listings/variation-listings-workspace.test.tsx",
-    "app/variation-listings/variation-publication-panel.test.tsx"
+    "app/variation-listings/variation-listings-workspace.tsx"
   ],
   "changed_paths": [
-    "app/variation-listings/variation-listings-workspace.test.tsx",
-    "app/variation-listings/variation-publication-panel.test.tsx"
+    "app/variation-listings/variation-listings-workspace.tsx"
   ],
   "created_paths": [],
   "modified_paths": [
-    "app/variation-listings/variation-listings-workspace.test.tsx",
-    "app/variation-listings/variation-publication-panel.test.tsx"
+    "app/variation-listings/variation-listings-workspace.tsx"
   ],
   "counts": {
-    "requested": 2,
-    "changed": 2,
+    "requested": 1,
+    "changed": 1,
     "created": 0,
     "unchanged": 0
   },
-  "summary": "Applied 2 changes across 2 files."
+  "summary": "Applied 1 change across 1 file."
 }
