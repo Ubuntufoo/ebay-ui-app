@@ -282,6 +282,8 @@ function GroupCard({
   );
 }
 
+const SELECTED_VARIATION_GROUP_STORAGE_KEY = "variation-listings:selected-group-id";
+
 export function VariationListingsWorkspace({
   creationDefaults = EMPTY_CREATION_DEFAULTS,
   initialCaptureWorkspace,
@@ -309,6 +311,48 @@ export function VariationListingsWorkspace({
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
     () => initialIntakeSession?.targetGroupId ?? initialGroups[0]?.groupId ?? null,
   );
+  const [selectionRestored, setSelectionRestored] = useState(false);
+  // Selection is browser-local UI state, independent of the durable capture target.
+  useEffect(() => {
+    let remembered: string | null = null;
+    try {
+      const candidate = window.sessionStorage.getItem(SELECTED_VARIATION_GROUP_STORAGE_KEY);
+      if (candidate && groupsRef.current.some((group) => group.groupId === candidate)) {
+        remembered = candidate;
+      }
+    } catch {
+      // Storage can be disabled; fall back to the first available bucket.
+    }
+    setSelectedGroupId(() => {
+      if (remembered) return remembered;
+      return groupsRef.current[0]?.groupId ?? null;
+    });
+    setSelectionRestored(true);
+  }, []);
+
+  // A live refresh can remove the selected bucket. Keep the view on the first
+  // remaining bucket instead of leaving publication/review panels empty.
+  useEffect(() => {
+    if (!selectionRestored) return;
+    setSelectedGroupId((current) => {
+      if (current && groups.some((group) => group.groupId === current)) return current;
+      return groups[0]?.groupId ?? null;
+    });
+  }, [groups, selectionRestored]);
+
+  useEffect(() => {
+    if (!selectionRestored) return;
+    try {
+      if (selectedGroupId && groups.some((group) => group.groupId === selectedGroupId)) {
+        window.sessionStorage.setItem(SELECTED_VARIATION_GROUP_STORAGE_KEY, selectedGroupId);
+      } else {
+        window.sessionStorage.removeItem(SELECTED_VARIATION_GROUP_STORAGE_KEY);
+      }
+    } catch {
+      // Storage is optional and must never block bucket selection.
+    }
+  }, [groups, selectedGroupId, selectionRestored]);
+
   const [stickyPriceAmount, setStickyPriceAmount] =
     useState<VariationListingManualPriceAmount>(
       () => initialIntakeSession?.stickyPriceAmount ?? 0.99,
@@ -336,8 +380,7 @@ export function VariationListingsWorkspace({
   const [createStatus, setCreateStatus] = useState<"idle" | "creating" | "error">("idle");
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Selection is a local view decision. A durable capture target supplies the
-  // initial selection only; subsequent intake polling updates the armed target,
+  // Selection is a local view decision. Intake polling updates the armed target,
   // never the selected publication/review bucket.
   const refreshIntakeSession = useCallback(async (signal?: AbortSignal) => {
     if (intakeWriteInFlightRef.current) return;
@@ -696,7 +739,7 @@ export function VariationListingsWorkspace({
 
   const selectGroup = useCallback(async (groupId: string) => {
     if (selectionLocked || groupId === selectedGroupId) return;
-    if (intakeSession?.mode !== "idle" && intakeSession?.targetGroupId !== groupId) {
+    if (intakeSession && intakeSession.mode !== "idle" && intakeSession.targetGroupId !== groupId) {
       const disarmed = await persistIntake({
         captureWorkspace: "variation",
         mode: "idle",

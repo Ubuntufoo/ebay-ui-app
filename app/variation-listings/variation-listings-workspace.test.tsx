@@ -165,10 +165,13 @@ describe("VariationListingsWorkspace", () => {
     vi.useFakeTimers();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
+    window.sessionStorage.clear();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -389,6 +392,133 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.queryByRole("radio", {name: "Single"})).toBeNull();
     expect(screen.queryByRole("radio", {name: "Lot"})).toBeNull();
     expect(screen.queryByRole("radio", {name: "SoldComps"})).toBeNull();
+  });
+
+  it("restores the selected bucket across remount without calling a backend route", () => {
+    const groupA = buildGroup({title: "Group A"});
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+    });
+    window.sessionStorage.setItem("variation-listings:selected-group-id", groupB.groupId);
+
+    const view = render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group B");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    view.unmount();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group B");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the first bucket for a stale saved selection", () => {
+    const groupA = buildGroup({title: "Group A"});
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+    });
+    window.sessionStorage.setItem("variation-listings:selected-group-id", "removed-group");
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group A");
+    expect(window.sessionStorage.getItem("variation-listings:selected-group-id")).toBe(groupA.groupId);
+  });
+
+  it("falls back when a selected bucket disappears during live refresh", async () => {
+    const groupA = buildGroup({title: "Group A"});
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+    });
+    window.sessionStorage.setItem("variation-listings:selected-group-id", groupB.groupId);
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [groupA]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        refreshIntervalMs={20}
+      />,
+    );
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group B");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20);
+    });
+
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group A");
+    expect(window.sessionStorage.getItem("variation-listings:selected-group-id")).toBe(groupA.groupId);
+  });
+
+  it("keeps selection usable when browser storage throws", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("storage unavailable");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("storage unavailable");
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new Error("storage unavailable");
+    });
+
+    const groupA = buildGroup({title: "Group A"});
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+    });
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group A");
+    fireEvent.click(screen.getByRole("button", {name: "Select bucket"}));
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group B");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps selected and armed buckets independent", () => {
+    const groupA = buildGroup({title: "Group A"});
+    const groupB = buildGroup({
+      groupId: "22222222-2222-4222-8222-222222222222",
+      title: "Group B",
+    });
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[groupA, groupB]}
+        initialIntakeSession={buildSession({mode: "new_variation", targetGroupId: groupB.groupId})}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group A");
+    expect(screen.getByText(/Cards will target Group B/)).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", {name: "Select bucket"}));
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Group B");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("hydrates the armed target and durable price from the intake session", () => {
