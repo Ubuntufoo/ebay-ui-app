@@ -20,6 +20,7 @@ import {
   type DismissPricingAnalysisWarningsResult,
 } from "@/app/pricing-analysis-dismiss-actions";
 import {WorkspaceSwitcher} from "@/app/workspace-switcher";
+import {ListingHelpModal} from "@/app/listing-help-modal";
 
 export type OperationalCounterKey = "errors" | "ready" | "review" | "active";
 
@@ -595,6 +596,8 @@ export function QueueErrorsPanel({
           guardStandardCaptureRouting={guardStandardCaptureRouting}
           guardVariationCaptureRouting={guardVariationCaptureRouting}
         />
+
+        <ListingHelpModal workspace={currentWorkspace} />
       </div>
 
       {!statusOnly && warningListings.length > 0 && !errorMessage ? (

@@ -530,6 +530,68 @@ describe("QueueErrorsPanel", () => {
     expect(variationLink.getAttribute("aria-current")).toBeNull();
   });
 
+  it("opens standard listing help with accessible dialog controls and restores focus", () => {
+    render(<QueueErrorsPanel listings={[]} />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Help for standard listings",
+    });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Standard listings guide",
+    });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(
+      within(dialog).getByText(/One card or a fixed lot per listing/),
+    ).not.toBeNull();
+    expect(
+      within(dialog).getByText(/Capture → check images → generate/),
+    ).not.toBeNull();
+    expect(screen.queryByText(/A bucket represents one grouped eBay listing/)).toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole("button", {name: "Close listing help"}),
+    );
+
+    fireEvent.keyDown(document, {key: "Tab"});
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole("button", {name: "Close listing help"}),
+    );
+
+    fireEvent.keyDown(document, {key: "Escape"});
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("renders variation-specific listing help through the QueueErrorsPanel seam", () => {
+    render(<QueueErrorsPanel currentWorkspace="variation" listings={[]} />);
+
+    const trigger = screen.getByRole("button", {
+      name: "Help for variation listings",
+    });
+    fireEvent.click(trigger);
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Variation listings guide",
+    });
+    expect(
+      within(dialog).getByText(/A bucket represents one grouped eBay listing/),
+    ).not.toBeNull();
+    expect(
+      within(dialog).getByText(/Publish Changes sends the staged revision/),
+    ).not.toBeNull();
+    expect(screen.queryByText(/One card or a fixed lot per listing/)).toBeNull();
+
+    fireEvent.click(
+      within(dialog).getByRole("button", {name: "Close listing help"}),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it("marks variation active and suppresses standard warning and error bodies in status-only mode", () => {
     render(
       <QueueErrorsPanel
