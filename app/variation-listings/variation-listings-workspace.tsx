@@ -5,7 +5,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {VariationInventoryPanel, type RemovalRefreshExpectation} from "@/app/variation-listings/variation-inventory-panel";
 import {VariationGroupReviewPanel} from "@/app/variation-listings/variation-group-review-panel";
 import {VariationPublicationPanel} from "@/app/variation-listings/variation-publication-panel";
-import {isVariationListingIntakeSession} from "@/lib/sidecar-api";
+import {isVariationListingIntakeSession} from "@/lib/sidecar-api/types";
 
 import type {
   CreateVariationListingGroupInput,

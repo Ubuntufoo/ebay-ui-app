@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import {useCallback, useEffect, useRef, useState, type MouseEvent} from "react";
-import {isVariationListingIntakeSession} from "@/lib/sidecar-api";
+import {isVariationListingIntakeSession} from "@/lib/sidecar-api/types";
 
 import type {
   VariationListingCaptureWorkspace,
