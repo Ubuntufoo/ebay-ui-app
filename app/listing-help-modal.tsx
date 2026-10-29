@@ -7,7 +7,7 @@ type Workspace = "standard" | "variation";
 const guides = {
   standard: {
     title: "Standard listings guide",
-    summary: "One card or a fixed lot per listing. Each listing has its own images, draft, price, and publishing lifecycle.",
+    summary: "One card or a fixed lot (not impl yet) per listing. Each listing has its own images, draft, price, and publishing lifecycle.",
     sections: [
       ["1. Capture and intake", "Select the Single or Lot capture mode, then photograph the front and back of each card. The watcher groups incoming images and sends them to the backend. Check the capture queue and errors before proceeding."],
       ["2. Generation and review", "Open the listing in review. AI proposes a title, description, category, and card specifics; inspect the actual images and verify year, set, player, condition, and identifying details before accepting the draft."],
