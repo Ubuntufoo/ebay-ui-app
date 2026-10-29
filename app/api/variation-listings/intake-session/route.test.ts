@@ -2,15 +2,19 @@ import {beforeEach, describe, expect, it, vi} from "vitest";
 
 const getSessionMock = vi.hoisted(() => vi.fn());
 const configureMock = vi.hoisted(() => vi.fn());
+const configureEnvelopeMock = vi.hoisted(() => vi.fn());
 const discardMock = vi.hoisted(() => vi.fn());
 const retryMock = vi.hoisted(() => vi.fn());
+const workspaceMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/sidecar-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/sidecar-api")>()),
   getVariationListingIntakeSession: getSessionMock,
   configureVariationListingIntake: configureMock,
+  configureVariationListingIntakeEnvelope: configureEnvelopeMock,
   discardVariationListingPendingPair: discardMock,
   retryVariationListingPendingPair: retryMock,
+  updateVariationListingCaptureWorkspace: workspaceMock,
 }));
 
 import {DELETE, GET, PATCH, POST} from "@/app/api/variation-listings/intake-session/route";
@@ -20,15 +24,17 @@ describe("variation listing intake-session route", () => {
   beforeEach(() => {
     getSessionMock.mockReset();
     configureMock.mockReset();
+    configureEnvelopeMock.mockReset();
     discardMock.mockReset();
     retryMock.mockReset();
+    workspaceMock.mockReset();
   });
 
   it("returns the durable session envelope", async () => {
-    getSessionMock.mockResolvedValue({session: null});
+    getSessionMock.mockResolvedValue({session: null, captureWorkspace: "standard"});
     const response = await GET();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({session: null});
+    expect(await response.json()).toEqual({session: null, captureWorkspace: "standard"});
   });
 
   it("preserves Sidecar status for GET failures", async () => {
@@ -52,28 +58,29 @@ describe("variation listing intake-session route", () => {
       createdAt: "2026-09-02T15:00:00.000Z",
       updatedAt: "2026-09-02T15:01:00.000Z",
     };
-    configureMock.mockResolvedValue(session);
+    configureEnvelopeMock.mockResolvedValue({session, captureWorkspace: "variation"});
     const response = await PATCH(
       new Request("http://localhost/api/variation-listings/intake-session", {
         method: "PATCH",
-        body: JSON.stringify({mode: "idle", targetGroupId: null, stickyPriceAmount: 1.99}),
+        body: JSON.stringify({captureWorkspace: "variation", mode: "idle", targetGroupId: null, stickyPriceAmount: 1.99}),
       }),
     );
-    expect(configureMock).toHaveBeenCalledWith({
+    expect(configureEnvelopeMock).toHaveBeenCalledWith({
+      captureWorkspace: "variation",
       mode: "idle",
       targetGroupId: null,
       stickyPriceAmount: 1.99,
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({session});
+    expect(await response.json()).toEqual({session, captureWorkspace: "variation"});
   });
 
   it("preserves Sidecar status for PATCH conflicts", async () => {
-    configureMock.mockRejectedValue(new SidecarApiError("pending pair", 409));
+    configureEnvelopeMock.mockRejectedValue(new SidecarApiError("pending pair", 409));
     const response = await PATCH(
       new Request("http://localhost/api/variation-listings/intake-session", {
         method: "PATCH",
-        body: JSON.stringify({mode: "idle", targetGroupId: null, stickyPriceAmount: 0.99}),
+        body: JSON.stringify({captureWorkspace: "variation", mode: "idle", targetGroupId: null, stickyPriceAmount: 0.99}),
       }),
     );
     expect(response.status).toBe(409);
@@ -87,6 +94,19 @@ describe("variation listing intake-session route", () => {
     expect(discardMock).toHaveBeenCalledTimes(1);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({session});
+  });
+
+  it("forwards workspace-only ownership claims without changing intake config", async () => {
+    workspaceMock.mockResolvedValue({session: null, captureWorkspace: "variation"});
+    const response = await PATCH(
+      new Request("http://localhost/api/variation-listings/intake-session", {
+        method: "PATCH",
+        body: JSON.stringify({captureWorkspace: "variation"}),
+      }),
+    );
+    expect(workspaceMock).toHaveBeenCalledWith("variation");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({session: null, captureWorkspace: "variation"});
   });
 
   it("proxies POST retry requests without a client payload", async () => {

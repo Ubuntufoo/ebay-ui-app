@@ -44,6 +44,7 @@ type QueueErrorsPanelProps = {
   soldCompsUsage?: SoldCompsUsageSummary | null;
   currentWorkspace?: "standard" | "variation";
   guardStandardCaptureRouting?: boolean;
+  guardVariationCaptureRouting?: boolean;
   statusOnly?: boolean;
 };
 
@@ -394,6 +395,7 @@ export function QueueErrorsPanel({
   soldCompsUsage = null,
   currentWorkspace = "standard",
   guardStandardCaptureRouting = false,
+  guardVariationCaptureRouting = false,
   statusOnly = false,
 }: QueueErrorsPanelProps) {
   const errorListings = getPersistedErrorListings(listings);
@@ -591,6 +593,7 @@ export function QueueErrorsPanel({
         <WorkspaceSwitcher
           currentWorkspace={currentWorkspace}
           guardStandardCaptureRouting={guardStandardCaptureRouting}
+          guardVariationCaptureRouting={guardVariationCaptureRouting}
         />
       </div>
 

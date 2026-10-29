@@ -9,11 +9,13 @@ import {
   getGeminiUsage,
   getVariationListingCreationDefaults,
   getVariationListingIntakeSession,
+  isVariationListingIntakeSession,
   listListings,
   listVariationListingGroups,
   type GeminiDailyUsageSummary,
   type Listing,
   type SoldCompsUsageSummary,
+  type VariationListingCaptureWorkspace,
   type VariationListingGroup,
   type VariationListingIntakeSession,
 } from "@/lib/sidecar-api";
@@ -98,13 +100,23 @@ async function loadStatusBarData(): Promise<StatusBarData> {
 
 async function loadInitialIntakeSession(): Promise<{
   session: VariationListingIntakeSession | null;
+  captureWorkspace: VariationListingCaptureWorkspace | null;
   error: string | null;
 }> {
   try {
     const result = await getVariationListingIntakeSession();
-    return {session: result.session, error: null};
+    if (
+      !result ||
+      typeof result !== "object" ||
+      (result.captureWorkspace !== "standard" && result.captureWorkspace !== "variation") ||
+      (result.session !== null && !isVariationListingIntakeSession(result.session))
+    ) {
+      throw new Error("Intake session response was malformed.");
+    }
+    return {captureWorkspace: result.captureWorkspace, session: result.session, error: null};
   } catch (error) {
     return {
+      captureWorkspace: null,
       session: null,
       error:
         error instanceof SidecarApiError
@@ -130,6 +142,7 @@ export default async function VariationListingsPage() {
         <div className="space-y-5">
           <QueueErrorsPanel
             currentWorkspace="variation"
+            guardVariationCaptureRouting
             geminiUsage={statusBar.geminiUsage}
             geminiUsageStatus={statusBar.geminiUsageStatus}
             listings={statusBar.listings}
@@ -142,6 +155,7 @@ export default async function VariationListingsPage() {
               creationDefaults={statusBar.creationDefaults}
               initialIntakeError={intake.error}
               initialIntakeSession={intake.session}
+              initialCaptureWorkspace={intake.captureWorkspace}
               initialGroups={result.groups}
             />
           ) : (

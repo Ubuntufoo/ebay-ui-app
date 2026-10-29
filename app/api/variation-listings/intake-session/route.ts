@@ -1,12 +1,14 @@
 import {NextResponse} from "next/server";
 
 import {
-  configureVariationListingIntake,
+  configureVariationListingIntakeEnvelope,
   discardVariationListingPendingPair,
   getVariationListingIntakeSession,
   retryVariationListingPendingPair,
   SidecarApiError,
   type ConfigureVariationListingIntakeInput,
+  type UpdateVariationListingCaptureWorkspaceInput,
+  updateVariationListingCaptureWorkspace,
 } from "@/lib/sidecar-api";
 
 export const dynamic = "force-dynamic";
@@ -33,8 +35,13 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const input = (await request.json()) as ConfigureVariationListingIntakeInput;
-    return NextResponse.json({session: await configureVariationListingIntake(input)});
+    const input = (await request.json()) as ConfigureVariationListingIntakeInput | UpdateVariationListingCaptureWorkspaceInput;
+    if (!("mode" in input)) {
+      return NextResponse.json(
+        await updateVariationListingCaptureWorkspace(input.captureWorkspace),
+      );
+    }
+    return NextResponse.json(await configureVariationListingIntakeEnvelope(input));
   } catch (error) {
     if (!(error instanceof SidecarApiError)) {
       console.error("Failed to configure variation listing intake.", error);

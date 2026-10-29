@@ -26,6 +26,7 @@ import type {
   UpdateAppSettingsInput,
   SidecarErrorResponse,
   VariationListingGroup,
+  VariationListingCaptureWorkspace,
   VariationListingCreationDefaults,
   VariationListingIntakeSession,
   VariationListingIntakeSessionResponse,
@@ -192,14 +193,29 @@ export async function getVariationListingIntakeSession(): Promise<
 export async function configureVariationListingIntake(
   input: ConfigureVariationListingIntakeInput,
 ): Promise<VariationListingIntakeSession> {
-  const response = await sidecarFetch<VariationListingIntakeSessionResponse>(
-    "/api/variation-listings/intake-session",
-    buildJsonRequestInit("PATCH", input),
-  );
+  const response = await configureVariationListingIntakeEnvelope(input);
   if (!response.session) {
     throw new Error("Sidecar returned no intake session after configuration.");
   }
   return response.session;
+}
+
+export async function configureVariationListingIntakeEnvelope(
+  input: ConfigureVariationListingIntakeInput,
+): Promise<VariationListingIntakeSessionResponse> {
+  return await sidecarFetch<VariationListingIntakeSessionResponse>(
+    "/api/variation-listings/intake-session",
+    buildJsonRequestInit("PATCH", input),
+  );
+}
+
+export async function updateVariationListingCaptureWorkspace(
+  captureWorkspace: VariationListingCaptureWorkspace,
+): Promise<VariationListingIntakeSessionResponse> {
+  return await sidecarFetch<VariationListingIntakeSessionResponse>(
+    "/api/variation-listings/intake-session",
+    buildJsonRequestInit("PATCH", {captureWorkspace}),
+  );
 }
 
 export async function discardVariationListingPendingPair(): Promise<VariationListingIntakeSession> {

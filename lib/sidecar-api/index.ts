@@ -2,6 +2,7 @@ export {
   abandonListing,
   createVariationListingGroup,
   configureVariationListingIntake,
+  configureVariationListingIntakeEnvelope,
   discardVariationListingPendingPair,
   retryVariationListingPendingPair,
   deleteSandboxListing,
@@ -12,6 +13,7 @@ export {
   getGeminiUsage,
   getVariationListingCreationDefaults,
   getVariationListingIntakeSession,
+  updateVariationListingCaptureWorkspace,
   getVariationListingQuantityStatus,
   generateVariationListingReviewDraft,
   getListing,
@@ -37,6 +39,7 @@ export type {
   AppSettings,
   CreateVariationListingGroupInput,
   ConfigureVariationListingIntakeInput,
+  UpdateVariationListingCaptureWorkspaceInput,
   BrowsePricingOptions,
   DeleteSandboxListingResponse,
   DismissPricingAnalysisWarningsResponse,
@@ -76,6 +79,7 @@ export type {
   VariationListingGroup,
   VariationListingIntakeSession,
   VariationListingIntakeSessionResponse,
+  VariationListingCaptureWorkspace,
   VariationListingPendingPair,
   VariationListingIntakeMode,
   VariationListingManualPriceAmount,
@@ -109,3 +113,4 @@ export type {
   SidecarErrorResponse,
   SidecarValidationErrorDetail,
 } from "@/lib/sidecar-api/types";
+export {isVariationListingIntakeSession} from "@/lib/sidecar-api/types";

@@ -389,12 +389,41 @@ export interface VariationListingIntakeSession {
   updatedAt: string;
 }
 
+export function isVariationListingIntakeSession(value: unknown): value is VariationListingIntakeSession {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<VariationListingIntakeSession>;
+  return (
+    typeof candidate.captureSourceKey === "string" &&
+    candidate.captureSourceKey.trim().length > 0 &&
+    (candidate.mode === "idle" || candidate.mode === "new_variation" || candidate.mode === "duplicate_copy") &&
+    (candidate.targetGroupId === null || typeof candidate.targetGroupId === "string") &&
+    (candidate.targetVariationId === null || typeof candidate.targetVariationId === "string") &&
+    (candidate.copyConditionToken === null || typeof candidate.copyConditionToken === "string") &&
+    typeof candidate.stickyPriceAmount === "number" &&
+    Number.isFinite(candidate.stickyPriceAmount) &&
+    candidate.stickyPriceCurrency === "USD" &&
+    "pendingPair" in candidate &&
+    (candidate.pendingPair === null || typeof candidate.pendingPair === "object") &&
+    (candidate.processingStatus === undefined || candidate.processingStatus === null || typeof candidate.processingStatus === "object") &&
+    typeof candidate.createdAt === "string" &&
+    typeof candidate.updatedAt === "string"
+  );
+}
+
+export type VariationListingCaptureWorkspace = "standard" | "variation";
+
 export interface VariationListingIntakeSessionResponse {
   session: VariationListingIntakeSession | null;
+  captureWorkspace: VariationListingCaptureWorkspace;
 }
+
+export type UpdateVariationListingCaptureWorkspaceInput = {
+  captureWorkspace: VariationListingCaptureWorkspace;
+};
 
 export type ConfigureVariationListingIntakeInput =
   | {
+      captureWorkspace: VariationListingCaptureWorkspace;
       mode: "idle";
       targetGroupId: null;
       targetVariationId: null;
@@ -402,6 +431,7 @@ export type ConfigureVariationListingIntakeInput =
       stickyPriceAmount: VariationListingManualPriceAmount;
     }
   | {
+      captureWorkspace: VariationListingCaptureWorkspace;
       mode: "new_variation";
       targetGroupId: string;
       targetVariationId: null;
@@ -409,6 +439,7 @@ export type ConfigureVariationListingIntakeInput =
       stickyPriceAmount: VariationListingManualPriceAmount;
     }
   | {
+      captureWorkspace: VariationListingCaptureWorkspace;
       mode: "duplicate_copy";
       targetGroupId: string;
       targetVariationId: string;

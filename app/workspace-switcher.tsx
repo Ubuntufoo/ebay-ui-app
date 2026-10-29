@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import {useCallback, useEffect, useRef, useState, type MouseEvent} from "react";
+import {isVariationListingIntakeSession} from "@/lib/sidecar-api";
 
 import type {
+  VariationListingCaptureWorkspace,
   VariationListingIntakeSession,
   VariationListingIntakeSessionResponse,
 } from "@/lib/sidecar-api";
@@ -13,6 +15,11 @@ type StandardRoutingResult =
   | {success: false; error: string};
 
 type FetchLike = typeof fetch;
+
+type RoutingSnapshot = {
+  captureWorkspace: VariationListingCaptureWorkspace;
+  session: VariationListingIntakeSession | null;
+};
 
 async function responseError(response: Response, fallback: string): Promise<string> {
   const payload = (await response.json().catch(() => null)) as {error?: unknown; message?: unknown} | null;
@@ -38,27 +45,40 @@ function isIdleSession(session: VariationListingIntakeSession): boolean {
 
 function parseRoutingSession(
   payload: unknown,
-): VariationListingIntakeSession | null | undefined {
+): RoutingSnapshot | undefined {
   if (!payload || typeof payload !== "object" || !("session" in payload)) {
     return undefined;
   }
-  const session = (payload as {session?: unknown}).session;
-  if (session === null) return null;
-  if (!session || typeof session !== "object") return undefined;
-  const candidate = session as Partial<VariationListingIntakeSession>;
-  if (
-    typeof candidate.captureSourceKey !== "string" ||
-    candidate.captureSourceKey.trim().length === 0 ||
-    !["idle", "new_variation", "duplicate_copy"].includes(candidate.mode ?? "") ||
-    (candidate.targetGroupId !== null && typeof candidate.targetGroupId !== "string") ||
-    (candidate.targetVariationId !== null && typeof candidate.targetVariationId !== "string") ||
-    (candidate.copyConditionToken !== null && typeof candidate.copyConditionToken !== "string") ||
-    typeof candidate.stickyPriceAmount !== "number" ||
-    candidate.pendingPair === undefined
-  ) {
+  const candidatePayload = payload as {
+    session?: unknown;
+    captureWorkspace?: unknown;
+  };
+  if (candidatePayload.captureWorkspace !== "standard" && candidatePayload.captureWorkspace !== "variation") {
     return undefined;
   }
-  return session as VariationListingIntakeSession;
+  const session = candidatePayload.session;
+  if (session === null) {
+    return {captureWorkspace: candidatePayload.captureWorkspace, session: null};
+  }
+  if (!session || typeof session !== "object") return undefined;
+  if (!isVariationListingIntakeSession(session)) return undefined;
+  return {
+    captureWorkspace: candidatePayload.captureWorkspace,
+    session,
+  };
+}
+
+function malformedRoutingResult(): StandardRoutingResult {
+  return {
+    success: false,
+    error: "Unable to verify capture routing because the intake session response was malformed.",
+  };
+}
+
+function workspaceRoutingError(workspace: VariationListingCaptureWorkspace): string {
+  return workspace === "standard"
+    ? "Standard capture is not authoritative for this browser."
+    : "Variation capture is not authoritative for this browser.";
 }
 
 export async function inspectStandardCaptureRouting(
@@ -80,19 +100,15 @@ export async function inspectStandardCaptureRouting(
     const payload = (await response.json().catch(() => null)) as
       | VariationListingIntakeSessionResponse
       | null;
-    const session = parseRoutingSession(payload);
-    if (session === undefined) {
-      return {
-        success: false,
-        error: "Unable to verify capture routing because the intake session response was malformed.",
-      };
-    }
-    if (!session || isIdleSession(session)) return {success: true};
+    const snapshot = parseRoutingSession(payload);
+    if (!snapshot) return malformedRoutingResult();
+    if (snapshot.captureWorkspace === "standard" &&
+      (!snapshot.session || isIdleSession(snapshot.session))) return {success: true};
     return {
       success: false,
-      error: session.pendingPair
+      error: snapshot.session?.pendingPair
         ? "Standard capture is inactive because a Variation Listing pair is currently pending."
-        : "Standard capture is inactive because Variation Listing intake is armed. Select Standard listings to take capture ownership.",
+        : workspaceRoutingError("standard"),
     };
   } catch (error) {
     return {
@@ -122,19 +138,14 @@ export async function ensureStandardCaptureRouting(
     const readPayload = (await readResponse.json().catch(() => null)) as
       | VariationListingIntakeSessionResponse
       | null;
-    const session = parseRoutingSession(readPayload);
-    if (session === undefined) {
-      return {
-        success: false,
-        error:
-          "Unable to verify capture routing because the intake session response was malformed.",
-      };
-    }
-    if (!session || isIdleSession(session)) {
+    const snapshot = parseRoutingSession(readPayload);
+    if (!snapshot) return malformedRoutingResult();
+    if (snapshot.captureWorkspace === "standard" &&
+      (!snapshot.session || isIdleSession(snapshot.session))) {
       return {success: true};
     }
 
-    if (session.pendingPair) {
+    if (snapshot.session?.pendingPair) {
       return {
         success: false,
         error:
@@ -145,13 +156,7 @@ export async function ensureStandardCaptureRouting(
     const writeResponse = await fetchImpl("/api/variation-listings/intake-session", {
       method: "PATCH",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({
-        mode: "idle",
-        targetGroupId: null,
-        targetVariationId: null,
-        copyConditionToken: null,
-        stickyPriceAmount: session.stickyPriceAmount,
-      }),
+      body: JSON.stringify({captureWorkspace: "standard"}),
     });
     if (!writeResponse.ok) {
       return {
@@ -166,8 +171,9 @@ export async function ensureStandardCaptureRouting(
     const writePayload = (await writeResponse.json().catch(() => null)) as
       | VariationListingIntakeSessionResponse
       | null;
-    const writtenSession = parseRoutingSession(writePayload);
-    if (!writtenSession || !isIdleSession(writtenSession)) {
+    const writtenSnapshot = parseRoutingSession(writePayload);
+    if (!writtenSnapshot || writtenSnapshot.captureWorkspace !== "standard" ||
+      (writtenSnapshot.session !== null && !isIdleSession(writtenSnapshot.session))) {
       return {
         success: false,
         error:
@@ -184,27 +190,123 @@ export async function ensureStandardCaptureRouting(
   }
 }
 
+export async function inspectVariationCaptureRouting(
+  fetchImpl: FetchLike = fetch,
+): Promise<StandardRoutingResult> {
+  try {
+    const response = await fetchImpl("/api/variation-listings/intake-session", {
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return {
+        success: false,
+        error: await responseError(
+          response,
+          `Unable to verify capture routing (${response.status}).`,
+        ),
+      };
+    }
+    const snapshot = parseRoutingSession(await response.json().catch(() => null));
+    if (!snapshot) return malformedRoutingResult();
+    if (snapshot.captureWorkspace === "variation") return {success: true};
+    return {
+      success: false,
+      error: snapshot.session?.pendingPair
+        ? "Variation capture is unavailable because a pending pair is owned by Standard capture."
+        : workspaceRoutingError("variation"),
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: requestError(error, "Unable to verify capture routing."),
+    };
+  }
+}
+
+export async function ensureVariationCaptureRouting(
+  fetchImpl: FetchLike = fetch,
+): Promise<StandardRoutingResult> {
+  try {
+    const readResponse = await fetchImpl("/api/variation-listings/intake-session", {
+      cache: "no-store",
+    });
+    if (!readResponse.ok) {
+      return {
+        success: false,
+        error: await responseError(
+          readResponse,
+          `Unable to verify capture routing (${readResponse.status}).`,
+        ),
+      };
+    }
+    const snapshot = parseRoutingSession(await readResponse.json().catch(() => null));
+    if (!snapshot) return malformedRoutingResult();
+    if (snapshot.captureWorkspace === "variation") return {success: true};
+    if (snapshot.session?.pendingPair) {
+      return {
+        success: false,
+        error: "Variation capture is unavailable because a pending pair is owned by Standard capture.",
+      };
+    }
+
+    const writeResponse = await fetchImpl("/api/variation-listings/intake-session", {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({captureWorkspace: "variation"}),
+    });
+    if (!writeResponse.ok) {
+      return {
+        success: false,
+        error: await responseError(
+          writeResponse,
+          `Unable to activate Variation capture (${writeResponse.status}).`,
+        ),
+      };
+    }
+    const writtenSnapshot = parseRoutingSession(await writeResponse.json().catch(() => null));
+    if (!writtenSnapshot || writtenSnapshot.captureWorkspace !== "variation") {
+      return {
+        success: false,
+        error: "Variation capture could not be verified because ownership did not become authoritative.",
+      };
+    }
+    return {success: true};
+  } catch (error) {
+    return {
+      success: false,
+      error: requestError(error, "Unable to activate Variation capture."),
+    };
+  }
+}
+
 type WorkspaceSwitcherProps = {
   currentWorkspace: "standard" | "variation";
   guardStandardCaptureRouting?: boolean;
+  guardVariationCaptureRouting?: boolean;
   navigate?: (href: string) => void;
   ensureStandardRouting?: () => Promise<StandardRoutingResult>;
   inspectStandardRouting?: () => Promise<StandardRoutingResult>;
+  ensureVariationRouting?: () => Promise<StandardRoutingResult>;
+  inspectVariationRouting?: () => Promise<StandardRoutingResult>;
   revalidateIntervalMs?: number;
 };
 
 export function WorkspaceSwitcher({
   currentWorkspace,
   guardStandardCaptureRouting = false,
+  guardVariationCaptureRouting = false,
   navigate = (href) => window.location.assign(href),
   ensureStandardRouting = ensureStandardCaptureRouting,
   inspectStandardRouting = inspectStandardCaptureRouting,
+  ensureVariationRouting = ensureVariationCaptureRouting,
+  inspectVariationRouting = inspectVariationCaptureRouting,
   revalidateIntervalMs = 2000,
 }: WorkspaceSwitcherProps) {
   const [routingState, setRoutingState] = useState<
     "ready" | "checking" | "error"
   >(() =>
-    currentWorkspace === "standard" && guardStandardCaptureRouting
+    ((currentWorkspace === "standard" && guardStandardCaptureRouting) ||
+      (currentWorkspace === "variation" && guardVariationCaptureRouting))
       ? "checking"
       : "ready",
   );
@@ -234,14 +336,42 @@ export function WorkspaceSwitcher({
     return true;
   }, [ensureStandardRouting]);
 
+  const activateVariation = useCallback(async () => {
+    const operation = ++routingOperationRef.current;
+    setRoutingState("checking");
+    setRoutingError(null);
+    let result: StandardRoutingResult;
+    try {
+      result = await ensureVariationRouting();
+    } catch (error) {
+      result = {
+        success: false,
+        error: requestError(error, "Unable to activate Variation capture."),
+      };
+    }
+    if (operation !== routingOperationRef.current) return false;
+    if (!result.success) {
+      setRoutingState("error");
+      setRoutingError(result.error);
+      return false;
+    }
+    setRoutingState("ready");
+    return true;
+  }, [ensureVariationRouting]);
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (currentWorkspace !== "standard" || !guardStandardCaptureRouting) return;
+    if (
+      (currentWorkspace === "standard" && !guardStandardCaptureRouting) ||
+      (currentWorkspace === "variation" && !guardVariationCaptureRouting) ||
+      (currentWorkspace !== "standard" && currentWorkspace !== "variation")
+    ) return;
     let cancelled = false;
     const operation = ++routingOperationRef.current;
     setRoutingState("checking");
     setRoutingError(null);
-    void ensureStandardRouting().then((result) => {
+    const ensureRouting = currentWorkspace === "standard" ? ensureStandardRouting : ensureVariationRouting;
+    void ensureRouting().then((result) => {
       if (cancelled || operation !== routingOperationRef.current) return;
       if (result.success) {
         setRoutingState("ready");
@@ -252,18 +382,24 @@ export function WorkspaceSwitcher({
     }).catch((error) => {
       if (cancelled || operation !== routingOperationRef.current) return;
       setRoutingState("error");
-      setRoutingError(requestError(error, "Unable to activate Standard capture."));
+      setRoutingError(requestError(error, `Unable to activate ${currentWorkspace === "standard" ? "Standard" : "Variation"} capture.`));
     });
     return () => {
       cancelled = true;
     };
-  }, [currentWorkspace, ensureStandardRouting, guardStandardCaptureRouting]);
+  }, [
+    currentWorkspace,
+    ensureStandardRouting,
+    ensureVariationRouting,
+    guardStandardCaptureRouting,
+    guardVariationCaptureRouting,
+  ]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (
-      currentWorkspace !== "standard" ||
-      !guardStandardCaptureRouting ||
+      (currentWorkspace === "standard" && !guardStandardCaptureRouting) ||
+      (currentWorkspace === "variation" && !guardVariationCaptureRouting) ||
       routingState !== "ready" ||
       revalidateIntervalMs <= 0
     ) {
@@ -272,7 +408,8 @@ export function WorkspaceSwitcher({
     let cancelled = false;
     const intervalId = window.setInterval(() => {
       const operation = ++routingOperationRef.current;
-      void inspectStandardRouting().then((result) => {
+      const inspectRouting = currentWorkspace === "standard" ? inspectStandardRouting : inspectVariationRouting;
+      void inspectRouting().then((result) => {
         if (cancelled || operation !== routingOperationRef.current || result.success) return;
         setRoutingState("error");
         setRoutingError(result.error);
@@ -290,8 +427,10 @@ export function WorkspaceSwitcher({
     currentWorkspace,
     guardStandardCaptureRouting,
     inspectStandardRouting,
+    inspectVariationRouting,
     revalidateIntervalMs,
     routingState,
+    guardVariationCaptureRouting,
   ]);
 
   const handleStandardClick = useCallback(
@@ -303,8 +442,19 @@ export function WorkspaceSwitcher({
     [activateStandard, currentWorkspace, navigate, routingState],
   );
 
+  const handleVariationClick = useCallback(
+    async (event: MouseEvent<HTMLAnchorElement>) => {
+      if (currentWorkspace === "variation" && routingState === "ready") return;
+      event.preventDefault();
+      if (await activateVariation() && currentWorkspace !== "variation") navigate("/variation-listings");
+    },
+    [activateVariation, currentWorkspace, navigate, routingState],
+  );
+
   const standardReady =
     currentWorkspace === "standard" && routingState === "ready";
+  const variationReady =
+    currentWorkspace === "variation" && routingState === "ready";
 
   return (
     <nav
@@ -328,18 +478,20 @@ export function WorkspaceSwitcher({
                 : "text-stone-300 hover:text-stone-50"
           }`}
         >
-          {routingState === "checking" ? "Activating Standard…" : "Standard listings"}
+          {routingState === "checking" && currentWorkspace === "standard" ? "Activating Standard…" : "Standard listings"}
         </Link>
         <Link
           href="/variation-listings"
-          aria-current={currentWorkspace === "variation" ? "page" : undefined}
+          onClick={handleVariationClick}
+          aria-current={variationReady ? "page" : undefined}
+          aria-busy={routingState === "checking" && currentWorkspace === "variation" ? true : undefined}
           className={`rounded-full px-3 py-1 text-[11px] font-bold transition ${
-            currentWorkspace === "variation"
+            variationReady
               ? "bg-stone-100 text-stone-950"
               : "text-stone-300 hover:text-stone-50"
           }`}
         >
-          Variation listings
+          {routingState === "checking" && currentWorkspace === "variation" ? "Activating Variation…" : "Variation listings"}
         </Link>
       </div>
       {routingState === "error" && routingError ? (

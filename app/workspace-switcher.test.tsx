@@ -4,6 +4,7 @@ import {afterEach, describe, expect, it, vi} from "vitest";
 import {
   WorkspaceSwitcher,
   ensureStandardCaptureRouting,
+  ensureVariationCaptureRouting,
   inspectStandardCaptureRouting,
 } from "@/app/workspace-switcher";
 import type {VariationListingIntakeSession} from "@/lib/sidecar-api";
@@ -67,16 +68,10 @@ describe("workspace capture routing", () => {
 
   it("disarms an armed variation intake session before Standard capture is ready", async () => {
     const armed = session();
-    const idle = session({
-      mode: "idle",
-      targetGroupId: null,
-      targetVariationId: null,
-      copyConditionToken: null,
-    });
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(jsonResponse({session: armed}))
-      .mockResolvedValueOnce(jsonResponse({session: idle}));
+      .mockResolvedValueOnce(jsonResponse({session: armed, captureWorkspace: "variation"}))
+      .mockResolvedValueOnce(jsonResponse({session: null, captureWorkspace: "standard"}));
 
     await expect(ensureStandardCaptureRouting(fetchMock)).resolves.toEqual({
       success: true,
@@ -92,11 +87,7 @@ describe("workspace capture routing", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
-          mode: "idle",
-          targetGroupId: null,
-          targetVariationId: null,
-          copyConditionToken: null,
-          stickyPriceAmount: 1.49,
+          captureWorkspace: "standard",
         }),
       }),
     );
@@ -119,6 +110,7 @@ describe("workspace capture routing", () => {
             expectedDesiredRevision: 10,
           },
         }),
+        captureWorkspace: "variation",
       }),
     );
 
@@ -130,7 +122,7 @@ describe("workspace capture routing", () => {
 
   it("detects when another tab has armed Variation without mutating routing", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({session: session({mode: "new_variation", targetVariationId: null, copyConditionToken: null})}),
+      jsonResponse({session: session({mode: "new_variation", targetVariationId: null, copyConditionToken: null}), captureWorkspace: "variation"}),
     );
 
     const result = await inspectStandardCaptureRouting(fetchMock);
@@ -138,6 +130,31 @@ describe("workspace capture routing", () => {
     expect(result).toMatchObject({success: false});
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[1]).toEqual({cache: "no-store"});
+  });
+
+  it("claims Variation ownership without arming a bucket", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({session: null, captureWorkspace: "standard"}))
+      .mockResolvedValueOnce(jsonResponse({session: null, captureWorkspace: "variation"}));
+
+    await expect(ensureVariationCaptureRouting(fetchMock)).resolves.toEqual({success: true});
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/variation-listings/intake-session",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({captureWorkspace: "variation"}),
+      }),
+    );
+  });
+
+  it("fails closed when workspace ownership is missing", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({session: null}));
+    await expect(ensureVariationCaptureRouting(fetchMock)).resolves.toMatchObject({
+      success: false,
+      error: expect.stringContaining("malformed"),
+    });
   });
 
   it("does not navigate from Variation until Standard routing has been made safe", async () => {
@@ -155,6 +172,44 @@ describe("workspace capture routing", () => {
 
     await waitFor(() => expect(ensureStandardRouting).toHaveBeenCalledTimes(1));
     expect(navigate).toHaveBeenCalledWith("/");
+  });
+
+  it("does not navigate from Standard until Variation ownership is claimed", async () => {
+    const navigate = vi.fn();
+    const ensureVariationRouting = vi.fn().mockResolvedValue({success: true});
+    render(
+      <WorkspaceSwitcher
+        currentWorkspace="standard"
+        ensureVariationRouting={ensureVariationRouting}
+        navigate={navigate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("link", {name: "Variation listings"}));
+
+    await waitFor(() => expect(ensureVariationRouting).toHaveBeenCalledTimes(1));
+    expect(navigate).toHaveBeenCalledWith("/variation-listings");
+  });
+
+  it("claims Variation ownership on direct load before showing it active", async () => {
+    let resolveRouting: ((value: {success: true}) => void) | undefined;
+    const ensureVariationRouting = vi.fn(
+      () => new Promise<{success: true}>((resolve) => { resolveRouting = resolve; }),
+    );
+    render(
+      <WorkspaceSwitcher
+        currentWorkspace="variation"
+        guardVariationCaptureRouting
+        ensureVariationRouting={ensureVariationRouting}
+        navigate={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("link", {name: "Activating Variation…"}).getAttribute("aria-current")).toBeNull();
+    resolveRouting?.({success: true});
+    await waitFor(() =>
+      expect(screen.getByRole("link", {name: "Variation listings"}).getAttribute("aria-current")).toBe("page"),
+    );
   });
 
   it("surfaces a rejected activation request and stays on Variation", async () => {

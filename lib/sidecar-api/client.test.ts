@@ -22,6 +22,7 @@ import {
   retryPricingAnalysis,
   retryVariationListingPendingPair,
   updateAppSettings,
+  updateVariationListingCaptureWorkspace,
   updateListing,
   updateVariationListingRepresentativeCopy,
   updateVariationListingQuantityAdjustment,
@@ -85,9 +86,9 @@ describe("variation listing intake session", () => {
   });
 
   it("reads the canonical durable session", async () => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({session: null}), {status: 200}));
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({session: null, captureWorkspace: "standard"}), {status: 200}));
 
-    await expect(getVariationListingIntakeSession()).resolves.toEqual({session: null});
+    await expect(getVariationListingIntakeSession()).resolves.toEqual({session: null, captureWorkspace: "standard"});
     expect(fetchMock).toHaveBeenCalledWith(
       "http://sidecar.example/api/variation-listings/intake-session",
       expect.objectContaining({method: "GET", cache: "no-store"}),
@@ -111,6 +112,7 @@ describe("variation listing intake session", () => {
 
     await expect(
       configureVariationListingIntake({
+        captureWorkspace: "variation",
         mode: "new_variation",
         targetGroupId: "group-1",
         targetVariationId: null,
@@ -120,15 +122,34 @@ describe("variation listing intake session", () => {
     ).resolves.toEqual(session);
     expect(fetchMock).toHaveBeenCalledWith(
       "http://sidecar.example/api/variation-listings/intake-session",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            captureWorkspace: "variation",
+            mode: "new_variation",
+            targetGroupId: "group-1",
+            targetVariationId: null,
+            copyConditionToken: null,
+            stickyPriceAmount: 1.49,
+          }),
+        }),
+    );
+  });
+
+  it("patches workspace ownership without changing intake targets", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({session: null, captureWorkspace: "variation"}), {status: 200}),
+    );
+
+    await expect(updateVariationListingCaptureWorkspace("variation")).resolves.toEqual({
+      session: null,
+      captureWorkspace: "variation",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/intake-session",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({
-          mode: "new_variation",
-          targetGroupId: "group-1",
-          targetVariationId: null,
-          copyConditionToken: null,
-          stickyPriceAmount: 1.49,
-        }),
+        body: JSON.stringify({captureWorkspace: "variation"}),
       }),
     );
   });

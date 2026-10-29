@@ -5,10 +5,12 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {VariationInventoryPanel, type RemovalRefreshExpectation} from "@/app/variation-listings/variation-inventory-panel";
 import {VariationGroupReviewPanel} from "@/app/variation-listings/variation-group-review-panel";
 import {VariationPublicationPanel} from "@/app/variation-listings/variation-publication-panel";
+import {isVariationListingIntakeSession} from "@/lib/sidecar-api";
 
 import type {
   CreateVariationListingGroupInput,
   VariationListingConditionToken,
+  VariationListingCaptureWorkspace,
   VariationListingGroup,
   VariationListingGroupsResponse,
   VariationListingIntakeSession,
@@ -25,6 +27,7 @@ export type VariationListingCreationDefaults = {
 };
 
 type VariationListingsWorkspaceProps = {
+  initialCaptureWorkspace?: VariationListingCaptureWorkspace | null;
   creationDefaults?: VariationListingCreationDefaults;
   initialGroups: VariationListingGroup[];
   initialIntakeError?: string | null;
@@ -281,6 +284,7 @@ function GroupCard({
 
 export function VariationListingsWorkspace({
   creationDefaults = EMPTY_CREATION_DEFAULTS,
+  initialCaptureWorkspace,
   initialGroups,
   initialIntakeError = null,
   initialIntakeSession = null,
@@ -311,6 +315,9 @@ export function VariationListingsWorkspace({
     );
   const [intakeSession, setIntakeSession] = useState<VariationListingIntakeSession | null>(
     initialIntakeSession,
+  );
+  const [captureWorkspace, setCaptureWorkspace] = useState<VariationListingCaptureWorkspace | null>(
+    initialCaptureWorkspace === undefined ? null : initialCaptureWorkspace,
   );
   const [intakeError, setIntakeError] = useState<string | null>(initialIntakeError);
   const [intakeStatus, setIntakeStatus] = useState<"idle" | "loading" | "configuring">(
@@ -344,8 +351,17 @@ export function VariationListingsWorkspace({
       if (!response.ok) {
         throw new Error(`Intake session refresh failed (${response.status}).`);
       }
-      const payload = (await response.json().catch(() => null)) as {session?: VariationListingIntakeSession | null} | null;
-      if (!payload || typeof payload !== "object" || !("session" in payload)) {
+      const payload = (await response.json().catch(() => null)) as {
+        session?: VariationListingIntakeSession | null;
+        captureWorkspace?: VariationListingCaptureWorkspace;
+      } | null;
+      if (
+        !payload ||
+        typeof payload !== "object" ||
+        !("session" in payload) ||
+        (payload.session !== null && !isVariationListingIntakeSession(payload.session)) ||
+        (payload.captureWorkspace !== "standard" && payload.captureWorkspace !== "variation")
+      ) {
         throw new Error("Intake session response was malformed.");
       }
       if (
@@ -354,6 +370,7 @@ export function VariationListingsWorkspace({
         generation === intakeGenerationRef.current
       ) {
         setIntakeSession(payload.session ?? null);
+        setCaptureWorkspace(payload.captureWorkspace);
         setStickyPriceAmount(payload.session?.stickyPriceAmount ?? 0.99);
         setIntakeError(null);
       }
@@ -525,7 +542,7 @@ export function VariationListingsWorkspace({
   const selectedGroupCaptureEligible = captureEligible(selectedGroup);
   const armedGroupCaptureEligible = captureEligible(armedGroup);
   const armedGroupHasPendingRemoval = Boolean(armedGroup?.variations.some((variation) => variation.pendingRemovalAt != null));
-  const writesBlocked = pendingPair !== null || intakeStatus === "configuring" || intakeError !== null || publicationActionInFlight;
+  const writesBlocked = captureWorkspace !== "variation" || pendingPair !== null || intakeStatus === "configuring" || intakeError !== null || publicationActionInFlight;
   const copyConditionOptions = useMemo(
     () => compatibleCopyConditionOptions(selectedGroup?.conditionToken),
     [selectedGroup?.conditionToken],
@@ -564,6 +581,7 @@ export function VariationListingsWorkspace({
   const persistIntake = useCallback(
     async (input: {
       mode: "idle" | "new_variation" | "duplicate_copy";
+      captureWorkspace: "variation";
       targetGroupId: string | null;
       targetVariationId: string | null;
       copyConditionToken: VariationListingConditionToken | null;
@@ -581,6 +599,7 @@ export function VariationListingsWorkspace({
         });
         const payload = (await response.json().catch(() => null)) as {
           session?: VariationListingIntakeSession | null;
+          captureWorkspace?: VariationListingCaptureWorkspace;
           error?: string;
           message?: string;
         } | null;
@@ -588,9 +607,15 @@ export function VariationListingsWorkspace({
           throw new Error(payload?.message || payload?.error || `Intake configuration failed (${response.status}).`);
         }
         const session = payload?.session;
-        if (!session) throw new Error("Intake configuration returned no session.");
+        if (!session || !isVariationListingIntakeSession(session)) {
+          throw new Error("Intake configuration response was malformed.");
+        }
+        if (payload.captureWorkspace !== "standard" && payload.captureWorkspace !== "variation") {
+          throw new Error("Intake configuration response was malformed.");
+        }
         if (generation === intakeGenerationRef.current) {
           setIntakeSession(session);
+          setCaptureWorkspace(payload.captureWorkspace);
           setStickyPriceAmount(session.stickyPriceAmount);
           setIntakeError(null);
         }
@@ -627,6 +652,7 @@ export function VariationListingsWorkspace({
       return;
     }
     void persistIntake({
+      captureWorkspace: "variation",
       mode: "idle",
       targetGroupId: null,
       targetVariationId: null,
@@ -648,6 +674,7 @@ export function VariationListingsWorkspace({
   const armCapture = useCallback(() => {
     if (!selectedGroupId || !selectedGroupCaptureEligible || duplicateMode) return;
     void persistIntake({
+      captureWorkspace: "variation",
       mode: "new_variation",
       targetGroupId: selectedGroupId,
       targetVariationId: null,
@@ -658,6 +685,7 @@ export function VariationListingsWorkspace({
 
   const disarmCapture = useCallback(() => {
     void persistIntake({
+      captureWorkspace: "variation",
       mode: "idle",
       targetGroupId: null,
       targetVariationId: null,
@@ -670,6 +698,7 @@ export function VariationListingsWorkspace({
     if (selectionLocked || groupId === selectedGroupId) return;
     if (intakeSession?.mode !== "idle" && intakeSession?.targetGroupId !== groupId) {
       const disarmed = await persistIntake({
+        captureWorkspace: "variation",
         mode: "idle",
         targetGroupId: null,
         targetVariationId: null,
@@ -750,6 +779,7 @@ export function VariationListingsWorkspace({
         intakeSession.targetVariationId === variation.variationId
       ) return;
       void persistIntake({
+        captureWorkspace: "variation",
         mode: "duplicate_copy",
         targetGroupId: selectedGroup.groupId,
         targetVariationId: variation.variationId,
@@ -776,6 +806,7 @@ export function VariationListingsWorkspace({
       const targetGroupId = mode === "new_variation" ? intakeSession?.targetGroupId ?? null : null;
       if (intakeSession?.mode === "duplicate_copy") return;
       void persistIntake({
+        captureWorkspace: "variation",
         mode,
         targetGroupId,
         targetVariationId: null,
@@ -837,6 +868,22 @@ export function VariationListingsWorkspace({
                 : "border border-stone-950/10"
           }`}
         >
+          {captureWorkspace === null ? (
+            <div className="mb-3 rounded-xl border-2 border-rose-300 bg-rose-50 px-4 py-3 text-rose-950" role="alert">
+              <p className="text-sm font-extrabold uppercase tracking-[0.12em]">Capture ownership unavailable</p>
+              <p className="mt-1 text-xs font-semibold">Reload the workspace before changing capture settings.</p>
+            </div>
+          ) : captureWorkspace === "standard" ? (
+            <div className="mb-3 rounded-xl border-2 border-rose-300 bg-rose-50 px-4 py-3 text-rose-950" role="alert">
+              <p className="text-sm font-extrabold uppercase tracking-[0.12em]">Standard capture owns the watcher</p>
+              <p className="mt-1 text-xs font-semibold">Variation controls stay paused until this workspace claims capture ownership.</p>
+            </div>
+          ) : captureWorkspace === "variation" && !isArmed && !duplicateMode && !pendingPair ? (
+            <div className="mb-3 rounded-xl border-2 border-stone-300 bg-stone-100 px-4 py-3 text-stone-800" role="status">
+              <p className="text-sm font-extrabold uppercase tracking-[0.12em]">Variation capture paused</p>
+              <p className="mt-1 text-xs font-semibold">No bucket is armed. Arm a bucket below before capturing another card.</p>
+            </div>
+          ) : null}
           {captureTransitionActive ? (
             <div
               className="mb-3 rounded-xl border-2 border-amber-400 bg-amber-100 px-4 py-3 text-amber-950"

@@ -1,7 +1,8 @@
 import {act, cleanup, fireEvent, render, screen} from "@testing-library/react";
+import type {ComponentProps} from "react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
-import {VariationListingsWorkspace} from "@/app/variation-listings/variation-listings-workspace";
+import {VariationListingsWorkspace as VariationListingsWorkspaceBase} from "@/app/variation-listings/variation-listings-workspace";
 import type {
   VariationListingCopy,
   VariationListingGroup,
@@ -9,6 +10,12 @@ import type {
   VariationListingManualPriceAmount,
   VariationListingVariation,
 } from "@/lib/sidecar-api";
+
+function VariationListingsWorkspace(
+  props: ComponentProps<typeof VariationListingsWorkspaceBase>,
+) {
+  return <VariationListingsWorkspaceBase {...props} initialCaptureWorkspace={props.initialCaptureWorkspace ?? "variation"} />;
+}
 
 const fetchMock = vi.fn();
 
@@ -174,6 +181,41 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getAllByText("Tracy McGrady Cards").length).toBeGreaterThan(0);
     expect(screen.getByText("Pending changes")).not.toBeNull();
     expect(screen.getByText("Live refresh")).not.toBeNull();
+  });
+
+  it("shows paused capture when Variation owns an idle session", () => {
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession()}
+        initialCaptureWorkspace="variation"
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("status").textContent).toContain("Variation capture paused");
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", false);
+  });
+
+  it("blocks capture controls while Standard owns the watcher", () => {
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[buildGroup()]}
+        initialIntakeSession={buildSession()}
+        initialCaptureWorkspace="standard"
+        refreshIntervalMs={0}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain("Standard capture owns the watcher");
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+  });
+
+  it("fails closed when capture ownership is omitted", () => {
+    render(<VariationListingsWorkspaceBase initialGroups={[buildGroup()]} refreshIntervalMs={0} />);
+
+    expect(screen.getByRole("alert").textContent).toContain("Capture ownership unavailable");
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
   });
 
   it("shows reconciliation badge only for current recovery state", () => {
@@ -562,6 +604,7 @@ describe("VariationListingsWorkspace", () => {
               updatedAt: "2026-09-02T15:01:00.000Z",
             },
           }),
+          captureWorkspace: "variation",
         }),
         {status: 200},
       ),
@@ -879,6 +922,7 @@ describe("VariationListingsWorkspace", () => {
               copyConditionToken: "EXCELLENT",
               stickyPriceAmount: 1.99,
             }),
+            captureWorkspace: "variation",
           }),
           {status: 200},
         ),
@@ -921,6 +965,7 @@ describe("VariationListingsWorkspace", () => {
               targetVariationId: null,
               copyConditionToken: null,
             }),
+            captureWorkspace: "variation",
           }),
           {status: 200},
         ),
@@ -953,6 +998,7 @@ describe("VariationListingsWorkspace", () => {
             mode: "new_variation",
             targetGroupId: sandbox.groupId,
           }),
+          captureWorkspace: "variation",
         }), {status: 200}),
       );
 
@@ -979,7 +1025,7 @@ describe("VariationListingsWorkspace", () => {
 
   it("offers all nine Variation price tiers and persists $2.99 while idle", async () => {
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 2.99})}), {status: 200}),
+      new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 2.99}), captureWorkspace: "variation"}), {status: 200}),
     );
     render(
       <VariationListingsWorkspace
@@ -1002,6 +1048,7 @@ describe("VariationListingsWorkspace", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
+          captureWorkspace: "variation",
           mode: "idle",
           targetGroupId: null,
           targetVariationId: null,
@@ -1018,6 +1065,7 @@ describe("VariationListingsWorkspace", () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({
         session: buildSession({mode: "new_variation", targetGroupId, stickyPriceAmount: 4.99}),
+        captureWorkspace: "variation",
       }), {status: 200}),
     );
     render(
@@ -1036,6 +1084,7 @@ describe("VariationListingsWorkspace", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
+          captureWorkspace: "variation",
           mode: "new_variation",
           targetGroupId,
           targetVariationId: null,
@@ -1070,7 +1119,7 @@ describe("VariationListingsWorkspace", () => {
   it("persists price changes through the local intake API", async () => {
     const session = buildSession();
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 1.49})}), {status: 200}),
+      new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 1.49}), captureWorkspace: "variation"}), {status: 200}),
     );
     render(
       <VariationListingsWorkspace
@@ -1087,7 +1136,7 @@ describe("VariationListingsWorkspace", () => {
       "/api/variation-listings/intake-session",
       expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.49}),
+        body: JSON.stringify({captureWorkspace: "variation", mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.49}),
       }),
     );
   });
@@ -1115,7 +1164,7 @@ describe("VariationListingsWorkspace", () => {
 
   it("self-disarms a stale non-pending intake target when its bucket is withdrawn", async () => {
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({session: buildSession()}), {status: 200}),
+      new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}),
     );
     render(
       <VariationListingsWorkspace
@@ -1135,6 +1184,7 @@ describe("VariationListingsWorkspace", () => {
       expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
+          captureWorkspace: "variation",
           mode: "idle",
           targetGroupId: null,
           targetVariationId: null,
@@ -1147,8 +1197,8 @@ describe("VariationListingsWorkspace", () => {
 
   it("arms and disarms through durable configure calls", async () => {
     fetchMock
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession({mode: "new_variation", targetGroupId: "11111111-1111-4111-8111-111111111111"})}), {status: 200}))
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession({mode: "new_variation", targetGroupId: "11111111-1111-4111-8111-111111111111"}), captureWorkspace: "variation"}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
     render(<VariationListingsWorkspace initialGroups={[buildGroup()]} refreshIntervalMs={0} />);
 
     fireEvent.click(screen.getByRole("button", {name: "Arm capture"}));
@@ -1157,10 +1207,10 @@ describe("VariationListingsWorkspace", () => {
     await act(async () => await Promise.resolve());
 
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
-      JSON.stringify({mode: "new_variation", targetGroupId: "11111111-1111-4111-8111-111111111111", targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 0.99}),
+      JSON.stringify({captureWorkspace: "variation", mode: "new_variation", targetGroupId: "11111111-1111-4111-8111-111111111111", targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 0.99}),
     );
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
-      JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 0.99}),
+      JSON.stringify({captureWorkspace: "variation", mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 0.99}),
     );
   });
 
@@ -1170,7 +1220,7 @@ describe("VariationListingsWorkspace", () => {
       groupId: "22222222-2222-4222-8222-222222222222",
       title: "Group B",
     });
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
 
     render(
       <VariationListingsWorkspace
@@ -1189,7 +1239,7 @@ describe("VariationListingsWorkspace", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
-      JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.49}),
+      JSON.stringify({captureWorkspace: "variation", mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.49}),
     );
     expect(screen.getByRole("button", {name: "Selected bucket"})).not.toBeNull();
     expect(screen.getAllByText("Group B").length).toBeGreaterThan(0);
@@ -1213,11 +1263,12 @@ describe("VariationListingsWorkspace", () => {
               copyConditionToken: "EXCELLENT",
               stickyPriceAmount: variation.priceAmount,
             }),
+            captureWorkspace: "variation",
           }),
           {status: 200},
         ),
       )
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
 
     render(
       <VariationListingsWorkspace
@@ -1230,6 +1281,7 @@ describe("VariationListingsWorkspace", () => {
     await act(async () => await Promise.resolve());
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
       JSON.stringify({
+        captureWorkspace: "variation",
         mode: "duplicate_copy",
         targetGroupId: "11111111-1111-4111-8111-111111111111",
         targetVariationId: variation.variationId,
@@ -1244,7 +1296,7 @@ describe("VariationListingsWorkspace", () => {
     fireEvent.click(screen.getByRole("button", {name: "Disarm"}));
     await act(async () => await Promise.resolve());
     expect(fetchMock.mock.calls[1]?.[1]?.body).toBe(
-      JSON.stringify({mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.99}),
+      JSON.stringify({captureWorkspace: "variation", mode: "idle", targetGroupId: null, targetVariationId: null, copyConditionToken: null, stickyPriceAmount: 1.99}),
     );
   });
 
@@ -1265,6 +1317,7 @@ describe("VariationListingsWorkspace", () => {
             copyConditionToken: "EXCELLENT",
             stickyPriceAmount: secondVariation.priceAmount,
           }),
+          captureWorkspace: "variation",
         }),
         {status: 200},
       ),
@@ -1295,6 +1348,7 @@ describe("VariationListingsWorkspace", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
       JSON.stringify({
+        captureWorkspace: "variation",
         mode: "duplicate_copy",
         targetGroupId: "11111111-1111-4111-8111-111111111111",
         targetVariationId: secondVariation.variationId,
@@ -1373,6 +1427,7 @@ describe("VariationListingsWorkspace", () => {
             copyConditionToken: "NEAR_MINT_OR_BETTER",
             stickyPriceAmount: variation.priceAmount,
           }),
+          captureWorkspace: "variation",
         }),
         {status: 200},
       ),
@@ -1392,6 +1447,7 @@ describe("VariationListingsWorkspace", () => {
 
     expect(fetchMock.mock.calls[0]?.[1]?.body).toBe(
       JSON.stringify({
+        captureWorkspace: "variation",
         mode: "duplicate_copy",
         targetGroupId: "11111111-1111-4111-8111-111111111111",
         targetVariationId: variation.variationId,
@@ -1485,7 +1541,7 @@ describe("VariationListingsWorkspace", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      resolveConfigure?.(new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 1.49})}), {status: 200}));
+      resolveConfigure?.(new Response(JSON.stringify({session: buildSession({stickyPriceAmount: 1.49}), captureWorkspace: "variation"}), {status: 200}));
       await Promise.resolve();
     });
   });
@@ -1495,7 +1551,7 @@ describe("VariationListingsWorkspace", () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify({groups: [buildGroup({desiredRevision: 2, title: "Older group"})]}), {status: 200}),
       )
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
     render(
       <VariationListingsWorkspace
         initialGroups={[buildGroup({desiredRevision: 3, title: "Newer group"})]}
@@ -2149,7 +2205,7 @@ describe("VariationListingsWorkspace", () => {
     });
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({groups: [refreshed]}), {status: 200}))
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}))
       .mockResolvedValueOnce(new Response(JSON.stringify(buildGroup({
         ...refreshed,
         desiredRevision: 5,
@@ -2204,7 +2260,7 @@ describe("VariationListingsWorkspace", () => {
         variations: [{variationId: variation.variationId, sku: variation.sku, ebayQuantity: 1, pendingAdjustment: 0, afterPublish: 1}],
       }), {status: 200}))
       .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAction = resolve; }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         groupId: active.groupId,
         desiredRevision: 4,
@@ -2281,10 +2337,10 @@ describe("VariationListingsWorkspace", () => {
       }), {status: 200}))
       .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveAction = resolve; }))
       .mockResolvedValueOnce(new Response(JSON.stringify({groups: [polled]}), {status: 200}))
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}))
       .mockResolvedValueOnce(new Response(JSON.stringify({groups: [cleanRefresh]}), {status: 200}))
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
 
     render(
       <VariationListingsWorkspace
@@ -2352,7 +2408,7 @@ describe("VariationListingsWorkspace", () => {
         variations: [variation],
         variationCount: 1,
       })]}), {status: 200}))
-      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
     render(
       <VariationListingsWorkspace
         initialGroups={[buildGroup({variations: [variation], variationCount: 1})]}
@@ -2706,6 +2762,7 @@ describe("VariationListingsWorkspace", () => {
             targetGroupId: "11111111-1111-4111-8111-111111111111",
             stickyPriceAmount: 2.49,
           }),
+          captureWorkspace: "variation",
         }),
         {status: 200},
       ),
@@ -2734,6 +2791,43 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getByText("$2.49 · new variation")).not.toBeNull();
   });
 
+  it("fails closed when polling omits capture workspace while Variation owns routing", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [buildGroup()]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession()}), {status: 200}));
+    render(
+      <VariationListingsWorkspace
+        initialCaptureWorkspace="variation"
+        initialGroups={[buildGroup()]}
+        refreshIntervalMs={20}
+      />,
+    );
+
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+
+    expect(screen.getByText("Intake session response was malformed.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+  });
+
+  it("fails closed when a Variation configure response omits capture workspace", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({session: buildSession({mode: "new_variation", targetGroupId: "11111111-1111-4111-8111-111111111111"})}), {status: 200}),
+    );
+    render(
+      <VariationListingsWorkspace
+        initialCaptureWorkspace="variation"
+        initialGroups={[buildGroup()]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", {name: "Arm capture"}));
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByText("Intake configuration response was malformed.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Arm capture"})).toHaveProperty("disabled", true);
+  });
+
   it("ignores a stale intake GET that settles after a successful configure", async () => {
     let rejectStaleRead: ((reason?: unknown) => void) | undefined;
     fetchMock
@@ -2750,6 +2844,7 @@ describe("VariationListingsWorkspace", () => {
               mode: "new_variation",
               targetGroupId: "11111111-1111-4111-8111-111111111111",
             }),
+            captureWorkspace: "variation",
           }),
           {status: 200},
         ),
