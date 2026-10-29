@@ -20,6 +20,7 @@ import type {
   UpdateListingWorkflowStateInput,
   UpdateVariationListingRepresentativeCopyInput,
   StageVariationListingPermanentRemovalInput,
+  UpdateVariationListingPriceInput,
   UpdateVariationListingQuantityAdjustmentInput,
   UpdateVariationListingReviewDraftInput,
   UpdateVariationListingSelectorValueInput,
@@ -247,6 +248,17 @@ export async function updateVariationListingRepresentativeCopy(
 ): Promise<VariationListingGroup> {
   return await sidecarFetch<VariationListingGroup>(
     `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/representative-copy`,
+    buildJsonRequestInit("PATCH", input),
+  );
+}
+
+export async function updateVariationListingPrice(
+  groupId: string,
+  variationId: string,
+  input: UpdateVariationListingPriceInput,
+): Promise<VariationListingGroup> {
+  return await sidecarFetch<VariationListingGroup>(
+    `/api/variation-listings/${encodeURIComponent(groupId)}/variations/${encodeURIComponent(variationId)}/price`,
     buildJsonRequestInit("PATCH", input),
   );
 }

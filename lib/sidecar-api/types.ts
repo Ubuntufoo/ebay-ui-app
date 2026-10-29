@@ -467,6 +467,11 @@ export interface UpdateVariationListingRepresentativeCopyInput {
   copyId: string;
 }
 
+export interface UpdateVariationListingPriceInput {
+  expectedDesiredRevision: number;
+  priceAmount: number;
+}
+
 export interface UpdateVariationListingQuantityAdjustmentInput {
   expectedDesiredRevision: number;
   delta: -1 | 1;

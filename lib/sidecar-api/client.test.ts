@@ -25,6 +25,7 @@ import {
   updateVariationListingCaptureWorkspace,
   updateListing,
   updateVariationListingRepresentativeCopy,
+  updateVariationListingPrice,
   updateVariationListingQuantityAdjustment,
   updateVariationListingReviewDraft,
   updateVariationListingSelectorValue,
@@ -232,6 +233,18 @@ describe("variation listing quantity adjustment", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("patches the encoded variation price endpoint with CAS input", async () => {
+    const group = {groupId: "group/1", desiredRevision: 4};
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(group), {status: 200}));
+    await expect(updateVariationListingPrice("group/1", "variation/2", {
+      expectedDesiredRevision: 3, priceAmount: 1.49,
+    })).resolves.toEqual(group);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://sidecar.example/api/variation-listings/group%2F1/variations/variation%2F2/price",
+      expect.objectContaining({method: "PATCH", body: JSON.stringify({expectedDesiredRevision: 3, priceAmount: 1.49})}),
+    );
   });
 
   it("patches the encoded quantity adjustment endpoint with CAS input", async () => {
