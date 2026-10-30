@@ -2222,7 +2222,7 @@ describe("VariationListingsWorkspace", () => {
       ...active,
       desiredRevision: 4,
       lastConfirmedRevision: 3,
-      variations: [buildVariation({priceAmount: 1.49})],
+      variations: [buildVariation({priceAmount: 1.49, pendingPriceOrQuantityChange: true})],
       validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
     });
     let resolvePrice: ((response: Response) => void) | undefined;
@@ -2296,6 +2296,83 @@ describe("VariationListingsWorkspace", () => {
       }),
     );
     expect(screen.getByLabelText(`Pending quantity adjustment for ${original.sku}`).textContent).toContain("+1");
+  });
+
+  it("shows the staging banner only for the affected child and clears it after confirmed refresh", async () => {
+    const a = buildVariation({priceAmount: 1.49, pendingPriceOrQuantityChange: true});
+    const b = buildVariation({variationId: "variation-2", sku: "BSKBL-McGrady-000244", pendingPriceOrQuantityChange: false});
+    const active = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 4,
+      lastConfirmedRevision: 3,
+      variations: [a, b],
+      variationCount: 2,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    const confirmed = buildGroup({
+      ...active,
+      desiredRevision: 4,
+      lastConfirmedRevision: 4,
+      variations: [
+        {...a, pendingPriceOrQuantityChange: false},
+        b,
+      ],
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+      updatedAt: "2026-09-02T15:06:00.000Z",
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, {status: 503}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [confirmed]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
+    render(<VariationListingsWorkspace initialGroups={[active]} initialIntakeSession={buildSession()} refreshIntervalMs={20} />);
+    expect(screen.getAllByText(/Price and quantity edits are staged locally/)).toHaveLength(1);
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+    expect(screen.queryByText(/Price and quantity edits are staged locally/)).toBeNull();
+  });
+
+  it("clears the staging banner after a net-zero refresh without affecting its sibling", async () => {
+    const staged = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 5,
+      lastConfirmedRevision: 3,
+      variations: [
+        buildVariation({priceAmount: 1.49, pendingPriceOrQuantityChange: true}),
+        buildVariation({variationId: "variation-2", sku: "BSKBL-McGrady-000244", pendingPriceOrQuantityChange: false}),
+      ],
+      variationCount: 2,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    const reverted = buildGroup({
+      ...staged,
+      desiredRevision: 6,
+      variations: staged.variations.map((variation) => ({...variation, pendingPriceOrQuantityChange: false})),
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+      updatedAt: "2026-09-02T15:06:00.000Z",
+    });
+    fetchMock
+      .mockResolvedValueOnce(new Response(null, {status: 503}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({groups: [reverted]}), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({session: buildSession(), captureWorkspace: "variation"}), {status: 200}));
+    render(<VariationListingsWorkspace initialGroups={[staged]} initialIntakeSession={buildSession()} refreshIntervalMs={20} />);
+    expect(screen.getAllByText(/Price and quantity edits are staged locally/)).toHaveLength(1);
+    await act(async () => await vi.advanceTimersByTimeAsync(20));
+    expect(screen.queryByText(/Price and quantity edits are staged locally/)).toBeNull();
+  });
+
+  it("does not show a staging banner from unknown per-child evidence", () => {
+    const unknown = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 4,
+      lastConfirmedRevision: 3,
+      variations: [
+        buildVariation({pendingPriceOrQuantityChange: null}),
+        buildVariation({variationId: "variation-2", sku: "BSKBL-McGrady-000244"}),
+      ],
+      variationCount: 2,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
+    });
+    render(<VariationListingsWorkspace initialGroups={[unknown]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
+    expect(screen.queryByText(/Price and quantity edits are staged locally/)).toBeNull();
   });
 
   it("keeps a failed price edit selected and does not mutate other variations", async () => {

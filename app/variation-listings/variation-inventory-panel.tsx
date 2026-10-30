@@ -925,7 +925,7 @@ export function VariationInventoryPanel({
                     </button>
                   </div>
                 ) : null}
-                {group.lifecycleState === "active" ? (
+                {group.lifecycleState === "active" && group.lastConfirmedRevision !== null && group.validation.hasPendingChanges && variation.pendingPriceOrQuantityChange === true ? (
                   <p className="mt-2 text-xs font-semibold text-amber-900">
                     Price and quantity edits are staged locally. Use Publish Changes to update eBay.
                   </p>

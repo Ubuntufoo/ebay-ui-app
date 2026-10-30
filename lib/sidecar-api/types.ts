@@ -610,6 +610,8 @@ export interface VariationListingVariation {
   priceAmount: VariationListingManualPriceAmount;
   priceCurrency: "USD";
   quantityAdjustmentCounter: number;
+  /** null/absent when confirmed price/quantity evidence cannot be trusted. */
+  pendingPriceOrQuantityChange?: boolean | null;
   pendingRemovalAt?: string | null;
   representativeCopyId: string | null;
   copyCount: number;
