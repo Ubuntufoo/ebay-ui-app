@@ -52,16 +52,20 @@ describe("VariationPublicationPanel", () => {
     vi.stubGlobal("fetch", fetchMock);
     let resolve!: (response: Response) => void;
     fetchMock.mockReturnValueOnce(new Promise<Response>((done) => { resolve = done; }));
-    render(<VariationPublicationPanel group={group()} capturePending={false} onGroupUpdated={vi.fn()} />);
+    const current = group();
+    const view = render(<VariationPublicationPanel group={current} capturePending={false} onGroupUpdated={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", {name: "Publish Changes"}));
     await act(async () => await Promise.resolve());
+    const transientRecovery = group({journal: {latestRevision: {recovery: {revisionId: "in-flight", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, recommendedActions: ["do_not_retry_blindly"]}, operations: []} as unknown as VariationListingGroup["journal"]["latestRevision"]}});
+    view.rerender(<VariationPublicationPanel group={transientRecovery} capturePending={false} onGroupUpdated={vi.fn()} />);
 
     const processingSurface = document.querySelector('[data-operation-state="processing"]');
     expect(processingSurface).not.toBeNull();
     expect(processingSurface?.className).toContain("border-amber-400");
     expect(screen.getByText(/Publishing changes \/ replenishment — in progress/)).not.toBeNull();
     expect(screen.getByRole("button", {name: "Publishing…"})).toHaveProperty("disabled", true);
+    expect(screen.queryByText("Recovery: reconciliation required")).toBeNull();
 
     resolve(new Response(JSON.stringify({group: group({desiredRevision: 5, lastConfirmedRevision: 5, validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false}})}), {status: 200}));
     await act(async () => await Promise.resolve());
@@ -101,6 +105,7 @@ describe("VariationPublicationPanel", () => {
     expect(processingSurface).not.toBeNull();
     expect(processingSurface?.className).toContain("border-amber-400");
     expect(screen.getByText(/Reconciling remote state — in progress/)).not.toBeNull();
+    expect(screen.queryByText("Recovery: reconciliation required")).toBeNull();
 
     resolve(new Response(JSON.stringify({group: recoveryGroup}), {status: 200}));
     await act(async () => {
@@ -109,6 +114,7 @@ describe("VariationPublicationPanel", () => {
     });
     expect(document.querySelector('[data-operation-state="attention"]')).not.toBeNull();
     expect(screen.getByText("Publication action requires attention")).not.toBeNull();
+    expect(screen.getByText("Recovery: reconciliation required")).not.toBeNull();
   });
 
   it("marks retry-exhausted recovery as an attention state", () => {

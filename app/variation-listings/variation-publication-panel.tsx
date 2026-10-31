@@ -244,7 +244,7 @@ export function VariationPublicationPanel({group, capturePending, mutationInFlig
       </div>
     ) : null}
     {capturePending ? <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">Publication is locked while an intake image pair is pending.</p> : null}
-    {group.validation.blockers.length > 0 || recovery && recovery.retryStatus !== "not_applicable" ? (
+    {group.validation.blockers.length > 0 || (!publicationProcessing && recovery && recovery.retryStatus !== "not_applicable") ? (
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         {group.validation.blockers.length > 0 ? (
           <div className={`rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-900 ${recovery && recovery.retryStatus !== "not_applicable" ? "" : "md:col-span-2"}`}>
@@ -254,7 +254,7 @@ export function VariationPublicationPanel({group, capturePending, mutationInFlig
             </ul>
           </div>
         ) : null}
-        {recovery && recovery.retryStatus !== "not_applicable" ? (
+        {!publicationProcessing && recovery && recovery.retryStatus !== "not_applicable" ? (
           <div className={`rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-900 ${group.validation.blockers.length > 0 ? "" : "md:col-span-2"}`}>
             <p className="font-bold">Recovery: {token(recovery.retryStatus)}</p>
             <p className="mt-1">Stage remote state: {token(recovery.remoteState)} · {recovery.requiresReconciliation ? "reconciliation required" : "reconciliation not required"}</p>
