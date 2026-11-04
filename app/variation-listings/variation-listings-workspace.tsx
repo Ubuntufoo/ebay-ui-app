@@ -302,6 +302,7 @@ export function VariationListingsWorkspace({
       : null;
   const [groups, setGroups] = useState(() => initialGroups);
   const groupsRef = useRef(initialGroups);
+  const groupCreationVersionRef = useRef(0);
   const commitGroups = useCallback((update: (current: VariationListingGroup[]) => VariationListingGroup[]) => {
     const next = update(groupsRef.current);
     groupsRef.current = next;
@@ -332,6 +333,7 @@ export function VariationListingsWorkspace({
 
   // A live refresh can remove the selected bucket. Keep the view on the first
   // remaining bucket instead of leaving publication/review panels empty.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!selectionRestored) return;
     setSelectedGroupId((current) => {
@@ -339,6 +341,7 @@ export function VariationListingsWorkspace({
       return groups[0]?.groupId ?? null;
     });
   }, [groups, selectionRestored]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!selectionRestored) return;
@@ -379,6 +382,7 @@ export function VariationListingsWorkspace({
     useState<VariationListingConditionToken | null>(() => initialCopyConditionToken);
   const [createStatus, setCreateStatus] = useState<"idle" | "creating" | "error">("idle");
   const [createError, setCreateError] = useState<string | null>(null);
+  const groupCreationInFlightRef = useRef(false);
 
   // Selection is a local view decision. Intake polling updates the armed target,
   // never the selected publication/review bucket.
@@ -433,8 +437,10 @@ export function VariationListingsWorkspace({
   }, []);
 
   const refreshGroups = useCallback(async (signal?: AbortSignal): Promise<boolean> => {
+    const creationVersion = groupCreationVersionRef.current;
     try {
       const response = await fetch(refreshPath, {cache: "no-store", signal});
+      if (creationVersion !== groupCreationVersionRef.current) return false;
       if (!response.ok) {
         if (!signal?.aborted) setRefreshFailed(true);
         return false;
@@ -444,6 +450,7 @@ export function VariationListingsWorkspace({
       const incomingGroups = payload && Array.isArray(payload.groups) && payload.groups.every(isVariationListingGroup)
         ? payload.groups
         : null;
+      if (creationVersion !== groupCreationVersionRef.current) return false;
       if (!signal?.aborted && incomingGroups) {
         commitGroups((current) => mergeGroupsByDesiredRevision(current, incomingGroups));
         setRefreshFailed(false);
@@ -453,7 +460,7 @@ export function VariationListingsWorkspace({
       }
       return false;
     } catch {
-      if (!signal?.aborted) setRefreshFailed(true);
+      if (!signal?.aborted && creationVersion === groupCreationVersionRef.current) setRefreshFailed(true);
       return false;
     }
   }, [commitGroups, refreshPath]);
@@ -861,8 +868,9 @@ export function VariationListingsWorkspace({
   );
 
   const createGroup = useCallback(async () => {
-    if (!canCreate || !creationDefaultsReady(creationDefaults)) return;
+    if (!canCreate || !creationDefaultsReady(creationDefaults) || groupCreationInFlightRef.current) return;
 
+    groupCreationInFlightRef.current = true;
     setCreateStatus("creating");
     setCreateError(null);
     const input: CreateVariationListingGroupInput = {
@@ -883,7 +891,11 @@ export function VariationListingsWorkspace({
         throw new Error(payload?.error || `Bucket creation failed (${response.status}).`);
       }
 
-      const created = (await response.json()) as VariationListingGroup;
+      const created = (await response.json()) as unknown;
+      if (!isVariationListingGroup(created)) {
+        throw new Error("Bucket creation response was malformed.");
+      }
+      groupCreationVersionRef.current += 1;
       commitGroups((current) => [created, ...current.filter((group) => group.groupId !== created.groupId)]);
       setSelectedGroupId(created.groupId);
       setSkuBucketToken("");
@@ -895,6 +907,8 @@ export function VariationListingsWorkspace({
           ? error.message
           : "An unexpected error occurred while creating the bucket.",
       );
+    } finally {
+      groupCreationInFlightRef.current = false;
     }
   }, [canCreate, commitGroups, conditionToken, creationDefaults, normalizedBucketToken, skuCategoryCode]);
 

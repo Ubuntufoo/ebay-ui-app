@@ -2925,7 +2925,9 @@ describe("VariationListingsWorkspace", () => {
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify(created), {status: 201}),
     );
-    render(
+    const original = buildGroup();
+    const intake = buildSession({mode: "new_variation", targetGroupId: original.groupId});
+    const view = render(
       <VariationListingsWorkspace
         creationDefaults={{
           merchantLocationKey: "location-1",
@@ -2933,7 +2935,8 @@ describe("VariationListingsWorkspace", () => {
           paymentPolicyId: "payment-1",
           returnPolicyId: "returns-1",
         }}
-        initialGroups={[buildGroup()]}
+        initialGroups={[original]}
+        initialIntakeSession={intake}
         refreshIntervalMs={0}
       />,
     );
@@ -2956,8 +2959,121 @@ describe("VariationListingsWorkspace", () => {
         }),
       }),
     );
-    expect(screen.getAllByText("New Bucket").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Selected bucket").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("New Bucket");
+    expect(window.sessionStorage.getItem("variation-listings:selected-group-id")).toBe(created.groupId);
+    expect(screen.getByText(/Cards will target Tracy McGrady Cards/)).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[original, created]}
+        initialIntakeSession={intake}
+        refreshIntervalMs={0}
+      />,
+    );
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("New Bucket");
+    expect(window.sessionStorage.getItem("variation-listings:selected-group-id")).toBe(created.groupId);
+  });
+
+  it("keeps selection and session storage unchanged when bucket creation fails", async () => {
+    const original = buildGroup({title: "Previous Bucket"});
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({error: "Bucket already exists."}), {status: 409}),
+    );
+    window.sessionStorage.setItem("variation-listings:selected-group-id", original.groupId);
+
+    render(
+      <VariationListingsWorkspace
+        creationDefaults={{
+          merchantLocationKey: "location-1",
+          fulfillmentPolicyId: "fulfillment-1",
+          paymentPolicyId: "payment-1",
+          returnPolicyId: "returns-1",
+        }}
+        initialGroups={[original]}
+        refreshIntervalMs={0}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("McGrady or 2003Topps"), {
+      target: {value: "Existing"},
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Create bucket"}));
+    await act(async () => await Promise.resolve());
+
+    expect(screen.getByText("Bucket already exists.")).not.toBeNull();
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Previous Bucket");
+    expect(window.sessionStorage.getItem("variation-listings:selected-group-id")).toBe(original.groupId);
+  });
+
+  it("ignores a group refresh started before a successful bucket creation", async () => {
+    const original = buildGroup({title: "Previous Bucket"});
+    const created = buildGroup({
+      groupId: "33333333-3333-4333-8333-333333333333",
+      title: "Created Bucket",
+      skuNamespace: {categoryCode: "BSKBL", bucketToken: "Fresh", nextInventorySerial: 1},
+    });
+    const freshCreated = buildGroup({
+      ...created,
+      desiredRevision: 4,
+      title: "Created Bucket (fresh)",
+      updatedAt: "2026-09-02T15:06:00.000Z",
+    });
+    let finishInitialRefresh: ((response: Response) => void) | undefined;
+    let groupRefreshCount = 0;
+    fetchMock.mockImplementation((path: string, options?: RequestInit) => {
+      if (path === "/api/variation-listings" && options?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify(created), {status: 201}));
+      }
+      if (path === "/api/variation-listings") {
+        groupRefreshCount += 1;
+        if (groupRefreshCount === 1) {
+          return new Promise<Response>((resolve) => { finishInitialRefresh = resolve; });
+        }
+        return Promise.resolve(new Response(JSON.stringify({groups: [freshCreated, original]}), {status: 200}));
+      }
+      if (path === "/api/variation-listings/intake-session") {
+        return Promise.resolve(new Response(JSON.stringify({
+          session: buildSession(), captureWorkspace: "variation",
+        }), {status: 200}));
+      }
+      throw new Error("Unexpected test request: " + path);
+    });
+
+    render(
+      <VariationListingsWorkspace
+        initialGroups={[original]}
+        creationDefaults={{
+          merchantLocationKey: "location-1",
+          fulfillmentPolicyId: "fulfillment-1",
+          paymentPolicyId: "payment-1",
+          returnPolicyId: "returns-1",
+        }}
+        refreshIntervalMs={20}
+      />,
+    );
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    expect(finishInitialRefresh).toBeTypeOf("function");
+
+    fireEvent.change(screen.getByPlaceholderText("McGrady or 2003Topps"), {
+      target: {value: "Fresh"},
+    });
+    fireEvent.click(screen.getByRole("button", {name: "Create bucket"}));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Created Bucket");
+    await act(async () => {
+      finishInitialRefresh!(new Response(JSON.stringify({groups: [original]}), {status: 200}));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Created Bucket");
+    expect(window.sessionStorage.getItem("variation-listings:selected-group-id")).toBe(created.groupId);
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    expect(groupRefreshCount).toBe(2);
+    expect(screen.getByRole("button", {name: "Selected bucket"}).closest("article")?.textContent).toContain("Created Bucket (fresh)");
+    expect(window.sessionStorage.getItem("variation-listings:selected-group-id")).toBe(created.groupId);
   });
 
   it("blocks intake writes on initial read failure and hydrates after retry", async () => {

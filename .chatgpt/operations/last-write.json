@@ -1,20 +1,20 @@
 {
   "schema_version": 1,
-  "operation_id": "write-2026-10-30T16-25-46-684Z-7a5dab1e",
+  "operation_id": "write-2026-11-04T15-50-06-462Z-b45de8c3",
   "tool": "repo_write_changes",
   "repo_id": "ebay-ui-app-you-pick",
-  "timestamp": "2026-10-30T16:25:46.684Z",
-  "head_sha_before": "8c195adf59edd423deaf7ce74c573fb175fadfdc",
-  "head_sha_after": "8c195adf59edd423deaf7ce74c573fb175fadfdc",
+  "timestamp": "2026-11-04T15:50:06.462Z",
+  "head_sha_before": "88f9d40a7e57f260393bfab20d17a9b9676369bf",
+  "head_sha_after": "88f9d40a7e57f260393bfab20d17a9b9676369bf",
   "touched_paths": [
-    "app/variation-listings/variation-publication-panel.test.tsx"
+    "app/variation-listings/variation-listings-workspace.test.tsx"
   ],
   "changed_paths": [
-    "app/variation-listings/variation-publication-panel.test.tsx"
+    "app/variation-listings/variation-listings-workspace.test.tsx"
   ],
   "created_paths": [],
   "modified_paths": [
-    "app/variation-listings/variation-publication-panel.test.tsx"
+    "app/variation-listings/variation-listings-workspace.test.tsx"
   ],
   "counts": {
     "requested": 1,
