@@ -182,6 +182,7 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.queryByText("Separate mode")).toBeNull();
     expect(screen.queryByText("Variation listing workspace")).toBeNull();
     expect(screen.getAllByText("Tracy McGrady Cards").length).toBeGreaterThan(0);
+    expect(screen.getByText("11111111-1111-4111-8111-111111111111")).not.toBeNull();
     expect(screen.getByText("Pending changes")).not.toBeNull();
     expect(screen.getByText("Live refresh")).not.toBeNull();
   });

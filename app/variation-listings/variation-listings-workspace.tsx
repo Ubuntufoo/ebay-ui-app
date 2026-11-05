@@ -962,9 +962,14 @@ export function VariationListingsWorkspace({
               {selectedGroup ? selectedGroup.title || selectedGroup.skuNamespace.bucketToken : "Select a bucket below"}
             </p>
             {selectedGroup ? (
-              <p className="mt-1 text-sm text-stone-600">
-                {selectedGroup.variationCount} variation{selectedGroup.variationCount === 1 ? "" : "s"} · {selectedGroup.variations.reduce((sum, variation) => sum + variation.copyCount, 0)} captured copies · {selectedGroup.validation.hasPendingChanges ? "pending changes" : "synced"}
-              </p>
+              <>
+                <p className="mt-1 text-xs text-stone-500">
+                  Group ID: <code className="select-text break-all">{selectedGroup.groupId}</code>
+                </p>
+                <p className="mt-1 text-sm text-stone-600">
+                  {selectedGroup.variationCount} variation{selectedGroup.variationCount === 1 ? "" : "s"} · {selectedGroup.variations.reduce((sum, variation) => sum + variation.copyCount, 0)} captured copies · {selectedGroup.validation.hasPendingChanges ? "pending changes" : "synced"}
+                </p>
+              </>
             ) : null}
           </div>
 
