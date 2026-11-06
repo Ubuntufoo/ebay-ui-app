@@ -290,7 +290,7 @@ export function VariationListingsWorkspace({
   initialGroups,
   initialIntakeError = null,
   initialIntakeSession = null,
-  refreshIntervalMs = 3_000,
+  refreshIntervalMs,
   refreshPath = "/api/variation-listings",
 }: VariationListingsWorkspaceProps) {
   const initialTargetGroupId = initialIntakeSession?.targetGroupId ?? initialGroups[0]?.groupId;
@@ -505,30 +505,62 @@ export function VariationListingsWorkspace({
     } catch { return false; }
   }, [commitGroups, refreshPath]);
 
+  const activelyCapturing = intakeSession?.mode === "new_variation" ||
+    intakeSession?.mode === "duplicate_copy" ||
+    intakeSession?.pendingPair != null ||
+    intakeSession?.processingStatus?.phase === "generating_identity" ||
+    intakeSession?.processingStatus?.phase === "saving";
+  const pollIntervalMs = refreshIntervalMs ??
+    (activelyCapturing || publicationActionInFlight || createStatus === "creating" ? 2_000 : 60_000);
+
   useEffect(() => {
-    if (refreshIntervalMs <= 0) return;
+    if (pollIntervalMs <= 0) return;
 
     let cancelled = false;
     let controller: AbortController | null = null;
     let timeoutId: number | null = null;
+    let generation = 0;
 
     const scheduleRefresh = () => {
-      timeoutId = window.setTimeout(async () => {
-        controller = new AbortController();
-        await refreshGroups(controller.signal);
-        await refreshIntakeSession(controller.signal);
-        controller = null;
-        if (!cancelled) scheduleRefresh();
-      }, refreshIntervalMs);
+      timeoutId = window.setTimeout(() => {
+        timeoutId = null;
+        void refresh();
+      }, pollIntervalMs);
+    };
+    const refresh = async () => {
+      const currentGeneration = ++generation;
+      const currentController = new AbortController();
+      controller = currentController;
+      try {
+        await refreshGroups(currentController.signal);
+        if (!currentController.signal.aborted && document.visibilityState === "visible") {
+          await refreshIntakeSession(currentController.signal);
+        }
+      } finally {
+        if (controller === currentController) controller = null;
+        if (!cancelled && currentGeneration === generation && document.visibilityState === "visible") {
+          scheduleRefresh();
+        }
+      }
+    };
+    const onVisibilityChange = () => {
+      generation += 1;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      timeoutId = null;
+      controller?.abort();
+      if (document.visibilityState === "visible") void refresh();
     };
 
-    scheduleRefresh();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    if (document.visibilityState === "visible") scheduleRefresh();
     return () => {
       cancelled = true;
+      generation += 1;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       if (timeoutId !== null) window.clearTimeout(timeoutId);
       controller?.abort();
     };
-  }, [refreshGroups, refreshIntakeSession, refreshIntervalMs]);
+  }, [refreshGroups, refreshIntakeSession, pollIntervalMs]);
 
   const totals = useMemo(
     () => ({
