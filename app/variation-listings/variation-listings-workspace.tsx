@@ -510,8 +510,12 @@ export function VariationListingsWorkspace({
     intakeSession?.pendingPair != null ||
     intakeSession?.processingStatus?.phase === "generating_identity" ||
     intakeSession?.processingStatus?.phase === "saving";
-  const pollIntervalMs = refreshIntervalMs ??
-    (activelyCapturing || publicationActionInFlight || createStatus === "creating" ? 2_000 : 60_000);
+  const captureOrPublicationActive = activelyCapturing || publicationActionInFlight || createStatus === "creating";
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("variation-intake-activity", {detail: captureOrPublicationActive}));
+  }, [captureOrPublicationActive]);
+
+  const pollIntervalMs = refreshIntervalMs ?? (captureOrPublicationActive ? 2_000 : 60_000);
 
   useEffect(() => {
     if (pollIntervalMs <= 0) return;

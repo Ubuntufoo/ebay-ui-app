@@ -11,7 +11,7 @@ import type {
 } from "@/lib/sidecar-api";
 
 type StandardRoutingResult =
-  | {success: true}
+  | {success: true; captureActive?: boolean}
   | {success: false; error: string};
 
 type FetchLike = typeof fetch;
@@ -68,6 +68,14 @@ function parseRoutingSession(
   };
 }
 
+function activeVariationRouting(snapshot: RoutingSnapshot): StandardRoutingResult {
+  const session = snapshot.session;
+  const active = session?.mode === "new_variation" || session?.mode === "duplicate_copy" ||
+    session?.pendingPair != null || session?.processingStatus?.phase === "generating_identity" ||
+    session?.processingStatus?.phase === "saving";
+  return active ? {success: true, captureActive: true} : {success: true};
+}
+
 function malformedRoutingResult(): StandardRoutingResult {
   return {
     success: false,
@@ -83,10 +91,12 @@ function workspaceRoutingError(workspace: VariationListingCaptureWorkspace): str
 
 export async function inspectStandardCaptureRouting(
   fetchImpl: FetchLike = fetch,
+  signal?: AbortSignal,
 ): Promise<StandardRoutingResult> {
   try {
     const response = await fetchImpl("/api/variation-listings/intake-session", {
       cache: "no-store",
+      ...(signal ? {signal} : {}),
     });
     if (!response.ok) {
       return {
@@ -192,10 +202,12 @@ export async function ensureStandardCaptureRouting(
 
 export async function inspectVariationCaptureRouting(
   fetchImpl: FetchLike = fetch,
+  signal?: AbortSignal,
 ): Promise<StandardRoutingResult> {
   try {
     const response = await fetchImpl("/api/variation-listings/intake-session", {
       cache: "no-store",
+      ...(signal ? {signal} : {}),
     });
     if (!response.ok) {
       return {
@@ -208,7 +220,7 @@ export async function inspectVariationCaptureRouting(
     }
     const snapshot = parseRoutingSession(await response.json().catch(() => null));
     if (!snapshot) return malformedRoutingResult();
-    if (snapshot.captureWorkspace === "variation") return {success: true};
+    if (snapshot.captureWorkspace === "variation") return activeVariationRouting(snapshot);
     return {
       success: false,
       error: snapshot.session?.pendingPair
@@ -241,7 +253,7 @@ export async function ensureVariationCaptureRouting(
     }
     const snapshot = parseRoutingSession(await readResponse.json().catch(() => null));
     if (!snapshot) return malformedRoutingResult();
-    if (snapshot.captureWorkspace === "variation") return {success: true};
+    if (snapshot.captureWorkspace === "variation") return activeVariationRouting(snapshot);
     if (snapshot.session?.pendingPair) {
       return {
         success: false,
@@ -270,7 +282,7 @@ export async function ensureVariationCaptureRouting(
         error: "Variation capture could not be verified because ownership did not become authoritative.",
       };
     }
-    return {success: true};
+    return activeVariationRouting(writtenSnapshot);
   } catch (error) {
     return {
       success: false,
@@ -279,15 +291,18 @@ export async function ensureVariationCaptureRouting(
   }
 }
 
+const inspectStandardWithSignal = (signal?: AbortSignal) => inspectStandardCaptureRouting(fetch, signal);
+const inspectVariationWithSignal = (signal?: AbortSignal) => inspectVariationCaptureRouting(fetch, signal);
+
 type WorkspaceSwitcherProps = {
   currentWorkspace: "standard" | "variation";
   guardStandardCaptureRouting?: boolean;
   guardVariationCaptureRouting?: boolean;
   navigate?: (href: string) => void;
   ensureStandardRouting?: () => Promise<StandardRoutingResult>;
-  inspectStandardRouting?: () => Promise<StandardRoutingResult>;
+  inspectStandardRouting?: (signal?: AbortSignal) => Promise<StandardRoutingResult>;
   ensureVariationRouting?: () => Promise<StandardRoutingResult>;
-  inspectVariationRouting?: () => Promise<StandardRoutingResult>;
+  inspectVariationRouting?: (signal?: AbortSignal) => Promise<StandardRoutingResult>;
   revalidateIntervalMs?: number;
 };
 
@@ -297,10 +312,10 @@ export function WorkspaceSwitcher({
   guardVariationCaptureRouting = false,
   navigate = (href) => window.location.assign(href),
   ensureStandardRouting = ensureStandardCaptureRouting,
-  inspectStandardRouting = inspectStandardCaptureRouting,
+  inspectStandardRouting = inspectStandardWithSignal,
   ensureVariationRouting = ensureVariationCaptureRouting,
-  inspectVariationRouting = inspectVariationCaptureRouting,
-  revalidateIntervalMs = 2000,
+  inspectVariationRouting = inspectVariationWithSignal,
+  revalidateIntervalMs,
 }: WorkspaceSwitcherProps) {
   const [routingState, setRoutingState] = useState<
     "ready" | "checking" | "error"
@@ -311,6 +326,7 @@ export function WorkspaceSwitcher({
       : "ready",
   );
   const [routingError, setRoutingError] = useState<string | null>(null);
+  const [captureActive, setCaptureActive] = useState(false);
   const routingOperationRef = useRef(0);
 
   const activateStandard = useCallback(async () => {
@@ -374,6 +390,7 @@ export function WorkspaceSwitcher({
     void ensureRouting().then((result) => {
       if (cancelled || operation !== routingOperationRef.current) return;
       if (result.success) {
+        setCaptureActive(result.captureActive === true);
         setRoutingState("ready");
       } else {
         setRoutingState("error");
@@ -396,39 +413,90 @@ export function WorkspaceSwitcher({
   ]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // The workspace owns capture state; this event avoids waiting for an idle
+  // interval after the user arms or disarms within the current tab.
+  useEffect(() => {
+    if (currentWorkspace !== "variation") return;
+    const onIntakeActivity = (event: Event) => {
+      const active = (event as CustomEvent<unknown>).detail;
+      if (typeof active === "boolean") setCaptureActive(active);
+    };
+    window.addEventListener("variation-intake-activity", onIntakeActivity);
+    return () => window.removeEventListener("variation-intake-activity", onIntakeActivity);
+  }, [currentWorkspace]);
+
+  const pollingIntervalMs = revalidateIntervalMs ?? (captureActive ? 2_000 : 60_000);
   useEffect(() => {
     if (
       (currentWorkspace === "standard" && !guardStandardCaptureRouting) ||
       (currentWorkspace === "variation" && !guardVariationCaptureRouting) ||
       routingState !== "ready" ||
-      revalidateIntervalMs <= 0
-    ) {
-      return;
-    }
+      pollingIntervalMs <= 0
+    ) return;
+
     let cancelled = false;
-    const intervalId = window.setInterval(() => {
+    let timeoutId: number | null = null;
+    let controller: AbortController | null = null;
+    let generation = 0;
+    const inspectRouting = currentWorkspace === "standard" ? inspectStandardRouting : inspectVariationRouting;
+
+    const schedule = () => {
+      timeoutId = window.setTimeout(() => {
+        timeoutId = null;
+        void refresh();
+      }, pollingIntervalMs);
+    };
+    const refresh = async () => {
+      const runId = ++generation;
+      const currentController = new AbortController();
+      controller?.abort();
+      controller = currentController;
       const operation = ++routingOperationRef.current;
-      const inspectRouting = currentWorkspace === "standard" ? inspectStandardRouting : inspectVariationRouting;
-      void inspectRouting().then((result) => {
-        if (cancelled || operation !== routingOperationRef.current || result.success) return;
-        setRoutingState("error");
-        setRoutingError(result.error);
-      }).catch((error) => {
-        if (cancelled || operation !== routingOperationRef.current) return;
-        setRoutingState("error");
-        setRoutingError(requestError(error, "Unable to verify capture routing."));
-      });
-    }, revalidateIntervalMs);
+      try {
+        const result = await inspectRouting(currentController.signal);
+        if (cancelled || currentController.signal.aborted || runId !== generation ||
+            operation !== routingOperationRef.current || document.visibilityState !== "visible") return;
+        if (result.success) {
+          setCaptureActive(result.captureActive === true);
+        } else {
+          setRoutingState("error");
+          setRoutingError(result.error);
+        }
+      } catch (error) {
+        if (!cancelled && !currentController.signal.aborted && runId === generation &&
+            operation === routingOperationRef.current && document.visibilityState === "visible") {
+          setRoutingState("error");
+          setRoutingError(requestError(error, "Unable to verify capture routing."));
+        }
+      } finally {
+        if (controller === currentController) controller = null;
+        if (!cancelled && runId === generation && document.visibilityState === "visible") schedule();
+      }
+    };
+    const onVisibilityChange = () => {
+      generation += 1;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      timeoutId = null;
+      controller?.abort();
+      routingOperationRef.current += 1;
+      if (document.visibilityState === "visible") void refresh();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    if (document.visibilityState === "visible") schedule();
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      generation += 1;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      controller?.abort();
     };
   }, [
     currentWorkspace,
     guardStandardCaptureRouting,
     inspectStandardRouting,
     inspectVariationRouting,
-    revalidateIntervalMs,
+    pollingIntervalMs,
     routingState,
     guardVariationCaptureRouting,
   ]);
