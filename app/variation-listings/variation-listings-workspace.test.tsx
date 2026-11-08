@@ -1769,7 +1769,12 @@ describe("VariationListingsWorkspace", () => {
     const adjustmentResponse = new Promise<Response>((resolve) => { resolveAdjustment = resolve; });
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify(quantityStatus), {status: 200}))
-      .mockReturnValueOnce(adjustmentResponse);
+      .mockReturnValueOnce(adjustmentResponse)
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        ...quantityStatus,
+        desiredRevision: 4,
+        variations: [{...quantityStatus.variations[0], pendingAdjustment: 1, afterPublish: 2}],
+      }), {status: 200}));
 
     render(
       <VariationListingsWorkspace
@@ -2283,12 +2288,17 @@ describe("VariationListingsWorkspace", () => {
       variations: [buildVariation({priceAmount: 1.49, quantityAdjustmentCounter: 1})],
       validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: true},
     });
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(quantityUpdated), {status: 200}));
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify(quantityUpdated), {status: 200}))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        groupId: active.groupId, desiredRevision: 5, lastConfirmedRevision: 3,
+        variations: [{variationId: original.variationId, sku: original.sku, ebayQuantity: 1, pendingAdjustment: 1, afterPublish: 2}],
+      }), {status: 200}));
     fireEvent.click(screen.getByRole("button", {name: `Increase sellable quantity for ${original.sku}`}));
-    await act(async () => await Promise.resolve());
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls.filter(([url]) => typeof url === "string" && url.includes("/quantity-status"))).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls.filter(([url]) => typeof url === "string" && url.includes("/quantity-status"))).toHaveLength(2);
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/variation-listings/${active.groupId}/variations/${original.variationId}/quantity-adjustment`,
       expect.objectContaining({

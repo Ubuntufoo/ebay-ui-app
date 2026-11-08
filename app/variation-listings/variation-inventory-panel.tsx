@@ -269,6 +269,9 @@ export function VariationInventoryPanel({
   const quantityVariationIdentityKey = group?.variations
     .map((variation) => `${variation.variationId}:${variation.sku}`)
     .join("|") ?? "null";
+  const quantityAdjustmentSignature = group?.variations
+    .map((variation) => `${variation.variationId}:${variation.quantityAdjustmentCounter}`)
+    .join("|") ?? "null";
 
   useEffect(() => {
     const contextKey = `${group?.groupId ?? "null"}:${group?.lifecycleState ?? "null"}:${group?.lastConfirmedRevision ?? "null"}:${quantityVariationIdentityKey}`;
@@ -328,7 +331,7 @@ export function VariationInventoryPanel({
 
   useEffect(() => {
     const autoRefreshKey = quantityGroupId && quantityLifecycleState === "active" && quantityConfirmedRevision !== null
-      ? `${quantityGroupId}:${quantityConfirmedRevision}`
+      ? `${quantityGroupId}:${quantityConfirmedRevision}:${quantityAdjustmentSignature}`
       : null;
     if (autoRefreshKey === null) {
       quantityAutoRefreshKeyRef.current = null;
@@ -338,7 +341,7 @@ export function VariationInventoryPanel({
     if (quantityAutoRefreshKeyRef.current === autoRefreshKey) return;
     quantityAutoRefreshKeyRef.current = autoRefreshKey;
     void loadQuantityStatus();
-  }, [loadQuantityStatus, quantityConfirmedRevision, quantityGroupId, quantityLifecycleState, writesBlocked]);
+  }, [loadQuantityStatus, quantityAdjustmentSignature, quantityConfirmedRevision, quantityGroupId, quantityLifecycleState, writesBlocked]);
 
   const setRepresentative = useCallback(
     async (variation: VariationListingVariation, copyId: string) => {
@@ -625,7 +628,7 @@ export function VariationInventoryPanel({
       const rejected = response !== null && response.status >= 400 && response.status < 500;
       if (rejected) {
         setActionError(error instanceof Error ? error.message : "Unable to update removal intent. Refresh the bucket before retrying.");
-        quantityAutoRefreshKeyRef.current = `${group.groupId}:${group.lastConfirmedRevision}`;
+        quantityAutoRefreshKeyRef.current = `${group.groupId}:${group.lastConfirmedRevision}:${quantityAdjustmentSignature}`;
         void loadQuantityStatus();
       } else {
         const refreshed = await onRefreshGroup({
