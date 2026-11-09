@@ -3,6 +3,7 @@ import type {ComponentProps} from "react";
 import {afterEach, beforeEach, describe, expect, it, vi} from "vitest";
 
 import {VariationListingsWorkspace as VariationListingsWorkspaceBase} from "@/app/variation-listings/variation-listings-workspace";
+import {VariationInventoryPanel} from "@/app/variation-listings/variation-inventory-panel";
 import type {
   VariationListingCopy,
   VariationListingGroup,
@@ -1812,7 +1813,7 @@ describe("VariationListingsWorkspace", () => {
     expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/actions/publish-changes"))).toBe(false);
   });
 
-  it("requires exact zero eligibility and two explicit confirmations before staging, then allows local cancellation without publishing", async () => {
+  it("requires exact zero eligibility and one combined no-stock/no-restock confirmation before staging, then allows cancellation without publishing", async () => {
     const {group, status, survivorA, survivorB, target} = buildSoldOutRemovalFixture();
     const staged = buildGroup({
       ...group,
@@ -1843,10 +1844,14 @@ describe("VariationListingsWorkspace", () => {
     fireEvent.click(remove);
     const confirm = screen.getByRole("button", {name: "Confirm stage removal"});
     expect(confirm).toHaveProperty("disabled", true);
-    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
-    expect(confirm).toHaveProperty("disabled", true);
-    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
-    fireEvent.click(confirm);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
+    expect(confirm).toHaveProperty("disabled", false);
+    fireEvent.click(screen.getByRole("button", {name: "Keep SKU"}));
+    expect(screen.queryByRole("button", {name: "Confirm stage removal"})).toBeNull();
+    fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
+    expect(screen.getByRole("button", {name: "Confirm stage removal"})).toHaveProperty("disabled", false);
+    fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
     await act(async () => await Promise.resolve());
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -1866,6 +1871,35 @@ describe("VariationListingsWorkspace", () => {
       expect.objectContaining({method: "PATCH", body: JSON.stringify({expectedDesiredRevision: 4, remove: false})}),
     );
     resolveReload?.(new Response(JSON.stringify(status(4, false)), {status: 200}));
+  });
+
+  it("clears an armed sold-out confirmation when the desired revision changes", async () => {
+    const {group, status, target} = buildSoldOutRemovalFixture();
+    fetchMock.mockResolvedValue(new Response(JSON.stringify(status(3, true)), {status: 200}));
+    const panelProps: ComponentProps<typeof VariationInventoryPanel> = {
+      group,
+      intakeSession: buildSession(),
+      writesBlocked: false,
+      onMutationStateChange: vi.fn(),
+      onRefreshGroup: vi.fn(async () => true),
+      onArmDuplicate: vi.fn(),
+      onGroupUpdated: vi.fn(),
+      duplicateCaptureAvailable: false,
+      copyConditionToken: null,
+      copyConditionOptions: [],
+      conditionChangesLocked: false,
+      onCopyConditionChange: vi.fn(),
+      pendingConditionToken: null,
+    };
+    const {rerender} = render(<VariationInventoryPanel {...panelProps} />);
+    await act(async () => await Promise.resolve());
+    fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
+    expect(screen.getByRole("button", {name: "Confirm stage removal"})).toHaveProperty("disabled", false);
+
+    rerender(<VariationInventoryPanel {...panelProps} group={{...group, desiredRevision: 4}} />);
+    await act(async () => await Promise.resolve());
+    expect(screen.queryByRole("button", {name: "Confirm stage removal"})).toBeNull();
   });
 
   it.each([
@@ -1893,8 +1927,7 @@ describe("VariationListingsWorkspace", () => {
     render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
     await act(async () => await Promise.resolve());
     fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
-    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
-    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
     fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
     await act(async () => await Promise.resolve());
 
@@ -1920,8 +1953,7 @@ describe("VariationListingsWorkspace", () => {
     render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
     await act(async () => await Promise.resolve());
     fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
-    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
-    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
     fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
     await act(async () => {
       await Promise.resolve();
@@ -1983,8 +2015,7 @@ describe("VariationListingsWorkspace", () => {
     render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
     await act(async () => await Promise.resolve());
     fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
-    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
-    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
     fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
     await act(async () => {
       await Promise.resolve();
@@ -2014,8 +2045,7 @@ describe("VariationListingsWorkspace", () => {
     render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={20} />);
     await act(async () => await Promise.resolve());
     fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
-    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
-    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
     fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
     await act(async () => await vi.advanceTimersByTimeAsync(20));
     resolveStage?.(new Response(JSON.stringify({}), {status: 200}));
@@ -2044,8 +2074,7 @@ describe("VariationListingsWorkspace", () => {
     render(<VariationListingsWorkspace initialGroups={[group]} initialIntakeSession={buildSession()} refreshIntervalMs={0} />);
     await act(async () => await Promise.resolve());
     fireEvent.click(screen.getAllByRole("button", {name: "Remove sold-out SKU"})[0]!);
-    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain.`));
-    fireEvent.click(screen.getByLabelText(`I do not intend to restock this SKU.`));
+    fireEvent.click(screen.getByLabelText(`I confirm no physical copies of ${target.sku} remain and I will not restock this SKU.`));
     fireEvent.click(screen.getByRole("button", {name: "Confirm stage removal"}));
     await act(async () => {
       await Promise.resolve();

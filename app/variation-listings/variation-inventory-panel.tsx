@@ -244,7 +244,7 @@ export function VariationInventoryPanel({
   const [priceWrite, setPriceWrite] = useState<string | null>(null);
   const [quantityWrite, setQuantityWrite] = useState<string | null>(null);
   const [removalWrite, setRemovalWrite] = useState<string | null>(null);
-  const [removalConfirm, setRemovalConfirm] = useState<{groupId: string; variationId: string; sku: string; revision: number; stock: boolean; noRestock: boolean} | null>(null);
+  const [removalConfirm, setRemovalConfirm] = useState<{groupId: string; variationId: string; sku: string; revision: number; acknowledged: boolean} | null>(null);
   const [quantityStatus, setQuantityStatus] = useState<VariationListingQuantityStatus | null>(null);
   const [quantityStatusLoading, setQuantityStatusLoading] = useState(false);
   const [quantityStatusError, setQuantityStatusError] = useState<string | null>(null);
@@ -600,7 +600,7 @@ export function VariationInventoryPanel({
       : null;
     if (remove ? pending || status?.soldOutRemovalEligible !== true || group.variations.length < 3 || group.desiredRevision !== group.lastConfirmedRevision : !pending) return;
     const current = removalConfirm;
-    if (remove && (!current || current.groupId !== group.groupId || current.variationId !== variation.variationId || current.sku !== variation.sku || current.revision !== group.desiredRevision || !current.stock || !current.noRestock)) return;
+    if (remove && (!current || current.groupId !== group.groupId || current.variationId !== variation.variationId || current.sku !== variation.sku || current.revision !== group.desiredRevision || !current.acknowledged)) return;
     setRemovalWrite(variation.variationId);
     onMutationStateChange(true);
     setActionError(null);
@@ -890,7 +890,7 @@ export function VariationInventoryPanel({
                           {removalWrite === variation.variationId ? "Cancelling…" : "Cancel removal"}
                         </button>
                       ) : (
-                        <button type="button" disabled={!removalEligible} onClick={() => setRemovalConfirm({groupId: group.groupId, variationId: variation.variationId, sku: variation.sku, revision: group.desiredRevision, stock: false, noRestock: false})}
+                        <button type="button" disabled={!removalEligible} onClick={() => setRemovalConfirm({groupId: group.groupId, variationId: variation.variationId, sku: variation.sku, revision: group.desiredRevision, acknowledged: false})}
                           className="rounded-full border border-rose-400 px-3 py-1.5 text-xs font-bold text-rose-800 disabled:opacity-40">Remove sold-out SKU</button>
                       )
                     ) : null}
@@ -910,9 +910,8 @@ export function VariationInventoryPanel({
                   <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-3 text-xs text-rose-950">
                     <p className="font-bold">Stage removal for exact SKU: {variation.sku}</p>
                     <p className="mt-1">This stages removal only. Publish Changes will later remove this SKU from the eBay variation listing and hard-delete its local Variation/copy rows. Image files are not purged.</p>
-                    <label className="mt-2 flex gap-2"><input type="checkbox" checked={confirmation.stock} onChange={(e) => setRemovalConfirm({...confirmation, stock: e.target.checked})}/>I confirm no physical copies of {variation.sku} remain.</label>
-                    <label className="mt-2 flex gap-2"><input type="checkbox" checked={confirmation.noRestock} onChange={(e) => setRemovalConfirm({...confirmation, noRestock: e.target.checked})}/>I do not intend to restock this SKU.</label>
-                    <div className="mt-2 flex gap-2"><button type="button" disabled={!removalEligible || !confirmation.stock || !confirmation.noRestock} onClick={() => void stageRemoval(variation, true)} className="rounded-full bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-40">Confirm stage removal</button><button type="button" onClick={() => setRemovalConfirm(null)} className="rounded-full border px-3 py-1.5">Keep SKU</button></div>
+                    <label className="mt-2 flex gap-2"><input type="checkbox" checked={confirmation.acknowledged} onChange={(e) => setRemovalConfirm({...confirmation, acknowledged: e.target.checked})}/>I confirm no physical copies of {variation.sku} remain and I will not restock this SKU.</label>
+                    <div className="mt-2 flex gap-2"><button type="button" disabled={!removalEligible || !confirmation.acknowledged} onClick={() => void stageRemoval(variation, true)} className="rounded-full bg-rose-700 px-3 py-1.5 font-bold text-white disabled:opacity-40">Confirm stage removal</button><button type="button" onClick={() => setRemovalConfirm(null)} className="rounded-full border px-3 py-1.5">Keep SKU</button></div>
                   </div>
                 ) : null}
                 {priceRevisionStale ? (
