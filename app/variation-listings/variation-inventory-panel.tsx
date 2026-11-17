@@ -68,6 +68,18 @@ function isQuantityStatus(
   return true;
 }
 
+function canStageQuantityDecrease(
+  group: VariationListingGroup,
+  status: VariationListingQuantityStatus | null,
+  variationId: string,
+): boolean {
+  if (!isQuantityStatus(status, group.groupId, group.desiredRevision, group.lastConfirmedRevision ?? -1, group.variations) ||
+      status.variations.length !== group.variations.length) return false;
+  const target = status.variations.find((entry) => entry.variationId === variationId);
+  return Boolean(target && target.afterPublish > 0 &&
+    status.variations.filter((entry) => (entry.variationId === variationId ? entry.afterPublish - 1 : entry.afterPublish) > 0).length >= 2);
+}
+
 function isUpdatedRemovalGroup(
   value: unknown,
   group: VariationListingGroup,
@@ -534,6 +546,7 @@ export function VariationInventoryPanel({
       if (!group || group.lifecycleState !== "active" || quantityWrite !== null) return;
       if (writesBlocked || group.variations.some((item) => item.pendingRemovalAt != null) || removalWrite !== null || priceWrite !== null || selectorWrite !== null || representativeWrite !== null) return;
       if (!isSignedInt32(variation.quantityAdjustmentCounter) || !isSignedInt32(variation.quantityAdjustmentCounter + delta)) return;
+      if (delta === -1 && !canStageQuantityDecrease(group, quantityStatus, variation.variationId)) return;
       const recovery = group.journal.latestRevision?.recovery;
       if (
         (recovery && (recovery.requiresReconciliation || recovery.remoteState === "unknown" || recovery.retryStatus !== "not_applicable")) ||
@@ -588,7 +601,7 @@ export function VariationInventoryPanel({
         onMutationStateChange(false);
       }
     },
-    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, removalWrite, representativeWrite, selectorWrite, writesBlocked],
+    [group, onGroupUpdated, onMutationStateChange, priceWrite, quantityWrite, quantityStatus, removalWrite, representativeWrite, selectorWrite, writesBlocked],
   );
 
   const stageRemoval = useCallback(async (variation: VariationListingVariation, remove: boolean) => {
@@ -858,7 +871,8 @@ export function VariationInventoryPanel({
                             type="button"
                             aria-label={`Decrease sellable quantity for ${variation.sku}`}
                             onClick={() => void stageQuantityAdjustment(variation, -1)}
-                            disabled={quantityAdjustmentLocked || remoteQuantity.afterPublish <= 0}
+                            disabled={quantityAdjustmentLocked || !canStageQuantityDecrease(group, quantityStatus, variation.variationId)}
+                            title={remoteQuantity.afterPublish > 0 && !canStageQuantityDecrease(group, quantityStatus, variation.variationId) ? "At least two variations must remain sellable." : undefined}
                             className="rounded-full border border-stone-300 px-2 py-0.5 text-xs font-bold text-stone-700 disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             −1

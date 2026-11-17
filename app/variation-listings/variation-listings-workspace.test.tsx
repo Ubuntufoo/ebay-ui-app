@@ -1738,6 +1738,64 @@ describe("VariationListingsWorkspace", () => {
     expect(screen.getAllByRole("button", {name: "Use as representative"})).toHaveLength(1);
   });
 
+  it.each([
+    {label: "two sellable B=2, C=1", quantities: [2, 1], disabled: [false, true]},
+    {label: "two sellable B=1, C=1", quantities: [1, 1], disabled: [true, true]},
+    {label: "three sellable A=1, B=1, C=1", quantities: [1, 1, 1], disabled: [false, false, false]},
+    {label: "already projected zero A=0, B=1, C=1", quantities: [0, 1, 1], disabled: [true, true, true]},
+    {label: "staged decrement B=2→1, C=1", quantities: [1, 1], disabled: [true, true], pending: true},
+  ])("guards quantity decrement when $label", async ({quantities, disabled, pending}) => {
+    const variations = quantities.map((_, index) => buildVariation({
+      variationId: `variation-guard-${index}`,
+      sku: `BSKBL-McGrady-000${index + 1}`,
+      position: index,
+      quantityAdjustmentCounter: pending && index === 0 ? -1 : 0,
+    }));
+    const group = buildGroup({
+      lifecycleState: "active",
+      desiredRevision: 3,
+      lastConfirmedRevision: 3,
+      variations,
+      variationCount: variations.length,
+      validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false},
+    });
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      groupId: group.groupId,
+      desiredRevision: group.desiredRevision,
+      lastConfirmedRevision: group.lastConfirmedRevision,
+      variations: variations.map((variation, index) => ({
+        variationId: variation.variationId,
+        sku: variation.sku,
+        ebayQuantity: pending && index === 0 ? 2 : quantities[index],
+        pendingAdjustment: pending && index === 0 ? -1 : 0,
+        afterPublish: quantities[index],
+      })),
+    }), {status: 200}));
+
+    render(<VariationInventoryPanel
+      group={group}
+      intakeSession={buildSession()}
+      writesBlocked={false}
+      onMutationStateChange={vi.fn()}
+      onRefreshGroup={vi.fn(async () => true)}
+      onArmDuplicate={vi.fn()}
+      onGroupUpdated={vi.fn()}
+      duplicateCaptureAvailable={false}
+      copyConditionToken={null}
+      copyConditionOptions={[]}
+      conditionChangesLocked={false}
+      onCopyConditionChange={vi.fn()}
+      pendingConditionToken={null}
+    />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    for (const [index, variation] of variations.entries()) {
+      const button = screen.getByRole("button", {name: `Decrease sellable quantity for ${variation.sku}`});
+      expect(button).toHaveProperty("disabled", disabled[index]);
+      if (disabled[index]) fireEvent.click(button);
+    }
+    expect(fetchMock.mock.calls.some(([url]) => typeof url === "string" && url.includes("/quantity-adjustment"))).toBe(false);
+  });
+
   it("refreshes authoritative quantity and stages +1 locally without publishing", async () => {
     const original = buildVariation({quantityAdjustmentCounter: 0});
     const active = buildGroup({
