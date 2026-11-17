@@ -310,9 +310,27 @@ describe("VariationPublicationPanel", () => {
     expect(screen.getByText(/malformed response/)).not.toBeNull();
     expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", true);
   });
+  it('enables Withdraw for canceled edits but blocks real pending changes and recovery', () => {
+    vi.stubGlobal("EventSource", EventSourceMock);
+    const noChanges = group({desiredRevision: 34, lastConfirmedRevision: 28, validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false}});
+    const view = render(<VariationPublicationPanel group={noChanges} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.getByRole("button", {name: "Withdraw"})).toHaveProperty("disabled", false);
+    expect(screen.getByRole("button", {name: "Publish Changes"})).toHaveProperty("disabled", true);
+
+    view.rerender(<VariationPublicationPanel group={noChanges} capturePending={true} onGroupUpdated={vi.fn()} />);
+    expect(screen.getByRole("button", {name: "Withdraw"})).toHaveProperty("disabled", true);
+
+    view.rerender(<VariationPublicationPanel group={group({desiredRevision: 34, lastConfirmedRevision: 28})} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.getByRole("button", {name: "Withdraw"})).toHaveProperty("disabled", true);
+
+    const recovery = {revisionId: "r28", retryStatus: "reconciliation_required", remoteState: "unknown", requiresReconciliation: true, reconciliationSupported: true, recommendedActions: []};
+    view.rerender(<VariationPublicationPanel group={group({...noChanges, journal: {latestRevision: {recovery, operations: []} as unknown as VariationListingGroup["journal"]["latestRevision"]}})} capturePending={false} onGroupUpdated={vi.fn()} />);
+    expect(screen.getByRole("button", {name: "Withdraw"})).toHaveProperty("disabled", true);
+  });
+
   it("requires confirmation before withdrawal", () => {
     vi.stubGlobal("EventSource", EventSourceMock); vi.stubGlobal("fetch", fetchMock);
-    render(<VariationPublicationPanel group={group({desiredRevision: 3})} capturePending={false} onGroupUpdated={vi.fn()} />);
+    render(<VariationPublicationPanel group={group({desiredRevision: 3, validation: {blockers: [], initialPublicationReady: false, hasPendingChanges: false}})} capturePending={false} onGroupUpdated={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", {name: "Withdraw"}));
     expect(screen.getByRole("button", {name: "Confirm Withdraw"})).not.toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();

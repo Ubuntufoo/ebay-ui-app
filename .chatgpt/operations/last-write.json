@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "operation_id": "write-2026-11-15T23-41-57-746Z-4b949be9",
+  "operation_id": "write-2026-11-17T03-30-01-353Z-cda6c9a8",
   "tool": "repo_write_changes",
   "repo_id": "ebay-ui-app-you-pick",
-  "timestamp": "2026-11-15T23:41:57.746Z",
-  "head_sha_before": "fc03eb17cc4213ff23ddcdb0d4d7c508aad47c25",
-  "head_sha_after": "fc03eb17cc4213ff23ddcdb0d4d7c508aad47c25",
+  "timestamp": "2026-11-17T03:30:01.353Z",
+  "head_sha_before": "7da49f110b9bbd3c74897a34ba07ebc3cbc587ca",
+  "head_sha_after": "7da49f110b9bbd3c74897a34ba07ebc3cbc587ca",
   "touched_paths": [
-    "app/variation-listings/variation-inventory-panel.tsx",
-    "app/variation-listings/variation-listings-workspace.test.tsx"
+    "app/variation-listings/variation-publication-panel.tsx",
+    "app/variation-listings/variation-publication-panel.test.tsx"
   ],
   "changed_paths": [
-    "app/variation-listings/variation-inventory-panel.tsx",
-    "app/variation-listings/variation-listings-workspace.test.tsx"
+    "app/variation-listings/variation-publication-panel.tsx",
+    "app/variation-listings/variation-publication-panel.test.tsx"
   ],
   "created_paths": [],
   "modified_paths": [
-    "app/variation-listings/variation-inventory-panel.tsx",
-    "app/variation-listings/variation-listings-workspace.test.tsx"
+    "app/variation-listings/variation-publication-panel.tsx",
+    "app/variation-listings/variation-publication-panel.test.tsx"
   ],
   "counts": {
     "requested": 2,

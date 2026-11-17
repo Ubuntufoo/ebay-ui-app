@@ -169,7 +169,7 @@ export function VariationPublicationPanel({group, capturePending, mutationInFlig
   const retryReady = !capturePending && !mutationInFlight && !runningAction && !actionStateLocked && recovery?.retryStatus === "safe_to_retry";
   const reconcileReady = !capturePending && !mutationInFlight && !runningAction && !actionStateLocked && recovery?.retryStatus === "reconciliation_required" && recovery.requiresReconciliation && recovery.reconciliationSupported === true;
   const reconcileUnavailable = recovery?.retryStatus === "reconciliation_required" && recovery.requiresReconciliation && recovery.reconciliationSupported === false;
-  const withdrawReady = !capturePending && !mutationInFlight && !runningAction && !blockedByRecovery && !actionStateLocked && active && group.desiredRevision === group.lastConfirmedRevision;
+  const withdrawReady = !capturePending && !mutationInFlight && !runningAction && !blockedByRecovery && !actionStateLocked && active && !group.validation.hasPendingChanges;
   const unpublishedBase = !mutationInFlight && !confirmed && !blockedByRecovery && !actionStateLocked && !["abandoned", "withdrawn", "cleanup", "terminal-absent"].includes(group.lifecycleState);
   const hasClearRecoveryState = !!recovery && recovery.retryStatus === "not_applicable" && !recovery.requiresReconciliation && recovery.remoteState !== "unknown";
   const hasFrozenUnpublishedRevision = unpublishedBase && hasClearRecoveryState && latest !== null && latest.revisionId.length > 0 && latest.capturedDesiredRevision === group.desiredRevision;
